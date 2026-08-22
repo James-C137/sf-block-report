@@ -26,13 +26,20 @@ deleted from the deploy, individual files remain reachable by URL).
   by user request 2026-08-22): CARTO Positron-nolabels basemap, Inter type,
   slim floating control column (desktop) / map-first-viewport with panel
   scrolled below (mobile). Tilted camera (pitch 57, bearing −30), rotation
-  interactive. Density runs white → yellow (`#F7C948`) → red (`#C1121F`)
-  instead of the original paper→graphite: ground layers slide the hue along
-  the alpha ramp (paper white comes from transparency), buildings carry the
-  full ramp in surface color. NOTE: the basemap's `saturate(0)` CSS filter
-  had to go — it lived on `#map` and would grayscale the heat layers in the
-  same canvas; Positron is near-gray anyway. Panel UI stays monochrome
-  graphite, as do the incident dots (neutral over the colored surface).
+  interactive. Density runs white → desaturated apricot (`#D9A57C`) →
+  terracotta (`#C57A52`) → deep brick red (`#8A2E25`) — muted earth tones;
+  a first saturated red/yellow pass read "McDonald's" and was rejected.
+  Ground layers slide the hue along the alpha ramp (paper white comes from
+  transparency), buildings carry the full ramp in surface color. Scaling is
+  deliberately generous so color reaches the whole city: sqrt gamma on the
+  normalized density grid, CONTRAST 1.0 (was 1.2), and a near-linear alpha
+  ramp (the old soft toe crushed everything under ~0.2 to white). Label
+  inversion threshold moved 0.5 → 0.8 to match the lifted field. NOTE: the
+  basemap's `saturate(0)` CSS filter had to go — it would grayscale the
+  heat layers in the same canvas — so `desaturateBasemap()` grays the
+  Positron style's own paint colors at load instead (keeps the bay/parks
+  gray under the colored density). Panel UI stays monochrome graphite, as
+  do the incident dots (neutral over the colored surface).
 - **Density rendering**: census-block choropleth + inked street segments at
   citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade

@@ -58,8 +58,9 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
   #map{
     position:absolute; inset:0;
     /* NOTE: no saturate(0) here — the heat layers render into this same
-       canvas and a grayscale filter would kill them. Positron is already
-       near-gray; the faint blue of the bay reads fine under the heat ramp. */
+       canvas and a grayscale filter would kill them. The basemap is
+       desaturated in-style instead (see desaturateBasemap), so the bay
+       stays gray while the density keeps its color. */
     filter:contrast(1.01);
   }
 
@@ -609,9 +610,14 @@ function smoothAndNormalize(counts, r){
   pos.sort(function(u, v){ return u - v; });
   var ref = pos.length ? pos[Math.min(pos.length - 1, Math.floor(pos.length * 0.995))] : 1;
   if (!(ref > 0)) ref = 1;
+  /* gamma-compress after normalizing: real incident counts are so
+     concentrated in the hotspots that a linear scale leaves the rest of
+     the city near zero — sqrt lifts the mids and lows into the visible
+     range while the peaks stay pinned at 1 */
+  var GAMMA = 0.5;
   for (var j = 0; j < a.length; j++){
     var v = a[j] / ref;
-    a[j] = v > 1 ? 1 : v;
+    a[j] = Math.pow(v > 1 ? 1 : v, GAMMA);
   }
   return a;
 }
@@ -1129,16 +1135,17 @@ var nhoodsPromise = Promise.all([fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE), density
 /* ---------- shared paint state ---------- */
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
 
-/* heat ramp: density runs white (paper) → yellow → red. On the ground
-   layers the paper white comes from ALPHA — the hue slides yellow→red as
-   the soft-toe alpha ramp rises, so compositing over the basemap reads as
-   white→yellow→red. Buildings are opaque, so they carry the whole ramp in
-   the surface color. All four hue anchors, on t = ink * d^contrast: */
+/* heat ramp: density runs white (paper) → muted orange → brick red, in
+   desaturated earth tones (the saturated red/yellow pass read fast-food).
+   On the ground layers the paper white comes from ALPHA — the hue slides
+   apricot→brick as the alpha ramp rises, so compositing over the basemap
+   reads as white→orange→red. Buildings are opaque, so they carry the whole
+   ramp in the surface color. Hue anchors, on t = ink * d^contrast: */
 var HEAT = [
-  [0.00, [247, 201, 72]],   /* #F7C948 yellow      */
-  [0.40, [240, 138, 36]],   /* #F08A24 orange      */
-  [0.70, [221, 74, 28]],    /* #DD4A1C orange-red  */
-  [1.00, [193, 18, 31]]     /* #C1121F red         */
+  [0.00, [217, 165, 124]],  /* #D9A57C desat apricot */
+  [0.40, [197, 122, 82]],   /* #C57A52 terracotta    */
+  [0.70, [169, 80, 58]],    /* #A9503A brick         */
+  [1.00, [138, 46, 37]]     /* #8A2E25 deep brick red */
 ];
 function heatHue(t){
   if (t <= HEAT[0][0]) return HEAT[0][1];
@@ -1153,22 +1160,24 @@ function heatHue(t){
 }
 
 var INK = 1.0;                  /* density → ink strength */
-var CONTRAST = 1.2;             /* density → darkness steepness (exponent) */
+var CONTRAST = 1.0;             /* density → strength exponent; 1.2 muted the
+                                   low end to near-white — linear keeps a
+                                   visible wash across the whole city */
 var BLOCKS_MAX = 0.85;          /* opacity cap on the ground layers (blocks + street ink) */
 var HEIGHT_MULT = 1.0;          /* building extrusion height multiplier */
 var pointsOn = false;
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
-  /* shade = ink * d^contrast, mixed neutral pale -> straw -> gold -> red */
+  /* shade = ink * d^contrast, mixed neutral pale -> sand -> terracotta -> brick */
   return ['interpolate', ['linear'],
     ['*', INK, ['^', ['get','d'], CONTRAST]],
     0.00, PALE,
-    0.15, '#F6DFA3',
-    0.35, '#F5BE52',
-    0.60, '#EE8A31',
-    0.85, '#D8481F',
-    1.00, '#C1121F'
+    0.15, '#E4CDB4',
+    0.35, '#D3A47F',
+    0.60, '#BC7451',
+    0.85, '#9E4630',
+    1.00, '#8A2E25'
   ];
 }
 function buildingHeightExpr(){
@@ -1185,14 +1194,14 @@ function buildingOpacityExpr(){
   return zoomCurve(ENTRANCE.op, function(f){ return f * BLDG_FULL_OPACITY; });
 }
 function blockColorExpr(){
-  /* hue slides yellow→red with t while blockOpacityExpr drives strength —
-     composited over the paper basemap the pair reads white→yellow→red */
+  /* hue slides apricot→brick with t while blockOpacityExpr drives strength —
+     composited over the paper basemap the pair reads white→orange→red */
   var t = ['*', INK, ['^', ['get','v'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, '#F7C948',
-    0.40, '#F08A24',
-    0.70, '#DD4A1C',
-    1.00, '#C1121F'
+    0.00, '#D9A57C',
+    0.40, '#C57A52',
+    0.70, '#A9503A',
+    1.00, '#8A2E25'
   ];
 }
 function blockOpacityExpr(){
@@ -1200,14 +1209,16 @@ function blockOpacityExpr(){
      ramp; the Blocks dial caps the whole layer; the outer zoom interpolate
      fades the mosaic out as buildings become individually legible */
   var t = ['*', INK, ['^', ['get','v'], CONTRAST]];
+  /* near-linear ramp — the old soft toe crushed everything under ~0.2 to
+     white; now a lightly-reported block still shows a visible wash */
   var full = ['*', BLOCKS_MAX, ['interpolate', ['linear'], t,
     0.00, 0,
-    0.03, 0.02,
-    0.10, 0.08,
-    0.22, 0.17,
-    0.40, 0.32,
-    0.60, 0.52,
-    0.80, 0.75,
+    0.03, 0.03,
+    0.10, 0.11,
+    0.22, 0.22,
+    0.40, 0.38,
+    0.60, 0.58,
+    0.80, 0.78,
     1.00, 1.0
   ]];
   return zoomCurve(GROUND_FADE, function(f){
@@ -1221,14 +1232,14 @@ function streetColorExpr(){
      separate layer on top (MapLibre fallback layer only) */
   var t = ['*', INK, ['^', ['get','d'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, 'rgba(247,201,72,0)',
-    0.03, 'rgba(247,196,69,0.02)',
-    0.10, 'rgba(245,185,63,0.08)',
-    0.22, 'rgba(243,166,52,0.17)',
-    0.40, 'rgba(240,138,36,0.32)',
-    0.60, 'rgba(227,95,31,0.52)',
-    0.80, 'rgba(212,55,29,0.75)',
-    1.00, 'rgba(193,18,31,1)'
+    0.00, 'rgba(217,165,124,0)',
+    0.03, 'rgba(216,162,121,0.03)',
+    0.10, 'rgba(212,154,114,0.11)',
+    0.22, 'rgba(206,141,101,0.22)',
+    0.40, 'rgba(197,122,82,0.38)',
+    0.60, 'rgba(178,94,66,0.58)',
+    0.80, 'rgba(159,69,51,0.78)',
+    1.00, 'rgba(138,46,37,1)'
   ];
 }
 function streetWidthExpr(){
@@ -1269,7 +1280,7 @@ var HAS_DECK = !MOBILE && (typeof window.deck !== 'undefined') && !!window.deck.
 
 /* alpha ramp = the block layer's soft-toe ramp, so street strokes and the
    mosaic they thread through read as one tonal surface */
-var STREET_ALPHA_STOPS = [[0,0],[0.03,0.02],[0.10,0.08],[0.22,0.17],[0.40,0.32],[0.60,0.52],[0.80,0.75],[1,1]];
+var STREET_ALPHA_STOPS = [[0,0],[0.03,0.03],[0.10,0.11],[0.22,0.22],[0.40,0.38],[0.60,0.58],[0.80,0.78],[1,1]];
 function lerpStops(stops, x){
   if (x <= stops[0][0]) return stops[0][1];
   for (var i = 1; i < stops.length; i++){
@@ -1402,6 +1413,67 @@ function degradeIfBothFailed(){
   }
 }
 
+/* ---------- basemap desaturation, in-style ----------
+   The old #map { filter:saturate(0) } grayscaled the whole canvas — heat
+   layers included — so the gray now happens inside the basemap style:
+   every plain color paint prop of the Positron layers collapses to its
+   luminance (the same weights CSS saturate(0) uses), which keeps the bay
+   and parks gray while the density layers keep their color. Expression
+   colors are left alone (Positron barely uses them). */
+function hslToRgb(h, s, l){
+  h = (((h % 360) + 360) % 360) / 360;
+  if (s === 0){ var v = Math.round(l * 255); return [v, v, v]; }
+  function f(p, q, t){
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  }
+  var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  var p = 2 * l - q;
+  return [Math.round(f(p, q, h + 1/3) * 255), Math.round(f(p, q, h) * 255), Math.round(f(p, q, h - 1/3) * 255)];
+}
+function grayColor(c){
+  if (typeof c !== 'string') return null;
+  var r, g, b, a = 1, m;
+  if ((m = c.match(/^#([0-9a-f]{3})$/i))){
+    r = parseInt(m[1][0] + m[1][0], 16); g = parseInt(m[1][1] + m[1][1], 16); b = parseInt(m[1][2] + m[1][2], 16);
+  } else if ((m = c.match(/^#([0-9a-f]{6})$/i))){
+    r = parseInt(m[1].slice(0, 2), 16); g = parseInt(m[1].slice(2, 4), 16); b = parseInt(m[1].slice(4, 6), 16);
+  } else if ((m = c.match(/^rgba?\(([^)]+)\)$/i))){
+    var p = m[1].split(',').map(parseFloat);
+    r = p[0]; g = p[1]; b = p[2]; if (p.length > 3) a = p[3];
+  } else if ((m = c.match(/^hsla?\(([^)]+)\)$/i))){
+    var q = m[1].split(',').map(parseFloat);
+    var rgb = hslToRgb(q[0], q[1] / 100, q[2] / 100);
+    r = rgb[0]; g = rgb[1]; b = rgb[2]; if (q.length > 3) a = q[3];
+  } else return null;
+  if (!isFinite(r) || !isFinite(g) || !isFinite(b)) return null;
+  var y = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  return a === 1 ? 'rgb(' + y + ',' + y + ',' + y + ')' : 'rgba(' + y + ',' + y + ',' + y + ',' + a + ')';
+}
+var COLOR_PROPS = {
+  background:      ['background-color'],
+  fill:            ['fill-color', 'fill-outline-color'],
+  line:            ['line-color'],
+  symbol:          ['text-color', 'text-halo-color', 'icon-color', 'icon-halo-color'],
+  circle:          ['circle-color', 'circle-stroke-color'],
+  'fill-extrusion':['fill-extrusion-color']
+};
+function desaturateBasemap(){
+  /* runs at style load, before any of our own layers exist */
+  (map.getStyle().layers || []).forEach(function(l){
+    (COLOR_PROPS[l.type] || []).forEach(function(prop){
+      try{
+        var gray = grayColor(map.getPaintProperty(l.id, prop));
+        if (gray) map.setPaintProperty(l.id, prop, gray);
+      }catch(e){}
+    });
+  });
+}
+
 /* ---------- basemap road dimming ----------
    while the inked street network is up, the basemap's own road strokes
    drop to a whisper so the two grids don't double; they come back across
@@ -1440,6 +1512,7 @@ map.on('load', function(){
     if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
   });
 
+  desaturateBasemap();
   collectRoads();
 
   map.addSource('incidents', { type:'geojson', data:{ type:'FeatureCollection', features:[] } });
@@ -1585,8 +1658,10 @@ map.on('load', function(){
   nhoodsPromise.then(function(fc){
     nhoodsPromise = null;
     map.addSource('nhoods', { type:'geojson', data:fc });
+    /* 0.8 on the gamma-lifted field ≈ the old 0.5 on the linear one:
+       only true hotspot cores are dark enough to carry inverted text */
     streetClearAnchors = fc.features
-      .filter(function(f){ return f.properties.dens >= 0.5; })
+      .filter(function(f){ return f.properties.dens >= 0.8; })
       .map(function(f){ return f.geometry.coordinates; });
     updateDeckStreets();   /* re-color strokes now the clearings are known */
     var labelLayout = {
@@ -1600,10 +1675,10 @@ map.on('load', function(){
       'text-padding': 6,
       'symbol-sort-key': ['get','rank']   /* majors win collisions */
     };
-    var onDark = ['>=', ['get','dens'], 0.5];
+    var onDark = ['>=', ['get','dens'], 0.8];
     var labelPaint = {
       'text-color': ['case', onDark, '#FFFFFF', '#3A3A3A'],
-      'text-halo-color': ['case', onDark, 'rgba(122,10,18,0.9)', '#FFFFFF'],
+      'text-halo-color': ['case', onDark, 'rgba(74,24,18,0.9)', '#FFFFFF'],
       'text-halo-width': 1.5,
       'text-halo-blur': 0.2
     };
