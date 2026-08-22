@@ -61,9 +61,14 @@ deleted from the deploy, individual files remain reachable by URL).
   via CSS rotateX so it sits in the scene, and carries a whisper of paper
   drop-shadow for legibility over dark ink. Pressing it eases bearing back
   to north; pitch stays a map gesture.
-- **Points overlay dots** keep their faint paper outline at 0.55 opacity —
-  a blurred no-stroke variant stacked too intensely; the outline is what
-  gives the dots their softness. Color is the accent orange.
+- **Points overlay dots** keep their faint paper outline — a blurred
+  no-stroke variant stacked too intensely; the outline is what gives the
+  dots their softness. Color is the accent orange. Reports are aggregated
+  to ONE dot per location (repeat addresses stack on the same spot), and
+  each dot's opacity scales with its report count through the SAME law as
+  blocks/buildings: normalize to the p99.5 spot, sqrt gamma, the shared
+  near-linear ramp, capped at 0.85. A lone report paints ~0.2, a repeat
+  address builds toward full ink.
 - **Density rendering**: census-block choropleth + inked street segments at
   citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade

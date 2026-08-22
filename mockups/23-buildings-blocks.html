@@ -449,7 +449,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
   </div>
   <button type="button" class="scroll-hint" id="scroll-hint"><span>Details below</span><span class="arrow" aria-hidden="true">&darr;</span></button>
   <button type="button" class="compass" id="compass" aria-label="Compass: press to reset the map to north" title="Reset north">
-    <span class="tilt" id="compass-tilt" aria-hidden="true"><svg id="compass-needle" width="52" height="52" viewBox="0 0 22 22">
+    <span class="tilt" id="compass-tilt" aria-hidden="true"><svg id="compass-needle" width="48" height="48" viewBox="0 0 22 22">
       <polygon points="11,2 14.2,11 7.8,11" fill="#B7470A"/>
       <polygon points="7.8,11 14.2,11 11,20" fill="#C6C0BA"/>
     </svg></span>
@@ -710,6 +710,35 @@ function toIncidentFC(rows){
   return { type:'FeatureCollection', features:feats };
 }
 
+/* reports pile up at repeated addresses, so the dots overlay draws ONE
+   dot per location, weighted by its report count through the same law as
+   blocks/buildings: normalize against the 99.5th-percentile spot, sqrt
+   gamma, then the shared ramp at paint time (see pointOpacityExpr) */
+function aggregatePoints(fc){
+  var byKey = {};
+  fc.features.forEach(function(f){
+    var c = f.geometry.coordinates;
+    var k = c[0].toFixed(6) + ',' + c[1].toFixed(6);
+    if (byKey[k]) byKey[k].n += 1;
+    else byKey[k] = { c: c, n: 1 };
+  });
+  var spots = Object.keys(byKey).map(function(k){ return byKey[k]; });
+  var counts = spots.map(function(s){ return s.n; }).sort(function(a, b){ return a - b; });
+  /* floor of 4 keeps the all-unique fallback data from rendering every
+     dot at full strength */
+  var ref = Math.max(4, counts[Math.min(counts.length - 1, Math.floor(counts.length * 0.995))] || 1);
+  return {
+    type:'FeatureCollection',
+    features: spots.map(function(s){
+      return {
+        type:'Feature',
+        properties:{ w: +Math.min(1, Math.sqrt(s.n / ref)).toFixed(3) },
+        geometry:{ type:'Point', coordinates: s.c }
+      };
+    })
+  };
+}
+
 /* every density consumer (blocks, streets, buildings, label inversion)
    joins on this — geometry and incidents download in parallel, scoring
    waits for whichever incident set (live or fallback) settles */
@@ -726,7 +755,8 @@ var densityReady = fetchIncidents()
   })
   .then(function(res){
     incidentData = res;
-    buildDensityGrids(res.fc);
+    buildDensityGrids(res.fc);          /* grids want the raw points */
+    res.fc = aggregatePoints(res.fc);   /* the dots overlay wants spots */
   });
 
 /* midpoint at half the polyline's arc length (planar approx is fine here) */
@@ -1276,6 +1306,24 @@ function blockOpacityExpr(){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
+function pointOpacityExpr(){
+  /* the dots overlay under the SAME scaling law as blocks/buildings:
+     ink * w^contrast through the shared near-linear ramp, capped like the
+     ground layers — a lone report reads faint, a repeat address builds
+     toward full ink (w is per-spot report count, normalized + sqrt in
+     aggregatePoints) */
+  var t = ['*', INK, ['^', ['get','w'], CONTRAST]];
+  return ['*', BLOCKS_MAX, ['interpolate', ['linear'], t,
+    0.00, 0,
+    0.03, 0.05,
+    0.10, 0.15,
+    0.22, 0.27,
+    0.40, 0.42,
+    0.60, 0.60,
+    0.80, 0.79,
+    1.00, 1.0
+  ]];
+}
 function streetColorExpr(){
   /* same ink * d^contrast law pushed through the SAME soft-toe alpha ramp
      as the blocks, hue sliding along the heat anchors at each stop, so the
@@ -1586,9 +1634,10 @@ map.on('load', function(){
       /* the accent orange — the one touch of color on the map itself.
          The faint paper outline stays: a blurred no-stroke variant was
          tried and stacked too intensely — the outline is what gives the
-         dots their softness */
+         dots their softness. Opacity scales per spot with report count,
+         same law as the ground layers */
       'circle-color':'#B7470A',
-      'circle-opacity':0.25,   /* low, so stacked reports build up density */
+      'circle-opacity': pointOpacityExpr(),
       'circle-stroke-color':'rgba(255,255,255,0.75)',
       'circle-stroke-width':0.7
     }
