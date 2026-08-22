@@ -117,6 +117,14 @@ deleted from the deploy, individual files remain reachable by URL).
   (`HANDOFF_SHIFT` applied via `shiftStops`). The readout shows the live
   window (e.g. "z14.0–15.5"). Street ink and the dots' entrance have
   their own timing and deliberately do NOT follow this slider.
+- **Dots sliders** (panel): "Fade in at" (z11–15, default z13 — moves the
+  whole quarter-level snap-in, radius scale-in, stroke fade, and minzoom
+  cull together), "Strength" (0–100%, same dimension as the block cap,
+  default 85% "= blocks"), and "Size" (40–200% multiplier on the
+  weight-scaled radius, default 100%).
+- **Reset button** (panel, under the sliders): returns every tuning
+  control — street ink, handoff, dots — to the baked defaults captured at
+  load (`CONTROL_DEFAULTS`).
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1

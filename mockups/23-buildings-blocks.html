@@ -266,6 +266,32 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     outline-offset:4px;
   }
 
+  .reset{
+    display:block;
+    width:100%;
+    margin-top:16px;
+    appearance:none;
+    border:1px solid var(--hair);
+    background:var(--paper);
+    font-family:inherit;
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-60);
+    padding:8px 0;
+    cursor:pointer;
+    transition:color 120ms ease, border-color 120ms ease;
+  }
+  .reset:hover{
+    color:var(--ink);
+    border-color:var(--ink);
+  }
+  .reset:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:-3px;
+  }
+
   /* ranking */
   .ranking{ list-style:none; margin-top:12px; }
   .ranking li{ padding:7px 0; }
@@ -548,6 +574,27 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
       <span class="microlabel num" id="handoff-val"></span>
     </div>
     <input type="range" class="slider" id="handoff" min="12" max="16" step="0.1" aria-label="Zoom level where buildings fade in and blocks fade out">
+
+    <hr class="rule">
+
+    <span class="microlabel">Dots</span>
+    <div class="slider-head">
+      <span class="microlabel">Fade in at</span>
+      <span class="microlabel num" id="dots-fade-val"></span>
+    </div>
+    <input type="range" class="slider" id="dots-fade" min="11" max="15" step="0.1" aria-label="Zoom level where incident dots fade in">
+    <div class="slider-head">
+      <span class="microlabel">Strength</span>
+      <span class="microlabel num" id="dots-strength-val"></span>
+    </div>
+    <input type="range" class="slider" id="dots-strength" min="0" max="100" step="1" aria-label="Dots strength, percent — 85 matches the blocks">
+    <div class="slider-head">
+      <span class="microlabel">Size</span>
+      <span class="microlabel num" id="dots-size-val"></span>
+    </div>
+    <input type="range" class="slider" id="dots-size" min="40" max="200" step="5" aria-label="Dots size, percent">
+
+    <button type="button" class="reset" id="reset-controls">Reset to defaults</button>
 
     <hr class="rule">
 
@@ -1385,17 +1432,24 @@ function blockOpacityExpr(){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
-/* points entrance: anchored at z13, one level before the buildings'
-   handoff, snapping in over ~a quarter level — the dots pop out of the
-   block mosaic, then the volumes rise beneath them from z14 */
-var POINTS_ENTRANCE = [[13.0, 0], [13.1, 0.6], [13.2, 0.95], [13.25, 1]];
-var POINTS_MINZOOM = POINTS_ENTRANCE[0][0] - 0.1;
+/* dots controls (panel): entrance anchor, strength cap (same dimension
+   as the block cap, like the street slider), and a size multiplier.
+   Defaults: z13 — one level before the buildings' handoff, snapping in
+   over ~a quarter level so the dots pop out of the block mosaic before
+   the volumes rise — strength 85% (= blocks), size 100%. */
+var DOTS_FADE_AT = 13.0;
+var DOTS_MAX = BLOCKS_MAX;
+var DOTS_SIZE = 1.0;
+function pointsEntranceStops(){
+  var a = DOTS_FADE_AT;
+  return [[a, 0], [a + 0.1, 0.6], [a + 0.2, 0.95], [a + 0.25, 1]];
+}
 function pointBaseOpacityExpr(){
   /* per-spot report weight w (normalized + sqrt in aggregatePoints) sets
      the strength, but with a HIGH floor: small single-report dots stay
      clearly visible, repeat addresses still build toward full ink */
   var t = ['*', INK, ['^', ['get','w'], CONTRAST]];
-  return ['*', BLOCKS_MAX, ['interpolate', ['linear'], t,
+  return ['*', DOTS_MAX, ['interpolate', ['linear'], t,
     0.00, 0.35,
     0.25, 0.50,
     0.55, 0.70,
@@ -1404,9 +1458,25 @@ function pointBaseOpacityExpr(){
 }
 function pointOpacityExpr(){
   var full = pointBaseOpacityExpr();
-  return zoomCurve(POINTS_ENTRANCE, function(f){
+  return zoomCurve(pointsEntranceStops(), function(f){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
+}
+function pointStrokeOpacityExpr(){
+  return zoomCurve(pointsEntranceStops(), function(f){ return f * 0.7; });
+}
+function pointRadiusExpr(){
+  /* radius grows with the spot's report weight so hot addresses read
+     bigger, not just darker — 0.6x singles up to 1.35x, all times the
+     size slider — and SCALES IN hard across the entrance (zoom stays the
+     OUTER interpolate — same MapLibre gotcha as line-width) */
+  var f = ['*', DOTS_SIZE, ['+', 0.6, ['*', 0.75, ['get','w']]]];
+  var a = DOTS_FADE_AT;
+  return ['interpolate', ['linear'], ['zoom'],
+    a,        ['*', 0.8, f],
+    a + 0.25, ['*', 2.35, f],
+    16,       ['*', 4.2, f]
+  ];
 }
 function streetColorExpr(){
   /* same ink * d^contrast law pushed through the SAME soft-toe alpha ramp
@@ -1723,28 +1793,17 @@ map.on('load', function(){
   /* points ride ON TOP of everything, extrusions included — under the
      volumes they vanish into the fabric at tilt; a faint paper halo keeps
      them legible over dark block/building ink. No toggle: they fade in
-     one zoom level BEFORE the buildings (see POINTS_ENTRANCE) — dots
+     one zoom level BEFORE the buildings (see pointsEntranceStops) — dots
      surface out of the block mosaic, then the volumes rise beneath them */
   map.addLayer({
     id:'points',
     type:'circle',
     source:'incidents',
-    minzoom:POINTS_MINZOOM,   /* truly gone when zoomed out — entrance curve
-                                 is already at zero here, so no pop */
+    minzoom:DOTS_FADE_AT - 0.1,   /* truly gone when zoomed out — entrance
+                                     curve is already at zero here, so no
+                                     pop; the slider updates this */
     paint:{
-      /* radius grows with the spot's report weight so hot addresses read
-         bigger, not just darker — 0.6x singles up to 1.35x — and SCALES IN
-         hard across the entrance: dots grow from a third of their size to
-         full over the same quarter-level the fade uses (zoom stays the
-         OUTER interpolate — same MapLibre gotcha as line-width) */
-      'circle-radius':(function(){
-        var f = ['+', 0.6, ['*', 0.75, ['get','w']]];
-        return ['interpolate',['linear'],['zoom'],
-          13.0,  ['*', 0.8, f],
-          13.25, ['*', 2.35, f],
-          16,    ['*', 4.2, f]
-        ];
-      })(),
+      'circle-radius': pointRadiusExpr(),
       /* the accent orange — the one touch of color on the map itself.
          The faint paper outline stays: a blurred no-stroke variant was
          tried and stacked too intensely — the outline is what gives the
@@ -1757,7 +1816,7 @@ map.on('load', function(){
       'circle-color':'#B7470A',
       'circle-opacity': pointOpacityExpr(),
       'circle-stroke-color':'#FFFFFF',
-      'circle-stroke-opacity': zoomCurve(POINTS_ENTRANCE, function(f){ return f * 0.7; }),
+      'circle-stroke-opacity': pointStrokeOpacityExpr(),
       'circle-stroke-width':['interpolate',['linear'],['zoom'], 10, 0.2, 13, 0.5, 16, 0.9]
     }
   });
@@ -2012,6 +2071,79 @@ handoffEl.addEventListener('input', function(){
   applyHandoff();
 });
 paintHandoff();
+
+/* ---------- dots sliders ---------- */
+var dotsFade = document.getElementById('dots-fade');
+var dotsFadeVal = document.getElementById('dots-fade-val');
+var dotsStrength = document.getElementById('dots-strength');
+var dotsStrengthVal = document.getElementById('dots-strength-val');
+var dotsSize = document.getElementById('dots-size');
+var dotsSizeVal = document.getElementById('dots-size-val');
+
+function paintDotsControls(){
+  dotsFadeVal.textContent = 'z' + DOTS_FADE_AT.toFixed(1);
+  var pct = Math.round(DOTS_MAX * 100);
+  dotsStrengthVal.textContent = pct + '%' + (pct === Math.round(BLOCKS_MAX * 100) ? ' = blocks' : '');
+  dotsSizeVal.textContent = Math.round(DOTS_SIZE * 100) + '%';
+}
+function applyDots(){
+  if (!map.getLayer('points')) return;
+  map.setPaintProperty('points', 'circle-opacity', pointOpacityExpr());
+  map.setPaintProperty('points', 'circle-stroke-opacity', pointStrokeOpacityExpr());
+  map.setPaintProperty('points', 'circle-radius', pointRadiusExpr());
+  map.setLayerZoomRange('points', DOTS_FADE_AT - 0.1, 24);
+}
+dotsFade.value = DOTS_FADE_AT;
+dotsFade.addEventListener('input', function(){
+  DOTS_FADE_AT = parseFloat(dotsFade.value);
+  paintDotsControls();
+  applyDots();
+});
+dotsStrength.value = Math.round(DOTS_MAX * 100);
+dotsStrength.addEventListener('input', function(){
+  DOTS_MAX = dotsStrength.value / 100;
+  paintDotsControls();
+  applyDots();
+});
+dotsSize.value = Math.round(DOTS_SIZE * 100);
+dotsSize.addEventListener('input', function(){
+  DOTS_SIZE = dotsSize.value / 100;
+  paintDotsControls();
+  applyDots();
+});
+paintDotsControls();
+
+/* ---------- reset: every tuning control back to the baked defaults ---------- */
+var CONTROL_DEFAULTS = {
+  streetsOn: STREETS_ON,
+  streetFadeTo: STREET_FADE_TO,
+  streetsMax: STREETS_MAX,
+  handoffShift: HANDOFF_SHIFT,
+  dotsFadeAt: DOTS_FADE_AT,
+  dotsMax: DOTS_MAX,
+  dotsSize: DOTS_SIZE
+};
+document.getElementById('reset-controls').addEventListener('click', function(){
+  STREETS_ON = CONTROL_DEFAULTS.streetsOn;
+  STREET_FADE_TO = CONTROL_DEFAULTS.streetFadeTo;
+  STREETS_MAX = CONTROL_DEFAULTS.streetsMax;
+  HANDOFF_SHIFT = CONTROL_DEFAULTS.handoffShift;
+  DOTS_FADE_AT = CONTROL_DEFAULTS.dotsFadeAt;
+  DOTS_MAX = CONTROL_DEFAULTS.dotsMax;
+  DOTS_SIZE = CONTROL_DEFAULTS.dotsSize;
+  stFade.value = STREET_FADE_TO;
+  stStrength.value = Math.round(STREETS_MAX * 100);
+  handoffEl.value = HANDOFF_BASE + HANDOFF_SHIFT;
+  dotsFade.value = DOTS_FADE_AT;
+  dotsStrength.value = Math.round(DOTS_MAX * 100);
+  dotsSize.value = Math.round(DOTS_SIZE * 100);
+  paintStreetControls();
+  paintHandoff();
+  paintDotsControls();
+  applyStreetSettings();
+  applyHandoff();
+  applyDots();
+});
 
 /* ---------- compass: needle tracks bearing, press resets to north ---------- */
 var compassEl = document.getElementById('compass');
