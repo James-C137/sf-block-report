@@ -26,15 +26,20 @@ deleted from the deploy, individual files remain reachable by URL).
   by user request 2026-08-22): CARTO Positron-nolabels basemap, Inter type,
   slim floating control column (desktop) / map-first-viewport with panel
   scrolled below (mobile). Tilted camera (pitch 57, bearing −30), rotation
-  interactive. Density runs white → desaturated apricot (`#D9A57C`) →
-  terracotta (`#C57A52`) → deep brick red (`#8A2E25`) — muted earth tones;
-  a first saturated red/yellow pass read "McDonald's" and was rejected.
-  Ground layers slide the hue along the alpha ramp (paper white comes from
-  transparency), buildings carry the full ramp in surface color. Scaling is
-  deliberately generous so color reaches the whole city: sqrt gamma on the
-  normalized density grid, CONTRAST 1.0 (was 1.2), and a near-linear alpha
-  ramp (the old soft toe crushed everything under ~0.2 to white). Label
-  inversion threshold moved 0.5 → 0.8 to match the lifted field. NOTE: the
+  interactive. Density runs a diverging green→red: sage green (`#5F9B6D`)
+  for quiet blocks → soft green → luminous cream at the crossover →
+  coral → bright red (`#D94F3D`) at hotspot cores. Palette history: a
+  saturated red/yellow pass read "McDonald's"; a muted terracotta→dark
+  brick pass read "dried blood" — both rejected. The cream crossover is
+  deliberate: it routes green→red around the muddy olive a direct blend
+  gives, diverging-palette style. Ground layers slide the hue along the
+  alpha ramp (paper white comes from transparency; the green anchor is deep
+  enough to tint through the low alphas), buildings carry the full ramp in
+  surface color. Scaling is deliberately generous so color reaches the
+  whole city: sqrt gamma on the normalized density grid, CONTRAST 1.0 (was
+  1.2), and a near-linear alpha ramp. Labels are strictly black/white —
+  graphite text on white halo, inverting to white on graphite halo over
+  hotspot cores (threshold 0.8 on the lifted field). NOTE: the
   basemap's `saturate(0)` CSS filter had to go — it would grayscale the
   heat layers in the same canvas — so `desaturateBasemap()` grays the
   Positron style's own paint colors at load instead (keeps the bay/parks

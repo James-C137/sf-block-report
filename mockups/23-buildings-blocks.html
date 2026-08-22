@@ -1135,17 +1135,21 @@ var nhoodsPromise = Promise.all([fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE), density
 /* ---------- shared paint state ---------- */
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
 
-/* heat ramp: density runs white (paper) → muted orange → brick red, in
-   desaturated earth tones (the saturated red/yellow pass read fast-food).
-   On the ground layers the paper white comes from ALPHA — the hue slides
-   apricot→brick as the alpha ramp rises, so compositing over the basemap
-   reads as white→orange→red. Buildings are opaque, so they carry the whole
-   ramp in the surface color. Hue anchors, on t = ink * d^contrast: */
+/* heat ramp: a diverging green→red. Quiet blocks wash soft sage green,
+   the field lifts through a pale cream at the crossover (routing green→red
+   through a light neutral instead of the muddy olive a direct blend gives),
+   then blooms into a BRIGHT coral-red at the hotspots — the earlier dark
+   brick end read as dried blood. On the ground layers the paper white
+   comes from ALPHA — hue slides along the ramp as alpha rises. Buildings
+   are opaque and carry the ramp in surface color. Hue anchors, on
+   t = ink * d^contrast: */
 var HEAT = [
-  [0.00, [217, 165, 124]],  /* #D9A57C desat apricot */
-  [0.40, [197, 122, 82]],   /* #C57A52 terracotta    */
-  [0.70, [169, 80, 58]],    /* #A9503A brick         */
-  [1.00, [138, 46, 37]]     /* #8A2E25 deep brick red */
+  [0.00, [95, 155, 109]],   /* #5F9B6D sage green — deep enough to tint
+                               through the low alphas of the ground ramp */
+  [0.35, [156, 192, 150]],  /* #9CC096 soft green   */
+  [0.55, [225, 214, 190]],  /* #E1D6BE cream (crossover) */
+  [0.75, [232, 150, 126]],  /* #E8967E soft coral   */
+  [1.00, [217, 79, 61]]     /* #D94F3D bright red   */
 ];
 function heatHue(t){
   if (t <= HEAT[0][0]) return HEAT[0][1];
@@ -1169,15 +1173,15 @@ var pointsOn = false;
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
-  /* shade = ink * d^contrast, mixed neutral pale -> sand -> terracotta -> brick */
+  /* shade = ink * d^contrast, mixed neutral pale -> sage -> cream -> coral red */
   return ['interpolate', ['linear'],
     ['*', INK, ['^', ['get','d'], CONTRAST]],
     0.00, PALE,
-    0.15, '#E4CDB4',
-    0.35, '#D3A47F',
-    0.60, '#BC7451',
-    0.85, '#9E4630',
-    1.00, '#8A2E25'
+    0.15, '#C2D8BE',
+    0.35, '#9CC096',
+    0.55, '#DFD5BB',
+    0.80, '#E28F74',
+    1.00, '#D94F3D'
   ];
 }
 function buildingHeightExpr(){
@@ -1194,14 +1198,16 @@ function buildingOpacityExpr(){
   return zoomCurve(ENTRANCE.op, function(f){ return f * BLDG_FULL_OPACITY; });
 }
 function blockColorExpr(){
-  /* hue slides apricot→brick with t while blockOpacityExpr drives strength —
-     composited over the paper basemap the pair reads white→orange→red */
+  /* hue slides sage→cream→red with t while blockOpacityExpr drives
+     strength — composited over the paper basemap the pair reads
+     white→green→red with a luminous crossover */
   var t = ['*', INK, ['^', ['get','v'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, '#D9A57C',
-    0.40, '#C57A52',
-    0.70, '#A9503A',
-    1.00, '#8A2E25'
+    0.00, '#5F9B6D',
+    0.35, '#9CC096',
+    0.55, '#E1D6BE',
+    0.75, '#E8967E',
+    1.00, '#D94F3D'
   ];
 }
 function blockOpacityExpr(){
@@ -1213,12 +1219,12 @@ function blockOpacityExpr(){
      white; now a lightly-reported block still shows a visible wash */
   var full = ['*', BLOCKS_MAX, ['interpolate', ['linear'], t,
     0.00, 0,
-    0.03, 0.03,
-    0.10, 0.11,
-    0.22, 0.22,
-    0.40, 0.38,
-    0.60, 0.58,
-    0.80, 0.78,
+    0.03, 0.05,
+    0.10, 0.15,
+    0.22, 0.27,
+    0.40, 0.42,
+    0.60, 0.60,
+    0.80, 0.79,
     1.00, 1.0
   ]];
   return zoomCurve(GROUND_FADE, function(f){
@@ -1232,14 +1238,14 @@ function streetColorExpr(){
      separate layer on top (MapLibre fallback layer only) */
   var t = ['*', INK, ['^', ['get','d'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, 'rgba(217,165,124,0)',
-    0.03, 'rgba(216,162,121,0.03)',
-    0.10, 'rgba(212,154,114,0.11)',
-    0.22, 'rgba(206,141,101,0.22)',
-    0.40, 'rgba(197,122,82,0.38)',
-    0.60, 'rgba(178,94,66,0.58)',
-    0.80, 'rgba(159,69,51,0.78)',
-    1.00, 'rgba(138,46,37,1)'
+    0.00, 'rgba(95,155,109,0)',
+    0.03, 'rgba(100,158,113,0.05)',
+    0.10, 'rgba(112,166,121,0.15)',
+    0.22, 'rgba(133,178,135,0.27)',
+    0.40, 'rgba(173,198,160,0.42)',
+    0.60, 'rgba(227,198,174,0.60)',
+    0.80, 'rgba(229,136,113,0.79)',
+    1.00, 'rgba(217,79,61,1)'
   ];
 }
 function streetWidthExpr(){
@@ -1280,7 +1286,7 @@ var HAS_DECK = !MOBILE && (typeof window.deck !== 'undefined') && !!window.deck.
 
 /* alpha ramp = the block layer's soft-toe ramp, so street strokes and the
    mosaic they thread through read as one tonal surface */
-var STREET_ALPHA_STOPS = [[0,0],[0.03,0.03],[0.10,0.11],[0.22,0.22],[0.40,0.38],[0.60,0.58],[0.80,0.78],[1,1]];
+var STREET_ALPHA_STOPS = [[0,0],[0.03,0.05],[0.10,0.15],[0.22,0.27],[0.40,0.42],[0.60,0.60],[0.80,0.79],[1,1]];
 function lerpStops(stops, x){
   if (x <= stops[0][0]) return stops[0][1];
   for (var i = 1; i < stops.length; i++){
@@ -1678,7 +1684,9 @@ map.on('load', function(){
     var onDark = ['>=', ['get','dens'], 0.8];
     var labelPaint = {
       'text-color': ['case', onDark, '#FFFFFF', '#3A3A3A'],
-      'text-halo-color': ['case', onDark, 'rgba(74,24,18,0.9)', '#FFFFFF'],
+      /* strictly black/white type: graphite halo under white text on the
+         hotspot cores, white halo under graphite text everywhere else */
+      'text-halo-color': ['case', onDark, 'rgba(26,26,26,0.9)', '#FFFFFF'],
       'text-halo-width': 1.5,
       'text-halo-blur': 0.2
     };
