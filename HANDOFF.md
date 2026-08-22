@@ -49,11 +49,20 @@ deleted from the deploy, individual files remain reachable by URL).
 - **Accent color** (added with the charcoal ramp; user wants "minimal
   colors, esp. on mobile"): one burnt orange, `--accent: #B7470A`, kept
   from the rejected orange ramp. Used ONLY in tiny doses: the wordmark
-  square, the loading pip, the scroll-hint arrow (both visible in the
-  mobile first viewport), the histogram's peak bar, and the incident
-  points overlay dots — the single touch of color on the map itself.
-  Everything else stays graphite. Building extrusion opacity is capped at
-  0.85 (was 0.96) — full-strength charcoal volumes read too intense.
+  square, the loading pip, the scroll-hint arrow, the histogram's peak
+  bar, the compass needle's north tip, and the incident points overlay
+  dots. Everything else stays graphite. Building extrusion opacity is
+  capped at 0.85 (was 0.96) — full-strength charcoal volumes read too
+  intense.
+- **Compass / 2D-3D toggle** (top-right on the map): needle counter-rotates
+  to track true north (accent-orange north tip), the dial foreshortens
+  with camera pitch via a CSS rotateX so the control mirrors the view, and
+  a small caption reads 3D/2D. Pressing it eases pitch between 57 and 0.
+  Bearing is left alone on toggle — rotation stays a map gesture.
+- **Points overlay dots** have no stroke halo anymore: the old paper
+  stroke occluded neighboring dots (overlaps read as blobs swallowing
+  each other); a soft `circle-blur` edge at 0.5 opacity lets stacked
+  points accumulate into darker orange instead.
 - **Density rendering**: census-block choropleth + inked street segments at
   citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade

@@ -375,6 +375,53 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     .scroll-hint .arrow{ animation:none; }
   }
 
+  /* compass: bearing needle (accent north), press toggles 2D/3D.
+     The dial foreshortens with the camera pitch, so the control itself
+     shows which mode you're in; the caption spells it out */
+  .compass{
+    position:absolute;
+    top:calc(env(safe-area-inset-top, 0px) + 14px);
+    right:14px;
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    appearance:none;
+    background:none;
+    border:0;
+    padding:0;
+    font-family:inherit;
+    cursor:pointer;
+    z-index:6;
+  }
+  .compass .dial{
+    width:44px; height:44px;
+    border-radius:50%;
+    background:var(--paper);
+    border:1px solid var(--hair);
+    display:flex; align-items:center; justify-content:center;
+    perspective:90px;
+  }
+  .compass .tilt{
+    display:flex;
+    transition:transform 200ms ease;
+  }
+  .compass svg{
+    display:block;
+    transition:transform 200ms ease;
+  }
+  .compass .mode{
+    font-size:8px;
+    font-weight:600;
+    letter-spacing:0.14em;
+    color:var(--ink-60);
+    background:var(--paper);
+    border:1px solid var(--hair);
+    border-radius:999px;
+    padding:2px 7px;
+  }
+  .compass:focus-visible .dial{
+    outline:1px solid var(--ink);
+    outline-offset:2px;
+  }
+
   /* ---------- desktop: single floating column ---------- */
 
   @media (min-width: 900px){
@@ -400,6 +447,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
       max-width:none;
     }
     .loading{ left:auto; right:18px; transform:none; }
+    .compass{ top:64px; right:18px; }   /* clear of the loading pill */
   }
 </style>
 </head>
@@ -413,6 +461,13 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     <span class="track" aria-hidden="true"><i id="loading-bar"></i></span>
   </div>
   <button type="button" class="scroll-hint" id="scroll-hint"><span>Details below</span><span class="arrow" aria-hidden="true">&darr;</span></button>
+  <button type="button" class="compass" id="compass" aria-pressed="true" aria-label="Compass: press to switch between 2D and 3D view" title="Switch 2D / 3D">
+    <span class="dial" aria-hidden="true"><span class="tilt" id="compass-tilt"><svg id="compass-needle" width="22" height="22" viewBox="0 0 22 22">
+      <polygon points="11,2 14.2,11 7.8,11" fill="#B7470A"/>
+      <polygon points="7.8,11 14.2,11 11,20" fill="#C6C0BA"/>
+    </svg></span></span>
+    <span class="mode" id="compass-mode">3D</span>
+  </button>
 </div>
 
 <section class="panel" aria-label="Report summary and filters">
@@ -1543,11 +1598,13 @@ map.on('load', function(){
     paint:{
       'circle-radius':['interpolate',['linear'],['zoom'], 10, 1.6, 13, 2.6, 16, 4.2],
       /* the accent orange — the one touch of color on the map itself,
-         legible over both paper and the charcoal ink */
+         legible over both paper and the charcoal ink. No stroke: the old
+         paper halo occluded neighboring dots so overlaps read as blobs
+         swallowing each other — a soft blurred edge lets stacked points
+         accumulate into darker orange instead */
       'circle-color':'#B7470A',
-      'circle-opacity':0.6,
-      'circle-stroke-color':'rgba(255,255,255,0.75)',
-      'circle-stroke-width':0.7
+      'circle-opacity':0.5,
+      'circle-blur':0.25
     }
   });
 
@@ -1750,6 +1807,30 @@ ptOff.addEventListener('click', function(){ setPoints(false); });
 document.getElementById('scroll-hint').addEventListener('click', function(){
   document.querySelector('.panel').scrollIntoView({ behavior:'smooth' });
 });
+
+/* ---------- compass: needle tracks bearing, press toggles 2D/3D ---------- */
+var PITCH_3D = 57;                        /* the default tilted framing */
+var compassEl = document.getElementById('compass');
+var compassTilt = document.getElementById('compass-tilt');
+var compassNeedle = document.getElementById('compass-needle');
+var compassMode = document.getElementById('compass-mode');
+function updateCompass(){
+  var pitch = map.getPitch();
+  /* needle counter-rotates so it keeps pointing at true north; the dial
+     foreshortens with the camera so the control mirrors the view */
+  compassNeedle.style.transform = 'rotate(' + (-map.getBearing()) + 'deg)';
+  compassTilt.style.transform = 'rotateX(' + (pitch * 0.75) + 'deg)';
+  var is3D = pitch > 5;
+  compassMode.textContent = is3D ? '3D' : '2D';
+  compassEl.setAttribute('aria-pressed', is3D);
+}
+map.on('rotate', updateCompass);
+map.on('pitch', updateCompass);
+compassEl.addEventListener('click', function(){
+  var to3D = map.getPitch() <= 5;
+  map.easeTo({ pitch: to3D ? PITCH_3D : 0, duration: 650 });
+});
+updateCompass();
 
 /* ---------- panel: real numbers from the fetched window ---------- */
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
