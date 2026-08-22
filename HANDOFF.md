@@ -110,7 +110,17 @@ deleted from the deploy, individual files remain reachable by URL).
   road-dim follows: roads un-dim when the ink is off and return along
   the slider's fade curve. Other defaults remain baked in: ink 100%,
   contrast 1.0, blocks 85%, height 100%, entrance "Both".
-- **Handoff slider** (panel, "Buildings in / blocks out", z12–16): slides
+- **Handoff is baked at z14.5→16** (locked in by eye via the slider; the
+  crossfade started life at z13 and moved up twice). The slider remains
+  for testing (now z12.5–16.5 around the new anchor).
+- **Sub-streets delay** (panel slider, 0–2z, default +0.5): the basemap's
+  small road layers (minor/service/path, ids matched at load with their
+  own minzoom ≥ 11) popped in abruptly mid-handoff. Their entrance is now
+  managed: delayed by the slider value past their style minzoom and faded
+  in over ~0.4 zoom, pre-multiplied with the street-ink road-dim into a
+  single numeric zoom curve (MapLibre allows only one top-level ['zoom']
+  interpolate per property, so the two factors are sampled and combined).
+- **Handoff slider** (panel, "Buildings in / blocks out", z12.5–16.5): slides
   the ENTIRE building-in/blocks-out crossfade along the zoom axis —
   entrance opacity + height curves, the ground fade, and the buildings'
   minzoom cull all translate together with their shapes intact

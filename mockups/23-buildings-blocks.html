@@ -573,7 +573,12 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
       <span class="microlabel">Buildings in / blocks out</span>
       <span class="microlabel num" id="handoff-val"></span>
     </div>
-    <input type="range" class="slider" id="handoff" min="12" max="16" step="0.1" aria-label="Zoom level where buildings fade in and blocks fade out">
+    <input type="range" class="slider" id="handoff" min="12.5" max="16.5" step="0.1" aria-label="Zoom level where buildings fade in and blocks fade out">
+    <div class="slider-head">
+      <span class="microlabel">Sub-streets delay</span>
+      <span class="microlabel num" id="substreet-val"></span>
+    </div>
+    <input type="range" class="slider" id="substreet" min="0" max="2" step="0.1" aria-label="Extra zoom levels before the basemap's minor streets appear">
 
     <hr class="rule">
 
@@ -1080,18 +1085,18 @@ var map = new maplibregl.Map(mapOptions);
 
 /* ---------- zoom crossfade ----------
    Blocks and the inked street network carry the ink at low zoom;
-   buildings take over as they become individually legible. Full block +
-   street strength through z14, both gone by z15.5, buildings entering
-   inversely across the same range (the whole handoff sat one level lower
-   originally; it was pushed up so the dots own a z12–14 phase over the
-   block mosaic before the volumes rise). Buildings are truly absent below
-   the handoff (layer minzoom just under the entrance start, entrance
-   curves already at zero there) — the same field hands off between
-   geometries, so the middle reads as one surface resolving, the ink
-   migrating from street network into volumes. */
-var BLOCK_FADE_FROM = 14.0;
-var BLOCK_FADE_TO   = 15.5;
-var BLDG_MINZOOM    = 13.9;   /* unloads while invisible — no pop */
+   buildings take over as they become individually legible. Full block
+   strength through z14.5, gone by z16, buildings entering inversely
+   across the same range (the handoff has been pushed up twice from the
+   original z13 — dots get a z13–14.5 phase over the mosaic, and z14.5
+   was locked in by eye via the panel slider). Buildings are truly absent
+   below the handoff (layer minzoom just under the entrance start,
+   entrance curves already at zero there) — the same field hands off
+   between geometries, so the middle reads as one surface resolving, the
+   ink migrating from street network into volumes. */
+var BLOCK_FADE_FROM = 14.5;
+var BLOCK_FADE_TO   = 16.0;
+var BLDG_MINZOOM    = 14.4;   /* unloads while invisible — no pop */
 var BLDG_FULL_OPACITY = 0.85;   /* full-entrance cap — at 0.96 the charcoal
                                    volumes read too intense; letting a
                                    little basemap through softens them */
@@ -1102,11 +1107,11 @@ var BLDG_FULL_OPACITY = 0.85;   /* full-entrance cap — at 0.96 the charcoal
    mid-crossfade — a linear 13->14.5 ramp reads as a lighter "gap" in the
    middle where both layers sit at half strength. */
 var GROUND_FADE = [
-  [14.0, 1.00],
-  [14.5, 0.96],
-  [14.9, 0.82],
-  [15.2, 0.50],
-  [15.5, 0.00]
+  [14.5, 1.00],
+  [15.0, 0.96],
+  [15.4, 0.82],
+  [15.7, 0.50],
+  [16.0, 0.00]
 ];
 
 /* entrance treatment (fade + grow together), as
@@ -1115,8 +1120,8 @@ var GROUND_FADE = [
    are already inking the hotspot while the ground is still holding, and
    the two curves overlap instead of trading off through a pale middle. */
 var ENTRANCE = {
-  op:[[14.0, 0], [14.3, 0.50], [14.65, 0.85], [15.0, 1]],
-  h:[[14.2, 0], [14.6, 0.50], [15.05, 0.85], [15.5, 1]]
+  op:[[14.5, 0], [14.8, 0.50], [15.15, 0.85], [15.5, 1]],
+  h:[[14.7, 0], [15.1, 0.50], [15.55, 0.85], [16.0, 1]]
 };
 
 /* build a zoom interpolate from [zoom, fraction] stops; `scale` maps each
@@ -1737,13 +1742,56 @@ function desaturateBasemap(){
    the handoff as the street ink dissolves */
 var roadLayerIds = [];
 var roadOrigOpacity = {};
+/* sub-streets: the basemap's small road layers (minor/service/path) pop
+   in abruptly at their own style minzoom, right in the middle of the
+   handoff. Their entrance is taken over: delayed by SUBSTREET_DELAY and
+   faded in over ~0.4 zoom instead of popping. */
+var SUBSTREET_DELAY = 0.5;
+var SUBSTREET_FADE = 0.4;
+var minorRoadFrom = {};   /* layer id -> the layer's own original minzoom */
 function collectRoads(){
   (map.getStyle().layers || []).forEach(function(l){
     if (l.type === 'line' && /road|street|highway|bridge|tunnel|pedestrian|path|track|minor|major|motorway|trunk/i.test(l.id)){
       roadLayerIds.push(l.id);
       roadOrigOpacity[l.id] = map.getPaintProperty(l.id, 'line-opacity');
+      /* only the late-arriving small stuff gets a managed entrance —
+         layers visible from low zoom never pop */
+      if (/minor|service|track|path|pedestrian/i.test(l.id) && (l.minzoom || 0) >= 11){
+        minorRoadFrom[l.id] = l.minzoom;
+      }
     }
   });
+}
+function minorRoadOpacityExpr(orig, ownMinzoom, dim){
+  /* entrance (delayed, softened) x street-ink dim, as ONE numeric zoom
+     interpolate — MapLibre allows a single top-level ['zoom'] curve, so
+     the two factors are pre-multiplied at sampled stops */
+  var hi = (typeof orig === 'number') ? orig : 1;
+  var lo = Math.min(ROAD_DIM, hi);
+  var from = ownMinzoom + SUBSTREET_DELAY;
+  function dimAt(z){
+    if (!dim) return hi;
+    var f = lerpStops(streetFadeStops(), z);
+    return lo + (1 - f) * (hi - lo);
+  }
+  function entrAt(z){
+    if (z <= from) return 0;
+    if (z >= from + SUBSTREET_FADE) return 1;
+    return (z - from) / SUBSTREET_FADE;
+  }
+  var zs = [from, from + SUBSTREET_FADE / 2, from + SUBSTREET_FADE];
+  streetFadeStops().forEach(function(s){
+    if (s[0] > from + SUBSTREET_FADE) zs.push(s[0]);
+  });
+  zs.sort(function(a, b){ return a - b; });
+  var e = ['interpolate', ['linear'], ['zoom']];
+  var last = null;
+  zs.forEach(function(z){
+    if (last !== null && z - last < 0.01) return;
+    last = z;
+    e.push(z, +(entrAt(z) * dimAt(z)).toFixed(3));
+  });
+  return e;
 }
 function roadDimExpr(orig){
   var hi = (typeof orig === 'number') ? orig : 1;
@@ -1756,7 +1804,12 @@ function applyRoadDim(){
   var dim = streetsReady && STREETS_ON;
   roadLayerIds.forEach(function(id){
     try{
-      map.setPaintProperty(id, 'line-opacity', dim ? roadDimExpr(roadOrigOpacity[id]) : roadOrigOpacity[id]);
+      if (minorRoadFrom[id] != null){
+        map.setPaintProperty(id, 'line-opacity',
+          minorRoadOpacityExpr(roadOrigOpacity[id], minorRoadFrom[id], dim));
+      } else {
+        map.setPaintProperty(id, 'line-opacity', dim ? roadDimExpr(roadOrigOpacity[id]) : roadOrigOpacity[id]);
+      }
     }catch(e){}
   });
 }
@@ -1782,6 +1835,7 @@ map.on('load', function(){
 
   desaturateBasemap();
   collectRoads();
+  applyRoadDim();   /* sub-street entrances apply even before street ink loads */
 
   map.addSource('incidents', { type:'geojson', data:{ type:'FeatureCollection', features:[] } });
   /* real points land when the fetch settles (fake fallback included) */
@@ -2072,6 +2126,19 @@ handoffEl.addEventListener('input', function(){
 });
 paintHandoff();
 
+var substreetEl = document.getElementById('substreet');
+var substreetVal = document.getElementById('substreet-val');
+function paintSubstreet(){
+  substreetVal.textContent = '+' + SUBSTREET_DELAY.toFixed(1) + 'z';
+}
+substreetEl.value = SUBSTREET_DELAY;
+substreetEl.addEventListener('input', function(){
+  SUBSTREET_DELAY = parseFloat(substreetEl.value);
+  paintSubstreet();
+  applyRoadDim();
+});
+paintSubstreet();
+
 /* ---------- dots sliders ---------- */
 var dotsFade = document.getElementById('dots-fade');
 var dotsFadeVal = document.getElementById('dots-fade-val');
@@ -2119,6 +2186,7 @@ var CONTROL_DEFAULTS = {
   streetFadeTo: STREET_FADE_TO,
   streetsMax: STREETS_MAX,
   handoffShift: HANDOFF_SHIFT,
+  substreetDelay: SUBSTREET_DELAY,
   dotsFadeAt: DOTS_FADE_AT,
   dotsMax: DOTS_MAX,
   dotsSize: DOTS_SIZE
@@ -2128,17 +2196,20 @@ document.getElementById('reset-controls').addEventListener('click', function(){
   STREET_FADE_TO = CONTROL_DEFAULTS.streetFadeTo;
   STREETS_MAX = CONTROL_DEFAULTS.streetsMax;
   HANDOFF_SHIFT = CONTROL_DEFAULTS.handoffShift;
+  SUBSTREET_DELAY = CONTROL_DEFAULTS.substreetDelay;
   DOTS_FADE_AT = CONTROL_DEFAULTS.dotsFadeAt;
   DOTS_MAX = CONTROL_DEFAULTS.dotsMax;
   DOTS_SIZE = CONTROL_DEFAULTS.dotsSize;
   stFade.value = STREET_FADE_TO;
   stStrength.value = Math.round(STREETS_MAX * 100);
   handoffEl.value = HANDOFF_BASE + HANDOFF_SHIFT;
+  substreetEl.value = SUBSTREET_DELAY;
   dotsFade.value = DOTS_FADE_AT;
   dotsStrength.value = Math.round(DOTS_MAX * 100);
   dotsSize.value = Math.round(DOTS_SIZE * 100);
   paintStreetControls();
   paintHandoff();
+  paintSubstreet();
   paintDotsControls();
   applyStreetSettings();
   applyHandoff();
