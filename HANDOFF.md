@@ -85,7 +85,18 @@ deleted from the deploy, individual files remain reachable by URL).
   darker; a MapLibre butt-cap/miter fallback exists and is what mobile uses.
 - **Neighborhood labels**: DataSF Analysis Neighborhoods (41), curated majors
   at citywide zoom, rest reveal past z12.6, pole-of-inaccessibility anchors,
-  density-aware inversion (paper-white text over dark ink).
+  density-aware inversion (paper-white text over dark ink). TWO REGIMES:
+  screen-space type (constant px) below z14, handing off to an IN-WORLD set
+  just before the buildings enter — same billboarded symbols but with
+  text-size doubling per zoom (exponential base 2 = fixed world size, so
+  the names scale with the city). The swap is a fixed 450ms opacity
+  crossfade via MapLibre paint transitions, triggered on crossing z14 —
+  time-based, not zoom-interpolated. The two size curves meet exactly at
+  the threshold, so mid-fade only the scaling law changes, never the glyph
+  size. The world set runs with allow-overlap/ignore-placement: constant
+  world size means the spacing it has at the handoff is the spacing it
+  keeps, so it doesn't need the collider (and can't fight the fading
+  screen set for placement).
 - **Points overlay** (not a separate view, no toggle): dots draw above the
   extrusions and SNAP in at z13→13.25, opacity and radius together (they
   scale from a third of their size to full — slower fades felt draggy),

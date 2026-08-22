@@ -2026,6 +2026,26 @@ map.on('load', function(){
       'text-halo-width': 1.5,
       'text-halo-blur': 0.2
     };
+    /* ---- two label regimes, crossfaded on a TIMER, not zoom ----
+       Below z14 labels are ordinary screen-space type (constant px). At
+       z14 — just before the buildings enter at 14.5 — they hand off to
+       an IN-WORLD set: the same billboarded symbols (symbols always face
+       the camera), but with text-size doubling per zoom level
+       (exponential base 2), i.e. a fixed size in world units that scales
+       with the city. The swap is a fixed-duration opacity crossfade
+       driven by MapLibre paint transitions, triggered when the camera
+       crosses the threshold — zooming through fast still gives one clean
+       timed fade. The two size curves MEET at the threshold, so only the
+       scaling law changes mid-fade, never the glyph size. */
+    var WORLD_LABEL_AT = 14.0;
+    var LABEL_SWAP_MS = 450;
+    var S0 = 10.7;   /* the screen-size curve evaluated at the threshold */
+    var swapT = { duration: LABEL_SWAP_MS };
+    var SCREEN_OPACITY = {
+      'nhood-labels-major': 1,
+      'nhood-labels-minor': ['interpolate', ['linear'], ['zoom'], 12.6, 0, 13.1, 1]
+    };
+
     map.addLayer({
       id:'nhood-labels-major',
       type:'symbol',
@@ -2033,10 +2053,8 @@ map.on('load', function(){
       filter:['<=', ['get','rank'], NHOOD_MAJOR_COUNT],
       layout: labelLayout,
       paint: Object.assign({}, labelPaint, {
-        'text-opacity': ['interpolate', ['linear'], ['zoom'],
-          14.8, 1,
-          15.6, 0.85
-        ]
+        'text-opacity': SCREEN_OPACITY['nhood-labels-major'],
+        'text-opacity-transition': swapT
       })
     });
     map.addLayer({
@@ -2047,14 +2065,52 @@ map.on('load', function(){
       filter:['>', ['get','rank'], NHOOD_MAJOR_COUNT],
       layout: labelLayout,
       paint: Object.assign({}, labelPaint, {
-        'text-opacity': ['interpolate', ['linear'], ['zoom'],
-          12.6, 0,
-          13.1, 1,
-          14.8, 1,
-          15.6, 0.85
-        ]
+        'text-opacity': SCREEN_OPACITY['nhood-labels-minor'],
+        'text-opacity-transition': swapT
       })
     });
+    map.addLayer({
+      id:'nhood-labels-world',
+      type:'symbol',
+      source:'nhoods',
+      minzoom:13.0,   /* present (invisible) before the swap so the fade
+                         has glyphs to fade to */
+      layout: Object.assign({}, labelLayout, {
+        'text-size': ['interpolate', ['exponential', 2], ['zoom'],
+          WORLD_LABEL_AT, S0,
+          WORLD_LABEL_AT + 4, S0 * 16
+        ],
+        /* the screen set owns collision during the crossfade; the world
+           set neither blocks nor is blocked. Constant world size means
+           whatever spacing the labels have at the handoff is the spacing
+           they keep — they don't need the collider */
+        'text-allow-overlap': true,
+        'text-ignore-placement': true
+      }),
+      paint: Object.assign({}, labelPaint, {
+        'text-halo-width': ['interpolate', ['exponential', 2], ['zoom'],
+          WORLD_LABEL_AT, 1.5,
+          WORLD_LABEL_AT + 4, 24
+        ],
+        'text-opacity': 0,
+        'text-opacity-transition': swapT
+      })
+    });
+
+    var worldLabelsOn = false;
+    function updateLabelRegime(){
+      var want = map.getZoom() >= WORLD_LABEL_AT;
+      if (want === worldLabelsOn) return;
+      worldLabelsOn = want;
+      try{
+        map.setPaintProperty('nhood-labels-world', 'text-opacity', want ? 1 : 0);
+        Object.keys(SCREEN_OPACITY).forEach(function(id){
+          map.setPaintProperty(id, 'text-opacity', want ? 0 : SCREEN_OPACITY[id]);
+        });
+      }catch(e){}
+    }
+    map.on('zoom', updateLabelRegime);
+    updateLabelRegime();
   }).catch(function(err){
     console.warn('Neighborhood names could not be loaded — map stays unlabeled:', err);
   });
