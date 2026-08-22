@@ -493,8 +493,8 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
       <span class="microlabel" id="points-label">Points</span>
     </div>
     <div class="segment" role="group" aria-labelledby="points-label">
-      <button type="button" id="points-on" aria-pressed="false">On</button>
-      <button type="button" id="points-off" class="active" aria-pressed="true">Off</button>
+      <button type="button" id="points-on" class="active" aria-pressed="true">On</button>
+      <button type="button" id="points-off" aria-pressed="false">Off</button>
     </div>
 
     <hr class="rule">
@@ -1245,7 +1245,7 @@ var CONTRAST = 1.0;             /* density → strength exponent; 1.2 muted the
                                    visible wash across the whole city */
 var BLOCKS_MAX = 0.85;          /* opacity cap on the ground layers (blocks + street ink) */
 var HEIGHT_MULT = 1.0;          /* building extrusion height multiplier */
-var pointsOn = false;
+var pointsOn = true;
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
