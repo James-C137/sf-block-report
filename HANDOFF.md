@@ -129,11 +129,15 @@ deleted from the deploy, individual files remain reachable by URL).
   with the street-ink road-dim into a single numeric zoom curve
   (MapLibre allows only one top-level ['zoom'] interpolate per property).
 - **Dot details + category filter (live data)**: tapping a dot opens a
-  house-styled popup (`.ink-pop`) with the spot's report count and
-  category breakdown — aggregatePoints carries `n` and a stringified
-  per-spot `cats` tally. The panel's category chips are now FILTER
-  TOGGLES (top-5 + an "Other" bucket, all on by default): tapping one
-  off fades the chip and re-aggregates the dots overlay from only the
+  house-styled popup (`.ink-pop`) with the spot's intersection (the
+  dataset geocodes incidents to intersections; backslash separator
+  rendered as "&"), report count, and category breakdown —
+  aggregatePoints carries `n`, `x` (intersection), and a stringified
+  per-spot `cats` tally. The panel's category chips are FILTER TOGGLES —
+  EVERY category gets its own chip, sorted by count (an "Other"
+  aggregate existed and was removed on request; uncategorized rows have
+  no chip and are always shown). All on by default; tapping one off
+  fades the chip and re-aggregates the dots overlay from only the
   active categories (raw points kept as `incidentData.rawFC`). The heat
   surface deliberately stays all-categories — it's the ambient layer.
   Fallback (simulated) chips stay static.

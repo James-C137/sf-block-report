@@ -218,6 +218,14 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     min-width:150px;
   }
   .ink-pop .maplibregl-popup-tip{ display:none; }
+  .pop-loc{
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+    margin-bottom:4px;
+  }
   .pop-count{
     font-size:12px;
     font-weight:600;
@@ -666,7 +674,7 @@ var PERIOD_START  = sfDayISO(WINDOW_DAYS * MS_DAY);
 var INCIDENT_CAP = 25000;
 var INCIDENT_TIMEOUT_MS = 20000;
 var INCIDENTS_URL = 'https://data.sfgov.org/resource/wg3w-h783.json?' + [
-  '$select=' + encodeURIComponent('incident_date,incident_category,analysis_neighborhood,latitude,longitude'),
+  '$select=' + encodeURIComponent('incident_date,incident_category,analysis_neighborhood,intersection,latitude,longitude'),
   '$where='  + encodeURIComponent(
     "incident_date >= '" + PERIOD_START + "' AND incident_date < '" + PERIOD_END_EX + "'" +
     ' AND latitude IS NOT NULL AND longitude IS NOT NULL'),
@@ -785,7 +793,10 @@ function toIncidentFC(rows){
     if (lng < GRID_MIN_LNG || lng > GRID_MAX_LNG || lat < GRID_MIN_LAT || lat > GRID_MAX_LAT) continue;
     feats.push({
       type:'Feature',
-      properties:{ c: rows[i].incident_category || '' },
+      properties:{
+        c: rows[i].incident_category || '',
+        x: rows[i].intersection || ''
+      },
       geometry:{ type:'Point', coordinates:[lng, lat] }
     });
   }
@@ -801,11 +812,13 @@ function aggregatePoints(fc){
   fc.features.forEach(function(f){
     var c = f.geometry.coordinates;
     var k = c[0].toFixed(6) + ',' + c[1].toFixed(6);
-    if (!byKey[k]) byKey[k] = { c: c, n: 0, cats: {} };
+    if (!byKey[k]) byKey[k] = { c: c, n: 0, cats: {}, x: '' };
     var s = byKey[k];
     s.n += 1;
     var cat = (f.properties && f.properties.c) || '';
     if (cat) s.cats[cat] = (s.cats[cat] || 0) + 1;
+    /* incidents are geocoded to intersections, so one name per spot */
+    if (!s.x && f.properties && f.properties.x) s.x = f.properties.x;
   });
   var spots = Object.keys(byKey).map(function(k){ return byKey[k]; });
   var counts = spots.map(function(s){ return s.n; }).sort(function(a, b){ return a - b; });
@@ -820,6 +833,7 @@ function aggregatePoints(fc){
         properties:{
           w: +Math.min(1, Math.sqrt(s.n / ref)).toFixed(3),
           n: s.n,
+          x: s.x,
           /* per-spot category tally, stringified — MapLibre stringifies
              nested properties at query time anyway, so own the format */
           cats: JSON.stringify(s.cats)
@@ -1893,7 +1907,10 @@ map.on('load', function(){
     var rows = Object.keys(cats)
       .map(function(k){ return [k, cats[k]]; })
       .sort(function(a, b){ return b[1] - a[1]; });
-    var html = '<div class="pop-count num">' + p.n + (p.n === 1 ? ' report' : ' reports') + '</div>' +
+    /* the dataset separates cross streets with a backslash */
+    var loc = p.x ? String(p.x).replace(/\s*\\\s*/g, ' & ') : '';
+    var html = (loc ? '<div class="pop-loc">' + escHTML(loc) + '</div>' : '') +
+      '<div class="pop-count num">' + p.n + (p.n === 1 ? ' report' : ' reports') + '</div>' +
       rows.slice(0, 6).map(function(r){
         return '<div class="pop-row"><span>' + escHTML(r[0]) + '</span><span class="num">' + r[1] + '</span></div>';
       }).join('');
@@ -2270,12 +2287,14 @@ function renderChips(items){   /* [[label, count?], ...] — static (fallback) *
 }
 
 /* ---------- category filter (live data): chips drive the dots ----------
-   The top-5 chips plus an "Other" bucket are toggles. All start active;
-   tapping one off re-aggregates the dots overlay (and therefore the dot
-   details popups) from only the active categories. The heat surface
-   deliberately stays all-categories — it's the ambient layer. */
-var CAT_KEYS = null;     /* Set of the top-5 category names */
-var activeCats = null;   /* Set of active buckets (names + '__other') */
+   EVERY category gets its own chip (sorted by count — no "Other"
+   aggregate). All start active; tapping one off re-aggregates the dots
+   overlay (and therefore the dot details popups) from only the active
+   categories. The heat surface deliberately stays all-categories —
+   it's the ambient layer. Uncategorized rows ('__other' bucket, no
+   chip) are always shown. */
+var CAT_KEYS = null;     /* Set of all category names with chips */
+var activeCats = null;   /* Set of active buckets */
 function catBucket(c){
   return (CAT_KEYS && CAT_KEYS.has(c)) ? c : '__other';
 }
@@ -2288,11 +2307,10 @@ function applyDotFilter(){
   var src = map.getSource('incidents');
   if (src) src.setData(aggregatePoints({ features: feats }));
 }
-function renderFilterChips(topCats, otherCount){
+function renderFilterChips(catList){
   var el = document.getElementById('chips');
   el.innerHTML = '';
-  var items = topCats.map(function(c){ return { key: c[0], label: c[0], count: c[1] }; });
-  if (otherCount > 0) items.push({ key: '__other', label: 'Other', count: otherCount });
+  var items = catList.map(function(c){ return { key: c[0], label: c[0], count: c[1] }; });
   items.forEach(function(it){
     var chip = document.createElement('button');
     chip.type = 'button';
@@ -2340,13 +2358,12 @@ function computeStats(rows){
     if (r.incident_category) cats[r.incident_category] = (cats[r.incident_category] || 0) + 1;
     if (r.analysis_neighborhood) hoods[r.analysis_neighborhood] = (hoods[r.analysis_neighborhood] || 0) + 1;
   });
-  function top5(m){
+  function sorted(m){
     return Object.keys(m)
       .map(function(k){ return [k, m[k]]; })
-      .sort(function(a, b){ return b[1] - a[1]; })
-      .slice(0, 5);
+      .sort(function(a, b){ return b[1] - a[1]; });
   }
-  return { daily: daily, topCats: top5(cats), topHoods: top5(hoods) };
+  return { daily: daily, allCats: sorted(cats), topHoods: sorted(hoods).slice(0, 5) };
 }
 
 function applyLivePanel(rows){
@@ -2359,10 +2376,11 @@ function applyLivePanel(rows){
     vals.push(s.daily[day] || 0);
   }
   renderHistogram(vals);
-  CAT_KEYS = new Set(s.topCats.map(function(c){ return c[0]; }));
-  activeCats = new Set(s.topCats.map(function(c){ return c[0]; }).concat(['__other']));
-  var otherCount = rows.length - s.topCats.reduce(function(a, c){ return a + c[1]; }, 0);
-  renderFilterChips(s.topCats, otherCount);
+  var catNames = s.allCats.map(function(c){ return c[0]; });
+  CAT_KEYS = new Set(catNames);
+  /* '__other' (uncategorized rows, no chip) stays permanently active */
+  activeCats = new Set(catNames.concat(['__other']));
+  renderFilterChips(s.allCats);
   renderRanking(s.topHoods.map(function(h){ return [NHOOD_DISPLAY[h[0]] || h[0], h[1]]; }));
   document.getElementById('updated').textContent =
     'Updated ' + fmtDay(PERIOD_END) + ', ' + PERIOD_END.slice(0, 4) + '.';
