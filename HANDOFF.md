@@ -45,8 +45,15 @@ deleted from the deploy, individual files remain reachable by URL).
   basemap's `saturate(0)` CSS filter had to go — it would grayscale the
   heat layers in the same canvas — so `desaturateBasemap()` grays the
   Positron style's own paint colors at load instead (keeps the bay/parks
-  gray under the colored density). Panel UI stays monochrome graphite, as
-  do the incident dots (neutral over the colored surface).
+  gray under the colored density). Panel UI stays monochrome graphite.
+- **Accent color** (added with the charcoal ramp; user wants "minimal
+  colors, esp. on mobile"): one burnt orange, `--accent: #B7470A`, kept
+  from the rejected orange ramp. Used ONLY in tiny doses: the wordmark
+  square, the loading pip, the scroll-hint arrow (both visible in the
+  mobile first viewport), the histogram's peak bar, and the incident
+  points overlay dots — the single touch of color on the map itself.
+  Everything else stays graphite. Building extrusion opacity is capped at
+  0.85 (was 0.96) — full-strength charcoal volumes read too intense.
 - **Density rendering**: census-block choropleth + inked street segments at
   citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade

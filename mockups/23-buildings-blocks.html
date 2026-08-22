@@ -33,6 +33,10 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     --bar:      #D9D9D9;
     --paper:    #FFFFFF;
     --paper-2:  #FAFAFA;
+    /* the one color on the page: a burnt-orange accent (kept from the
+       rejected orange ramp), used only in tiny doses — brand mark,
+       loading pip, scroll arrow, histogram peak, points overlay */
+    --accent:   #B7470A;
   }
 
   *{ margin:0; padding:0; box-sizing:border-box; }
@@ -92,7 +96,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
   }
   .wordmark .mark{
     width:8px; height:8px;
-    background:var(--ink);
+    background:var(--accent);
     align-self:center;
     flex:none;
   }
@@ -159,7 +163,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     background:var(--bar);
     min-height:2px;
   }
-  .histogram span.hi{ background:var(--ink); }
+  .histogram span.hi{ background:var(--accent); }
   .hist-axis{
     display:flex; justify-content:space-between;
     margin-top:5px;
@@ -300,7 +304,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
   .loading.done{ opacity:0; }
   .loading .pip{
     width:8px; height:8px;
-    background:var(--ink);
+    background:var(--accent);
     flex:none;
     animation:pip 1.1s ease-in-out infinite;
   }
@@ -360,6 +364,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
   }
   .scroll-hint .arrow{
     display:inline-block;
+    color:var(--accent);
     animation:nudge 2.4s ease-in-out infinite;
   }
   @keyframes nudge{
@@ -915,7 +920,9 @@ var map = new maplibregl.Map(mapOptions);
 var BLOCK_FADE_FROM = 13.0;
 var BLOCK_FADE_TO   = 14.5;
 var BLDG_MINZOOM    = 12.9;   /* unloads while invisible — no pop */
-var BLDG_FULL_OPACITY = 0.96;
+var BLDG_FULL_OPACITY = 0.85;   /* full-entrance cap — at 0.96 the charcoal
+                                   volumes read too intense; letting a
+                                   little basemap through softens them */
 
 /* ground fade (blocks + street ink), as [zoom, fraction-of-full] stops.
    NOT linear: the ground holds near-full deep into the handoff and only
@@ -1535,8 +1542,10 @@ map.on('load', function(){
     layout:{ visibility: pointsOn ? 'visible' : 'none' },
     paint:{
       'circle-radius':['interpolate',['linear'],['zoom'], 10, 1.6, 13, 2.6, 16, 4.2],
-      'circle-color':'#1A1A1A',
-      'circle-opacity':0.55,
+      /* the accent orange — the one touch of color on the map itself,
+         legible over both paper and the charcoal ink */
+      'circle-color':'#B7470A',
+      'circle-opacity':0.6,
       'circle-stroke-color':'rgba(255,255,255,0.75)',
       'circle-stroke-width':0.7
     }
