@@ -263,6 +263,11 @@ pill is a real button that scrolls to the panel.
 
 ## Next steps
 
+**The port is planned in full — see `PORT_PLAN.md`** (architecture, the
+simplifications approved for transit, testing strategy incl. golden-oracle
+parity against the untouched mockup, phase sequencing, known quirks to fix
+in transit, and open decisions awaiting sign-off).
+
 1. Collect feedback on the live mockup.
 2. Real build: Vite + vanilla TS scaffold; port 23 as modules. The FULL V1
    scope is now live in the no-build page (heat, date-range brush,
