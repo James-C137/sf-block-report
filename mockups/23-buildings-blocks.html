@@ -382,7 +382,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     position:absolute;
     top:calc(env(safe-area-inset-top, 0px) + 14px);
     right:14px;
-    width:44px; height:44px;               /* generous hit target */
+    width:72px; height:72px;               /* generous hit target */
     display:flex; align-items:center; justify-content:center;
     appearance:none;
     background:none;
@@ -449,7 +449,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
   </div>
   <button type="button" class="scroll-hint" id="scroll-hint"><span>Details below</span><span class="arrow" aria-hidden="true">&darr;</span></button>
   <button type="button" class="compass" id="compass" aria-label="Compass: press to reset the map to north" title="Reset north">
-    <span class="tilt" id="compass-tilt" aria-hidden="true"><svg id="compass-needle" width="26" height="26" viewBox="0 0 22 22">
+    <span class="tilt" id="compass-tilt" aria-hidden="true"><svg id="compass-needle" width="52" height="52" viewBox="0 0 22 22">
       <polygon points="11,2 14.2,11 7.8,11" fill="#B7470A"/>
       <polygon points="7.8,11 14.2,11 11,20" fill="#C6C0BA"/>
     </svg></span>
@@ -1588,7 +1588,7 @@ map.on('load', function(){
          tried and stacked too intensely — the outline is what gives the
          dots their softness */
       'circle-color':'#B7470A',
-      'circle-opacity':0.55,
+      'circle-opacity':0.25,   /* low, so stacked reports build up density */
       'circle-stroke-color':'rgba(255,255,255,0.75)',
       'circle-stroke-width':0.7
     }
