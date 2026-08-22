@@ -767,7 +767,7 @@ var GROUND_FADE = [
   [14.5, 0.00]
 ];
 
-/* entrance treatment (the settled "both": fade + grow together), as
+/* entrance treatment (fade + grow together), as
    [zoom, fraction] stops for opacity and height. Opacity front-loads —
    steep at the start of the range, easing into full — so the buildings
    are already inking the hotspot while the ground is still holding, and
@@ -968,13 +968,11 @@ var nhoodsPromise = fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE).then(toNhoodLabelFC);
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
 var INKC = '#1A1A1A';
 
-/* settled design constants — formerly the exploration dials, now locked at
-   their defaults: ink 100%, contrast 1.20, blocks 85%, height 100% */
-var INK = 1.0;
-var CONTRAST = 1.2;
-var BLOCKS_MAX = 0.85;
-var HEIGHT_MULT = 1.0;
-var pointsOn = false;           /* the one remaining toggle */
+var INK = 1.0;                  /* density → ink strength */
+var CONTRAST = 1.2;             /* density → darkness steepness (exponent) */
+var BLOCKS_MAX = 0.85;          /* opacity cap on the ground layers (blocks + street ink) */
+var HEIGHT_MULT = 1.0;          /* building extrusion height multiplier */
+var pointsOn = false;
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
