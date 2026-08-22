@@ -232,19 +232,20 @@ button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
 .map-label{
   font-size:10.5px; font-weight:500; line-height:1.35;
   color:var(--ink);
-  text-shadow:
-    0 1px 0 var(--paper), 0 -1px 0 var(--paper),
-    1px 0 0 var(--paper), -1px 0 0 var(--paper),
-    0 0 3px var(--paper), 0 0 3px var(--paper), 0 0 3px var(--paper);
+  /* a REAL outline: stroke painted UNDER the glyph fill. It's vector, so
+     it scales cleanly with the in-world transform — offset text-shadow
+     copies read as displaced clones once the label is 16x. The soft
+     glow underneath is only for separation on busy ground. */
+  -webkit-text-stroke:3px var(--paper);
+  paint-order:stroke fill;
+  text-shadow:0 0 4px var(--paper);
 }
 /* over hotspot cores the ground ink is near-black — invert
    (threshold LABEL_INVERT_DENS, sampled from the pristine field) */
 .map-label.on-dark{
   color:var(--paper);
-  text-shadow:
-    0 1px 0 rgba(26,26,26,0.9), 0 -1px 0 rgba(26,26,26,0.9),
-    1px 0 0 rgba(26,26,26,0.9), -1px 0 0 rgba(26,26,26,0.9),
-    0 0 3px rgba(26,26,26,0.9), 0 0 3px rgba(26,26,26,0.9), 0 0 3px rgba(26,26,26,0.9);
+  -webkit-text-stroke-color:#211E1C;
+  text-shadow:0 0 4px rgba(26,26,26,0.9);
 }
 
 /* pin label: centered ABOVE the teardrop, inside the scaled span so it
