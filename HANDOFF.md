@@ -68,7 +68,9 @@ deleted from the deploy, individual files remain reachable by URL).
   each dot's opacity scales with its report count through the SAME law as
   blocks/buildings: normalize to the p99.5 spot, sqrt gamma, the shared
   near-linear ramp, capped at 0.85. A lone report paints ~0.2, a repeat
-  address builds toward full ink.
+  address builds toward full ink. Radius also grows with the weight
+  (0.7x singles → 1.2x hot addresses) and the paper stroke thins at
+  citywide zoom (it read as measles at full width there).
 - **Density rendering**: census-block choropleth + inked street segments at
   citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade
@@ -80,10 +82,15 @@ deleted from the deploy, individual files remain reachable by URL).
 - **Neighborhood labels**: DataSF Analysis Neighborhoods (41), curated majors
   at citywide zoom, rest reveal past z12.6, pole-of-inaccessibility anchors,
   density-aware inversion (paper-white text over dark ink).
-- **Points overlay** (not a separate view): On/Off switch, dots with a faint
-  paper halo, drawn above extrusions. The only remaining control — all tuning
-  dials were removed with defaults baked in: ink 100%, contrast 1.20, blocks
-  85%, height 100%, entrance "Both", streets on.
+- **Points overlay** (not a separate view, no toggle): dots draw above the
+  extrusions and FADE IN one zoom level above the buildings — the
+  buildings' entrance curve shifted +1 (z14→15), minzoom-culled below.
+  The panel now has zero controls (the On/Off switch was removed; the
+  compass is the only interactive control, and it lives on the map). If
+  BOTH density layers fail, the degrade path un-gates the dots' zoom
+  range so they can carry the map alone. All tuning dials were removed
+  with defaults baked in: ink 100%, contrast 1.0, blocks 85%, height
+  100%, entrance "Both", streets on.
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1

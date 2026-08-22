@@ -484,19 +484,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <span class="microlabel">Category</span>
     <div class="chips" id="chips"></div>
-
-    <hr class="rule">
-
-    <span class="microlabel">Layer</span>
     <div class="notice" id="notice"></div>
-
-    <div class="slider-head">
-      <span class="microlabel" id="points-label">Points</span>
-    </div>
-    <div class="segment" role="group" aria-labelledby="points-label">
-      <button type="button" id="points-on" class="active" aria-pressed="true">On</button>
-      <button type="button" id="points-off" aria-pressed="false">Off</button>
-    </div>
 
     <hr class="rule">
 
@@ -1246,7 +1234,6 @@ var CONTRAST = 1.0;             /* density → strength exponent; 1.2 muted the
                                    visible wash across the whole city */
 var BLOCKS_MAX = 0.85;          /* opacity cap on the ground layers (blocks + street ink) */
 var HEIGHT_MULT = 1.0;          /* building extrusion height multiplier */
-var pointsOn = true;
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
@@ -1307,7 +1294,11 @@ function blockOpacityExpr(){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
-function pointOpacityExpr(){
+/* points entrance: the buildings' opacity curve shifted exactly one zoom
+   level up — the dots arrive once the volumes have fully resolved */
+var POINTS_ENTRANCE = ENTRANCE.op.map(function(s){ return [s[0] + 1, s[1]]; });
+var POINTS_MINZOOM = POINTS_ENTRANCE[0][0] - 0.1;
+function pointBaseOpacityExpr(){
   /* the dots overlay under the SAME scaling law as blocks/buildings:
      ink * w^contrast through the shared near-linear ramp, capped like the
      ground layers — a lone report reads faint, a repeat address builds
@@ -1324,6 +1315,12 @@ function pointOpacityExpr(){
     0.80, 0.79,
     1.00, 1.0
   ]];
+}
+function pointOpacityExpr(){
+  var full = pointBaseOpacityExpr();
+  return zoomCurve(POINTS_ENTRANCE, function(f){
+    return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
+  });
 }
 function streetColorExpr(){
   /* same ink * d^contrast law pushed through the SAME soft-toe alpha ramp
@@ -1509,7 +1506,12 @@ function settleLoading(){
 function degradeIfBothFailed(){
   if (buildingsFailed && blocksFailed){
     showNotice('Density layers could not be loaded — showing incident points instead.');
-    setPoints(true);
+    /* the dots normally hold back until the buildings have resolved;
+       with no density layers they're all we have, so un-gate the zoom */
+    if (map.getLayer('points')){
+      map.setLayerZoomRange('points', 0, 24);
+      map.setPaintProperty('points', 'circle-opacity', pointBaseOpacityExpr());
+    }
   }
 }
 
@@ -1624,12 +1626,15 @@ map.on('load', function(){
 
   /* points ride ON TOP of everything, extrusions included — under the
      volumes they vanish into the fabric at tilt; a faint paper halo keeps
-     them legible over dark block/building ink */
+     them legible over dark block/building ink. No toggle: they fade in
+     one zoom level above the buildings (see POINTS_ENTRANCE), arriving
+     once the volumes have fully resolved */
   map.addLayer({
     id:'points',
     type:'circle',
     source:'incidents',
-    layout:{ visibility: pointsOn ? 'visible' : 'none' },
+    minzoom:POINTS_MINZOOM,   /* truly gone when zoomed out — entrance curve
+                                 is already at zero here, so no pop */
     paint:{
       /* radius grows a little with the spot's report weight so hot
          addresses read bigger, not just darker (zoom stays the OUTER
@@ -1834,22 +1839,6 @@ map.on('load', function(){
     console.warn('Neighborhood names could not be loaded — map stays unlabeled:', err);
   });
 });
-
-/* ---------- points overlay on/off ---------- */
-var ptOn = document.getElementById('points-on');
-var ptOff = document.getElementById('points-off');
-function setPoints(on){
-  pointsOn = on;
-  if (map.getLayer('points')){
-    map.setLayoutProperty('points', 'visibility', on ? 'visible' : 'none');
-  }
-  ptOn.classList.toggle('active', on);
-  ptOff.classList.toggle('active', !on);
-  ptOn.setAttribute('aria-pressed', on);
-  ptOff.setAttribute('aria-pressed', !on);
-}
-ptOn.addEventListener('click', function(){ setPoints(true); });
-ptOff.addEventListener('click', function(){ setPoints(false); });
 
 /* ---------- "details below" pill scrolls to the panel ---------- */
 document.getElementById('scroll-hint').addEventListener('click', function(){
