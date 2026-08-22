@@ -1,0 +1,453 @@
+:root{
+  --ink:      #1A1A1A;
+  --ink-60:   #5C5C5C;
+  --ink-40:   #8A8A8A;
+  --ink-25:   #ADADAD;
+  --hair:     #E5E5E5;
+  --hair-lt:  #EFEFEF;
+  --bar:      #D9D9D9;
+  --paper:    #FFFFFF;
+  --paper-2:  #FAFAFA;
+  /* the one color on the page: a burnt-orange accent, used only in tiny
+     doses — brand mark, loading pip, scroll arrow, histogram peak,
+     compass needle tip, dots overlay */
+  --accent:   #B7470A;
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+
+html, body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  font-size:13px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* ---------- map ---------- */
+
+.map-stage{
+  position:relative;
+  height:100dvh;
+  min-height:480px;
+  background:#F4F4F4;
+}
+#map{
+  position:absolute; inset:0;
+  /* NOTE: no saturate(0) here — our layers render into this canvas and a
+     grayscale filter would kill them; the basemap is desaturated
+     in-style instead (see desaturate.ts) */
+  filter:contrast(1.01);
+}
+
+.maplibregl-ctrl-attrib{
+  font-family:'Inter', sans-serif;
+  font-size:9px;
+  letter-spacing:0.01em;
+  color:var(--ink-40);
+  background:rgba(255,255,255,0.85) !important;
+}
+.maplibregl-ctrl-attrib a{ color:var(--ink-40); text-decoration:none; }
+.maplibregl-ctrl-attrib-button{ filter:grayscale(1); opacity:0.55; }
+
+/* ---------- floating column / stacked sheet ---------- */
+
+.panel{
+  background:var(--paper);
+  border-top:1px solid var(--hair);
+}
+.panel-inner{
+  padding:22px 20px 30px;
+  max-width:420px;
+  margin:0 auto;
+}
+
+.wordmark{ display:flex; align-items:baseline; gap:8px; }
+.wordmark .mark{
+  width:8px; height:8px;
+  background:var(--accent);
+  align-self:center;
+  flex:none;
+}
+.wordmark h1{ font-size:13px; font-weight:600; letter-spacing:-0.01em; }
+.wordmark .city{
+  font-size:10px; font-weight:450; color:var(--ink-40);
+  letter-spacing:0.14em; text-transform:uppercase; margin-left:auto;
+}
+
+.rule{ border:0; border-top:1px solid var(--hair); margin:16px 0; }
+.rule.lt{ border-top-color:var(--hair-lt); }
+
+.microlabel{
+  font-size:9px; font-weight:500;
+  letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--ink-40);
+}
+
+.num{ font-variant-numeric:tabular-nums; font-feature-settings:'tnum'; }
+
+/* period + count */
+.period{
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-top:14px;
+}
+.period .range{
+  font-size:11px; font-weight:450; color:var(--ink-60);
+  letter-spacing:0.01em;
+}
+.period-right{ display:flex; align-items:baseline; gap:12px; }
+.count{ display:flex; align-items:baseline; gap:7px; margin-top:6px; }
+.count .value{ font-size:26px; font-weight:450; letter-spacing:-0.02em; }
+.count .unit{
+  font-size:10px; letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--ink-40);
+}
+
+/* histogram — also the date-range brush track */
+.histogram{
+  display:flex; align-items:flex-end; gap:2px;
+  height:34px;
+  margin-top:14px;
+  touch-action:none;   /* the drag IS the interaction — don't scroll */
+  cursor:crosshair;
+}
+.histogram.inert{ cursor:default; touch-action:auto; }
+.histogram span{
+  flex:1 1 0;
+  background:var(--bar);
+  min-height:2px;
+  transition:opacity 120ms ease;
+}
+.histogram span.hi{ background:var(--accent); }
+.histogram span.dim{ opacity:0.22; }
+.hist-axis{
+  display:flex; justify-content:space-between;
+  margin-top:5px;
+  font-size:9px; letter-spacing:0.06em;
+  color:var(--ink-25);
+}
+
+/* category chips = filter toggles */
+.chips-head{ display:flex; justify-content:space-between; align-items:baseline; }
+.chips-actions .sep{ color:var(--ink-25); font-size:9px; margin:0 2px; }
+.linklike{
+  appearance:none; border:0; background:none; padding:0;
+  font-family:inherit; font-size:9px; font-weight:500;
+  letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--ink-40); cursor:pointer;
+  transition:color 120ms ease;
+}
+.linklike:hover{ color:var(--ink); }
+.linklike:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
+
+.chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.chip{
+  font-size:10.5px; font-weight:450; letter-spacing:0.02em;
+  color:var(--ink-60);
+  border:1px solid var(--hair);
+  background:var(--paper);
+  padding:4px 10px;
+  border-radius:999px;
+  white-space:nowrap;
+}
+.chip .n{ color:var(--ink-25); margin-left:5px; }
+button.chip{
+  appearance:none; font-family:inherit; cursor:pointer;
+  transition:opacity 120ms ease;
+}
+button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
+.chip.off{ opacity:0.35; }
+
+/* notice */
+.notice{
+  display:none;
+  margin-top:10px;
+  font-size:10px; line-height:1.5;
+  color:var(--ink-60);
+  border:1px solid var(--hair);
+  background:var(--paper-2);
+  padding:8px 10px;
+}
+.notice.show{ display:block; }
+
+/* pins */
+.pin-input{
+  display:block; width:100%;
+  margin-top:12px;
+  appearance:none;
+  border:1px solid var(--hair);
+  border-radius:0;
+  background:var(--paper);
+  font-family:inherit; font-size:11px; letter-spacing:0.02em;
+  color:var(--ink);
+  padding:8px 10px;
+}
+.pin-input::placeholder{ color:var(--ink-25); }
+.pin-input:focus-visible{ outline:1px solid var(--ink); outline-offset:-1px; }
+.pin-status{ display:none; margin-top:6px; font-size:10px; color:var(--ink-60); }
+.pin-status.show{ display:block; }
+.pin-list{ list-style:none; margin-top:4px; }
+.pin-list li{
+  display:flex; align-items:baseline; gap:8px;
+  padding:6px 0;
+  border-bottom:1px solid var(--hair-lt);
+  font-size:11px;
+}
+.pin-list .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pin-list .rm{
+  margin-left:auto;
+  appearance:none; border:0; background:none;
+  font-family:inherit; font-size:13px; line-height:1;
+  color:var(--ink-40); cursor:pointer; padding:0 2px;
+}
+.pin-list .rm:hover{ color:var(--ink); }
+
+/* map ping: graphite teardrop; MapLibre's Marker owns the outer
+   transform, so the scalable pin lives on an inner span scaling about
+   its TIP. Display-only: removal is the panel list's job. */
+.ping{
+  width:20px; height:20px;
+  pointer-events:none;
+}
+.ping .pin{
+  position:absolute; inset:0;
+  transform-origin:50% 94%;
+}
+.ping .pin::after{
+  content:'';
+  position:absolute;
+  left:3px; top:2px;
+  width:14px; height:14px;
+  background:var(--ink);
+  border:1.5px solid var(--paper);
+  border-radius:50% 50% 0 50%;
+  transform:rotate(45deg);   /* square corner points down = the tip */
+  box-shadow:0 1px 3px rgba(26,26,26,0.3);
+}
+
+/* ranking */
+.ranking{ list-style:none; margin-top:12px; }
+.ranking li{ padding:7px 0; }
+.ranking li + li{ border-top:1px solid var(--hair-lt); }
+.rank-row{ display:flex; align-items:baseline; gap:8px; }
+.rank-row .idx{ font-size:9px; color:var(--ink-25); width:12px; flex:none; }
+.rank-row .name{ font-size:11.5px; font-weight:450; }
+.rank-row .val{ margin-left:auto; font-size:11px; font-weight:450; color:var(--ink-60); }
+.rank-bar{
+  height:2px;
+  background:var(--hair-lt);
+  margin-top:6px; margin-left:20px;
+  position:relative;
+}
+.rank-bar i{
+  position:absolute; inset:0 auto 0 0;
+  background:var(--ink);
+  opacity:0.72;
+}
+
+/* legend */
+.legend{ margin-top:12px; }
+.legend-row{
+  display:flex; align-items:center; gap:12px;
+  padding:4px 0;
+  font-size:10.5px;
+  color:var(--ink-60);
+}
+.legend-key{ width:56px; flex:none; display:flex; align-items:center; justify-content:center; }
+.legend-ramp{
+  width:56px; height:8px;
+  background:linear-gradient(to right, #FFFFFF, #B9AFA7 45%, #6E625A 75%, #26201D);
+  border:1px solid var(--hair-lt);
+}
+.legend-dot{
+  width:9px; height:9px;
+  border-radius:50%;
+  background:var(--accent);
+  opacity:0.8;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.9), 0 0 0 2px var(--hair-lt);
+}
+.legend-pin{
+  width:10px; height:10px;
+  background:var(--ink);
+  border:1px solid var(--paper);
+  border-radius:50% 50% 0 50%;
+  transform:rotate(45deg);
+  box-shadow:0 1px 2px rgba(26,26,26,0.25);
+}
+
+.footnote{
+  margin-top:16px;
+  font-size:9.5px; line-height:1.6;
+  color:var(--ink-25);
+  letter-spacing:0.02em;
+}
+
+/* loading pill */
+.loading{
+  position:absolute;
+  left:50%; top:18px;
+  transform:translateX(-50%);
+  display:flex; align-items:center; gap:9px;
+  background:var(--paper);
+  border:1px solid var(--hair);
+  border-radius:999px;
+  padding:7px 15px;
+  font-size:9px; font-weight:500;
+  letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--ink-60);
+  z-index:6;
+  pointer-events:none;
+  transition:opacity 300ms ease;
+}
+.loading.done{ opacity:0; }
+.loading .pip{
+  width:8px; height:8px;
+  background:var(--accent);
+  flex:none;
+  animation:pip 1.1s ease-in-out infinite;
+}
+@keyframes pip{
+  0%,100%{ transform:scale(1); opacity:1; }
+  50%{ transform:scale(0.45); opacity:0.35; }
+}
+@media (prefers-reduced-motion: reduce){
+  .loading .pip{ animation:none; }
+}
+.loading .track{
+  width:64px; height:2px;
+  background:var(--hair);
+  position:relative;
+  overflow:hidden;
+}
+.loading .track i{
+  position:absolute; inset:0 auto 0 0;
+  width:0%;
+  background:var(--ink);
+  transition:width 400ms ease;
+}
+
+/* scroll affordance (mobile) — a real button: the map holds one-finger
+   gestures for itself on phones, so this is the guaranteed way down */
+.scroll-hint{
+  position:absolute;
+  left:50%; bottom:46px;
+  transform:translateX(-50%);
+  display:flex; align-items:center; gap:7px;
+  appearance:none;
+  font-family:inherit;
+  background:var(--paper);
+  border:1px solid var(--hair);
+  border-radius:999px;
+  padding:6px 13px;
+  font-size:9px; font-weight:500;
+  letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--ink-60);
+  cursor:pointer;
+  z-index:5;
+}
+.scroll-hint:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
+.scroll-hint .arrow{
+  display:inline-block;
+  color:var(--accent);
+  animation:nudge 2.4s ease-in-out infinite;
+}
+@keyframes nudge{
+  0%,100%{ transform:translateY(0); opacity:0.9; }
+  50%{ transform:translateY(2px); opacity:0.45; }
+}
+@media (prefers-reduced-motion: reduce){
+  .scroll-hint .arrow{ animation:none; }
+}
+
+/* cooperative-gesture overlay, set in the house type */
+.maplibregl-cooperative-gesture-screen{
+  font-family:'Inter', sans-serif;
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:0.06em;
+}
+
+/* compass: a bare needle living directly on the map. The rotated needle
+   svg's square bounding box pokes past the button, which once widened
+   the page into horizontal scroll on mobile — clip to the circle; the
+   drawn needle never reaches the corners. */
+.compass{
+  position:absolute;
+  top:calc(env(safe-area-inset-top, 0px) + 14px);
+  right:14px;
+  width:52px; height:52px;
+  border-radius:50%;
+  overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  appearance:none;
+  background:none;
+  border:0;
+  padding:0;
+  cursor:pointer;
+  z-index:6;
+  perspective:90px;
+}
+.compass .tilt{ display:flex; transition:transform 200ms ease; }
+.compass svg{
+  display:block;
+  filter:drop-shadow(0 0 3px rgba(255,255,255,0.85));
+  transition:transform 200ms ease;
+}
+.compass:focus-visible{
+  outline:1px solid var(--ink);
+  outline-offset:2px;
+}
+
+/* dot details popup, in the house style */
+.ink-pop .maplibregl-popup-content{
+  font-family:'Inter', -apple-system, sans-serif;
+  background:var(--paper);
+  border:1px solid var(--hair);
+  border-radius:0;
+  box-shadow:0 2px 12px rgba(26,26,26,0.10);
+  padding:10px 12px;
+  min-width:150px;
+}
+.ink-pop .maplibregl-popup-tip{ display:none; }
+.pop-loc{
+  font-size:9px; font-weight:500;
+  letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--ink-40);
+  margin-bottom:4px;
+}
+.pop-count{ font-size:12px; font-weight:600; letter-spacing:0.02em; margin-bottom:5px; }
+.pop-row{
+  display:flex; justify-content:space-between; gap:14px;
+  font-size:10.5px;
+  color:var(--ink-60);
+  padding:2px 0;
+}
+
+/* ---------- desktop: single floating column ---------- */
+
+@media (min-width: 900px){
+  body{ overflow:hidden; }
+  .map-stage{ height:100vh; }
+  .scroll-hint{ display:none; }
+
+  .panel{
+    position:fixed;
+    top:20px; left:20px;
+    width:296px;
+    max-height:calc(100vh - 40px);
+    overflow-y:auto;
+    border:1px solid var(--hair);
+    background:var(--paper);
+    z-index:10;
+    scrollbar-width:thin;
+    scrollbar-color:var(--hair) transparent;
+  }
+  .panel-inner{
+    padding:18px 18px 22px;
+    max-width:none;
+  }
+  .loading{ left:auto; right:18px; transform:none; }
+  .compass{ top:64px; right:18px; }   /* clear of the loading pill */
+}

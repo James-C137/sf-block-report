@@ -1,6 +1,6 @@
 # Block Report — Session Handoff
 
-_Last updated: 2026-08-21_
+_Last updated: 2026-08-22_
 
 ## What this is
 
@@ -9,14 +9,24 @@ A crime heat map of San Francisco built on DataSF data. One view: a monochrome
 date-range selector (max 30-day span) planned for the real build.
 
 **Live site:** https://james-c137.github.io/sf-block-report/ (GitHub Pages,
-`main` branch root, repo is public). The root `index.html` redirects to the
-final mockup.
+`main` branch root, repo is public). The root serves the **built app** —
+`app/` (Vite + vanilla TypeScript) built and committed to the root via
+`npm run deploy:root` (root `index.html` + `assets/`; pushing main
+publishes). The mockup archive stays reachable at
+`mockups/23-buildings-blocks.html`.
 
 ## Current state
 
-The design phase is complete. The winning design is
-`mockups/23-buildings-blocks.html` — a self-contained no-build page, currently
-serving as the product while collecting feedback. Everything else in
+**The port is DONE (2026-08-22).** `app/` is the product: the full V1
+feature set from the mockup, restructured into typed modules per
+`PORT_PLAN.md` (street ink dropped entirely per user call; deck.gl
+dropped; quirk fixes §6 applied). 31 spec-driven unit tests + a 25-check
+playwright-core e2e smoke (`app/e2e/run.mjs`, all external services
+mocked) are green; the mockup is a reference only — no test reads or
+executes it.
+
+The reference design is `mockups/23-buildings-blocks.html` — a
+self-contained no-build page, feature-frozen. Everything else in
 `mockups/` is the exploration trail (23 iterations; the gallery page was
 deleted from the deploy, individual files remain reachable by URL).
 
@@ -263,21 +273,20 @@ pill is a real button that scrolls to the panel.
 
 ## Next steps
 
-**The port is planned in full — see `PORT_PLAN.md`** (architecture, the
-simplifications approved for transit, testing strategy incl. golden-oracle
-parity against the untouched mockup, phase sequencing, known quirks to fix
-in transit, and open decisions awaiting sign-off).
+**The port shipped 2026-08-22** — see `PORT_PLAN.md` (kept as the
+architecture record, with as-built amendments in §2.1 and §4). Dev loop:
+`cd app && npm install && npm run dev`; verify with `npm run typecheck`,
+`npm test`, `npm run e2e` (build + `deploy:root` first — the e2e serves
+the deployed repo-root layout); ship with `npm run deploy:root` and push
+main.
 
-1. Collect feedback on the live mockup.
-2. Real build: Vite + vanilla TS scaffold; port 23 as modules. The FULL V1
-   scope is now live in the no-build page (heat, date-range brush,
-   category filter driving everything, ranking, dots, pins, legend) —
-   the port is a restructuring job, not a feature job. Still open: a
-   Socrata app token to move off the tokenless throttle pool.
+1. Collect feedback on the live app.
+2. Register a Socrata app token (→ `VITE_SODA_APP_TOKEN` at build) to
+   move off the tokenless throttle pool.
 3. One-time geometry refresh with widened building bboxes (fixes the
-   Russian Hill cutoff), committed to the repo; then GitHub Actions
-   deploy of `dist/` to Pages with Vite `base: '/sf-block-report/'` —
-   the deploy does NOT refetch geometry (decision above).
+   Russian Hill cutoff), committed to the repo — needs a
+   network-enabled machine; the deploy does NOT refetch geometry
+   (decision above).
 4. Watch CARTO basemap usage terms if traffic grows (OpenFreeMap is the
    drop-in alternative).
 

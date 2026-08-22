@@ -115,10 +115,11 @@ Ordered by conviction.
    crossings render slightly darker under the MapLibre renderer
    (butt-cap/miter already prevents endpoint double-painting; only true
    crossing overlaps stack) — the exact rendering mobile has always
-   used. Port only the MapLibre street renderer behind a `STREETS_ON`
-   config flag, default off. Saves ~1MB of library, a second WebGL
-   context, and the single hairiest subsystem. Revisit only if street
-   ink comes back strong.
+   used. _AMENDED 2026-08-22: street ink is dropped ENTIRELY ("street
+   ink can be dropped entirely for simplicity") — no `STREETS_ON` flag,
+   no street renderer, no `streets.geojson` fetch. Only the sub-street
+   entrance delay survives, in `createMap.ts`._ Saves ~1MB of library, a
+   second WebGL context, and the single hairiest subsystem.
 
 2. **Drop the remote Socrata fallbacks for geometry.** Snapshots are
    committed and served same-origin; if they 404 the deploy is broken and
@@ -267,21 +268,23 @@ crash class), brush-commit latency on a mid phone, thermals.
 
 ## 4. Build, CI, deploy
 
-- Vite `vanilla-ts` template, `base: '/sf-block-report/'`; ESLint +
-  Prettier; Vitest; Playwright.
-- Snapshots move to `public/data/` (the mockup keeps its own copy in
-  `mockups/data/` untouched — accept the 31MB duplication until the flip,
-  then decide whether the mockup archive keeps data or gets a note).
+- Vite `vanilla-ts` template, `base: '/sf-block-report/'`; Vitest;
+  Playwright (playwright-core smoke harness in `app/e2e/run.mjs`).
+- _AS BUILT:_ snapshots do NOT move — GitHub Pages serves the main
+  branch root directly (no Actions deploy is configured for this repo),
+  so the app fetches the one existing copy at `mockups/data/…` via
+  `DATA_BASE`. No 31MB duplication ever happens. The unused
+  `streets.geojson` stays only as part of the mockup archive.
 - Socrata app token: repo secret → `VITE_SODA_APP_TOKEN` at build (public
-  in the client by design; the secret is just hygiene). Register the
-  token as part of this phase.
-- GitHub Actions on push to main: typecheck → lint → unit → build → E2E
-  (smoke + layers-only visual) → deploy `dist/` to Pages via
-  `actions/deploy-pages`. **No geometry fetching anywhere in CI** (decision
-  on record).
-- Pages layout during the port: root redirect keeps pointing at the
-  mockup; the app deploys under `/app/`. The flip (§5 phase 6) is a
-  one-line redirect change, trivially revertible.
+  in the client by design; the secret is just hygiene). Registration is
+  still pending (post-port task) — the app runs tokenless until then.
+- _AS BUILT:_ deploy = committed build. `npm run deploy:root` builds and
+  copies `dist/index.html` + `dist/assets/` to the repo root
+  (`app/scripts/deploy-root.mjs`); pushing main publishes. CI (optional
+  follow-up) would run typecheck → unit → build only — **no geometry
+  fetching anywhere in CI** (decision on record) and no Pages action.
+- Pages layout after the flip: the root serves the app; the mockup stays
+  reachable at `mockups/23-buildings-blocks.html` as the archive.
 
 ---
 
