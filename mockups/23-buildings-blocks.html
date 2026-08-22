@@ -382,7 +382,8 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     position:absolute;
     top:calc(env(safe-area-inset-top, 0px) + 14px);
     right:14px;
-    width:72px; height:72px;               /* generous hit target */
+    width:52px; height:52px;               /* snug round hit target */
+    border-radius:50%;
     display:flex; align-items:center; justify-content:center;
     appearance:none;
     background:none;
@@ -1630,16 +1631,28 @@ map.on('load', function(){
     source:'incidents',
     layout:{ visibility: pointsOn ? 'visible' : 'none' },
     paint:{
-      'circle-radius':['interpolate',['linear'],['zoom'], 10, 1.6, 13, 2.6, 16, 4.2],
+      /* radius grows a little with the spot's report weight so hot
+         addresses read bigger, not just darker (zoom stays the OUTER
+         interpolate — same MapLibre gotcha as line-width) */
+      'circle-radius':(function(){
+        var f = ['+', 0.7, ['*', 0.5, ['get','w']]];
+        return ['interpolate',['linear'],['zoom'],
+          10, ['*', 1.6, f],
+          13, ['*', 2.6, f],
+          16, ['*', 4.2, f]
+        ];
+      })(),
       /* the accent orange — the one touch of color on the map itself.
          The faint paper outline stays: a blurred no-stroke variant was
          tried and stacked too intensely — the outline is what gives the
          dots their softness. Opacity scales per spot with report count,
-         same law as the ground layers */
+         same law as the ground layers. The stroke thins at citywide zoom:
+         a 0.7px ring around a ~1.6px dot outweighed the fill and the
+         overlay read as measles */
       'circle-color':'#B7470A',
       'circle-opacity': pointOpacityExpr(),
-      'circle-stroke-color':'rgba(255,255,255,0.75)',
-      'circle-stroke-width':0.7
+      'circle-stroke-color':'rgba(255,255,255,0.7)',
+      'circle-stroke-width':['interpolate',['linear'],['zoom'], 10, 0.2, 13, 0.5, 16, 0.9]
     }
   });
 
