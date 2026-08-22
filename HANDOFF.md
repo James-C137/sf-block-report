@@ -41,9 +41,20 @@ deleted from the deploy, individual files remain reachable by URL).
   paper halo, drawn above extrusions. The only remaining control — all tuning
   dials were removed with defaults baked in: ink 100%, contrast 1.20, blocks
   85%, height 100%, entrance "Both", streets on.
-- **Incident data is still fake**: ~2k seeded points (mulberry32) in Gaussian
-  clusters over Tenderloin/SoMa, Mission, Bayview. The panel's period/count/
-  histogram/categories/ranking are static props.
+- **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
+  Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
+  request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1
+  takes any `$limit`, and tokenless clients share a throttled per-IP pool, so
+  one capped request beats paging; ordered newest-first so a cap-hit keeps
+  the freshest rows and the panel says so). The window ends yesterday —
+  the dataset refreshes daily with a day or two of reporting lag. Density is
+  the real points binned into a ~40m grid, box-blurred (≈ Gaussian, sigma
+  ≈190m; streets sample a wider ≈280m blur), normalized to the p99.5 cell and
+  clamped (single-address spikes would flatten a max-normal). The panel —
+  period, count, 30-day histogram, top-5 category chips, neighborhood
+  ranking — is computed from the same rows. If the fetch fails or times out
+  (20s), the old ~2k seeded points return as a fallback with a visible
+  notice and the footnote flips to "simulated".
 
 ### Data
 
@@ -57,6 +68,10 @@ with remote Socrata fallback):
 | `buildings-0..3.json` | `ynuv-fyni` Building Footprints | 75,634 footprints, core bbox, simplified |
 | `buildings-mobile.json` | same, tighter bbox + coarser simplify | 35,674 footprints |
 | `neighborhoods.geojson` | `j2bu-swwd` Analysis Neighborhoods | 41 polygons |
+
+Incidents are the exception: `wg3w-h783` Police Department Incident Reports
+2018–present is queried at **runtime** (no local snapshot — it's the live
+data), last 30 days, capped at 25k rows in a single request.
 
 The exact Socrata queries are in the mockup files next to each fetch.
 
@@ -88,10 +103,11 @@ pixel-identical to before.
 ## Next steps
 
 1. Collect feedback on the live mockup.
-2. Real build: Vite + vanilla TS scaffold; port 23 as modules; replace seeded
-   fake points with live Socrata incident queries (dataset: Police Department
-   Incident Reports 2018–present, `wg3w-h783`); wire the date-range brush,
-   category chips, count/histogram, and neighborhood ranking to real data.
+2. Real build: Vite + vanilla TS scaffold; port 23 as modules. The live
+   Socrata incident fetch, density grid, and real-data panel (count,
+   histogram, category chips, ranking) are DONE in the no-build page — still
+   to wire: the interactive date-range brush and category chip filtering,
+   plus a Socrata app token to move off the tokenless throttle pool.
 3. Build-time geometry fetch script (reproduce the queries above) + GitHub
    Actions deploy of `dist/` to Pages, with Vite `base: '/sf-block-report/'`.
 4. Watch CARTO basemap usage terms if traffic grows (OpenFreeMap is the

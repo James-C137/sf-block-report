@@ -404,26 +404,20 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <div class="period">
       <span class="microlabel">Period</span>
-      <span class="range num">Jul 22 &ndash; Aug 21, 2026</span>
+      <span class="range num" id="period-range">&hellip;</span>
     </div>
     <div class="count">
-      <span class="value num">12,408</span>
+      <span class="value num" id="count-value">&hellip;</span>
       <span class="unit">reports</span>
     </div>
 
     <div class="histogram" id="histogram" aria-hidden="true"></div>
-    <div class="hist-axis num" aria-hidden="true"><span>Jul 22</span><span>Aug 21</span></div>
+    <div class="hist-axis num" aria-hidden="true"><span id="hist-start"></span><span id="hist-end"></span></div>
 
     <hr class="rule">
 
     <span class="microlabel">Category</span>
-    <div class="chips">
-      <span class="chip on">Larceny / Theft</span>
-      <span class="chip">Assault</span>
-      <span class="chip">Motor Vehicle Theft</span>
-      <span class="chip">Burglary</span>
-      <span class="chip">Robbery</span>
-    </div>
+    <div class="chips" id="chips"></div>
 
     <hr class="rule">
 
@@ -445,13 +439,13 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <hr class="rule lt">
 
-    <p class="footnote">Incident reports, SFPD open data (simulated for mockup). Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. Updated Aug 21, 2026.</p>
+    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. <span id="updated"></span></p>
 
   </div>
 </section>
 
 <script>
-/* ---------- seeded RNG ---------- */
+/* ---------- seeded RNG (offline fallback only) ---------- */
 function mulberry32(a){
   return function(){
     a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -466,66 +460,204 @@ function gauss(){
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
-/* ---------- fake incidents: gaussian clusters + thin scatter ---------- */
-var clusters = [
-  { c:[-122.414, 37.783], n:950, sx:0.0075, sy:0.0055, w:1.0  }, // Tenderloin / SoMa
-  { c:[-122.419, 37.760], n:520, sx:0.0060, sy:0.0075, w:0.85 }, // Mission
-  { c:[-122.390, 37.732], n:280, sx:0.0085, sy:0.0070, w:0.6  }  // Bayview
-];
-var features = [];
-clusters.forEach(function(k){
-  for (var i = 0; i < k.n; i++){
+/* ---------- simulated incidents: gaussian clusters + thin scatter ----------
+   kept only as the offline fallback — if the live Socrata fetch fails, the
+   map still inks a plausible city instead of going blank (with a notice) */
+function makeFakeIncidents(){
+  var clusters = [
+    { c:[-122.414, 37.783], n:950, sx:0.0075, sy:0.0055, w:1.0  }, // Tenderloin / SoMa
+    { c:[-122.419, 37.760], n:520, sx:0.0060, sy:0.0075, w:0.85 }, // Mission
+    { c:[-122.390, 37.732], n:280, sx:0.0085, sy:0.0070, w:0.6  }  // Bayview
+  ];
+  var features = [];
+  clusters.forEach(function(k){
+    for (var i = 0; i < k.n; i++){
+      features.push({
+        type:'Feature',
+        properties:{},
+        geometry:{ type:'Point', coordinates:[
+          k.c[0] + gauss() * k.sx,
+          k.c[1] + gauss() * k.sy
+        ]}
+      });
+    }
+  });
+  /* thin citywide scatter */
+  for (var i = 0; i < 250; i++){
     features.push({
       type:'Feature',
-      properties:{ w: k.w * (0.6 + 0.4 * rand()) },
+      properties:{},
       geometry:{ type:'Point', coordinates:[
-        k.c[0] + gauss() * k.sx,
-        k.c[1] + gauss() * k.sy
+        -122.515 + rand() * 0.150,
+         37.708  + rand() * 0.112
       ]}
     });
   }
-});
-/* thin citywide scatter */
-for (var i = 0; i < 250; i++){
-  features.push({
-    type:'Feature',
-    properties:{ w: 0.3 },
-    geometry:{ type:'Point', coordinates:[
-      -122.515 + rand() * 0.150,
-       37.708  + rand() * 0.112
-    ]}
+  return { type:'FeatureCollection', features:features };
+}
+
+/* ---------- reporting window: the last 30 full days, SF calendar ----------
+   wg3w-h783 refreshes daily and runs a day or two behind, so the window
+   ends yesterday (today is excluded) — trailing bars thin out with
+   reporting lag instead of ending on a guaranteed-empty day */
+var WINDOW_DAYS = 30;
+var MS_DAY = 86400000;
+function sfDayISO(msBack){
+  return new Date(Date.now() - msBack).toLocaleDateString('en-CA', { timeZone:'America/Los_Angeles' });
+}
+var PERIOD_END_EX = sfDayISO(0);              /* today, exclusive bound */
+var PERIOD_END    = sfDayISO(MS_DAY);         /* last day shown */
+var PERIOD_START  = sfDayISO(WINDOW_DAYS * MS_DAY);
+
+/* ---------- live incidents: SFPD Incident Reports 2018–present ----------
+   Browser-direct Socrata query at runtime (CORS is open), ONE request per
+   page load. Sizing the call against API limits: a month of geocoded SF
+   reports runs ~11–13k rows and SODA 2.1 accepts an arbitrary $limit, so
+   the whole window fits a single request with the cap at ~2x a typical
+   month (~2–3MB pre-gzip). Tokenless clients share a throttled per-IP
+   pool, so one capped request is the polite pattern — paging would only
+   multiply requests. Ordered newest-first: if an extreme month ever hits
+   the cap we keep the most recent reports and say so in the panel. (A
+   free Socrata app token would move us off the shared pool; fine to ship
+   client-side per Socrata docs, not needed at this traffic.) */
+var INCIDENT_CAP = 25000;
+var INCIDENT_TIMEOUT_MS = 20000;
+var INCIDENTS_URL = 'https://data.sfgov.org/resource/wg3w-h783.json?' + [
+  '$select=' + encodeURIComponent('incident_date,incident_category,analysis_neighborhood,latitude,longitude'),
+  '$where='  + encodeURIComponent(
+    "incident_date >= '" + PERIOD_START + "' AND incident_date < '" + PERIOD_END_EX + "'" +
+    ' AND latitude IS NOT NULL AND longitude IS NOT NULL'),
+  '$order='  + encodeURIComponent('incident_datetime DESC'),
+  '$limit='  + INCIDENT_CAP
+].join('&');
+
+function fetchIncidents(){
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, INCIDENT_TIMEOUT_MS) : null;
+  function settle(x){ if (timer) clearTimeout(timer); return x; }
+  return fetch(INCIDENTS_URL, ctrl ? { signal: ctrl.signal } : {})
+    .then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(settle, function(err){ settle(); throw err; });
+}
+
+/* ---------- density field from the real points ----------
+   Incidents bin into a ~40m grid over the city, smoothed with three box
+   blurs (≈ Gaussian, sigma ≈ 190m — a couple block widths, tight enough
+   that hotspots stay parked on their blocks). ONE field drives EVERY
+   layer, so the block mosaic and the building fabric always tell the same
+   story at the crossfade. Streets sample a wider blur (sigma ≈ 280m) so a
+   street half a block off a hotspot spine still picks up ink. Values
+   normalize to the 99.5th-percentile cell and clamp — SFPD data spikes
+   hard at single addresses (station-desk reporting), and a raw-max normal
+   would flatten the rest of the city. */
+var GRID_W = 384, GRID_H = 384;
+var GRID_MIN_LNG = -122.53, GRID_MAX_LNG = -122.34;
+var GRID_MIN_LAT = 37.70,   GRID_MAX_LAT = 37.84;
+var gridMain = null, gridStreet = null;
+
+function blurH(src, dst, r){
+  var norm = 1 / (2 * r + 1);
+  for (var y = 0; y < GRID_H; y++){
+    var row = y * GRID_W, acc = 0, x;
+    for (x = 0; x <= r; x++) acc += src[row + x];
+    for (x = 0; x < GRID_W; x++){
+      dst[row + x] = acc * norm;
+      if (x + r + 1 < GRID_W) acc += src[row + x + r + 1];
+      if (x - r >= 0) acc -= src[row + x - r];
+    }
+  }
+}
+function blurV(src, dst, r){
+  var norm = 1 / (2 * r + 1);
+  for (var x = 0; x < GRID_W; x++){
+    var acc = 0, y;
+    for (y = 0; y <= r; y++) acc += src[y * GRID_W + x];
+    for (y = 0; y < GRID_H; y++){
+      dst[y * GRID_W + x] = acc * norm;
+      if (y + r + 1 < GRID_H) acc += src[(y + r + 1) * GRID_W + x];
+      if (y - r >= 0) acc -= src[(y - r) * GRID_W + x];
+    }
+  }
+}
+function smoothAndNormalize(counts, r){
+  var a = Float32Array.from(counts);
+  var b = new Float32Array(counts.length);
+  for (var pass = 0; pass < 3; pass++){ blurH(a, b, r); blurV(b, a, r); }
+  var pos = [];
+  for (var i = 0; i < a.length; i++) if (a[i] > 0) pos.push(a[i]);
+  pos.sort(function(u, v){ return u - v; });
+  var ref = pos.length ? pos[Math.min(pos.length - 1, Math.floor(pos.length * 0.995))] : 1;
+  if (!(ref > 0)) ref = 1;
+  for (var j = 0; j < a.length; j++){
+    var v = a[j] / ref;
+    a[j] = v > 1 ? 1 : v;
+  }
+  return a;
+}
+function buildDensityGrids(fc){
+  var counts = new Float32Array(GRID_W * GRID_H);
+  var feats = fc.features || [];
+  for (var i = 0; i < feats.length; i++){
+    var c = feats[i].geometry.coordinates;
+    var x = Math.floor((c[0] - GRID_MIN_LNG) / (GRID_MAX_LNG - GRID_MIN_LNG) * GRID_W);
+    var y = Math.floor((c[1] - GRID_MIN_LAT) / (GRID_MAX_LAT - GRID_MIN_LAT) * GRID_H);
+    if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) continue;
+    counts[y * GRID_W + x] += 1;
+  }
+  gridMain   = smoothAndNormalize(counts, 4);   /* sigma ≈ 4.5 cells ≈ 190m */
+  gridStreet = smoothAndNormalize(counts, 6);   /* sigma ≈ 6.5 cells ≈ 280m */
+}
+function sampleGrid(grid, lng, lat){
+  if (!grid) return 0;
+  if (lng < GRID_MIN_LNG || lng > GRID_MAX_LNG || lat < GRID_MIN_LAT || lat > GRID_MAX_LAT) return 0;
+  /* bilinear between cell centers */
+  var x = (lng - GRID_MIN_LNG) / (GRID_MAX_LNG - GRID_MIN_LNG) * GRID_W - 0.5;
+  var y = (lat - GRID_MIN_LAT) / (GRID_MAX_LAT - GRID_MIN_LAT) * GRID_H - 0.5;
+  if (x < 0) x = 0; if (y < 0) y = 0;
+  if (x > GRID_W - 1) x = GRID_W - 1;
+  if (y > GRID_H - 1) y = GRID_H - 1;
+  var x0 = Math.floor(x), y0 = Math.floor(y);
+  var x1 = Math.min(GRID_W - 1, x0 + 1), y1 = Math.min(GRID_H - 1, y0 + 1);
+  var fx = x - x0, fy = y - y0;
+  var top = grid[y0 * GRID_W + x0] * (1 - fx) + grid[y0 * GRID_W + x1] * fx;
+  var bot = grid[y1 * GRID_W + x0] * (1 - fx) + grid[y1 * GRID_W + x1] * fx;
+  return top * (1 - fy) + bot * fy;
+}
+function densityAt(lng, lat){ return sampleGrid(gridMain, lng, lat); }
+function streetFieldAt(lng, lat){ return sampleGrid(gridStreet, lng, lat); }
+
+function toIncidentFC(rows){
+  var feats = [];
+  for (var i = 0; i < rows.length; i++){
+    var lng = parseFloat(rows[i].longitude), lat = parseFloat(rows[i].latitude);
+    if (!isFinite(lng) || !isFinite(lat)) continue;
+    if (lng < GRID_MIN_LNG || lng > GRID_MAX_LNG || lat < GRID_MIN_LAT || lat > GRID_MAX_LAT) continue;
+    feats.push({ type:'Feature', properties:{}, geometry:{ type:'Point', coordinates:[lng, lat] } });
+  }
+  return { type:'FeatureCollection', features:feats };
+}
+
+/* every density consumer (blocks, streets, buildings, label inversion)
+   joins on this — geometry and incidents download in parallel, scoring
+   waits for whichever incident set (live or fallback) settles */
+var incidentData = null;   /* { fc, rows|null, live } once settled */
+var densityReady = fetchIncidents()
+  .then(function(rows){
+    var fc = toIncidentFC(rows);
+    if (!fc.features.length) throw new Error('no geocoded rows in window');
+    return { fc: fc, rows: rows, live: true };
+  })
+  .catch(function(err){
+    console.warn('Live incident fetch failed — using simulated fallback:', err);
+    return { fc: makeFakeIncidents(), rows: null, live: false };
+  })
+  .then(function(res){
+    incidentData = res;
+    buildDensityGrids(res.fc);
   });
-}
-var incidents = { type:'FeatureCollection', features:features };
-
-/* ---------- analytic density field (same clusters, evaluated exactly) ----------
-   ONE field drives BOTH layers, so the block mosaic and the building fabric
-   always tell the same story at the crossfade. */
-function densityAt(lng, lat){
-  var d = 0;
-  for (var i = 0; i < clusters.length; i++){
-    var k = clusters[i];
-    var dx = (lng - k.c[0]) / k.sx;
-    var dy = (lat - k.c[1]) / k.sy;
-    d += k.w * Math.exp(-0.5 * (dx * dx + dy * dy));
-  }
-  return Math.min(1, d);   /* peak of the field is ~1.0 at the Tenderloin core */
-}
-
-/* streets sample the same field with the kernel widened 1.35x, so a
-   street a half-block off a cluster spine still picks up ink */
-var KERNEL_WIDEN = 1.35;
-function streetFieldAt(lng, lat){
-  var d = 0;
-  for (var i = 0; i < clusters.length; i++){
-    var k = clusters[i];
-    var sx = k.sx * KERNEL_WIDEN, sy = k.sy * KERNEL_WIDEN;
-    var dx = (lng - k.c[0]) / sx;
-    var dy = (lat - k.c[1]) / sy;
-    d += k.w * Math.exp(-0.5 * (dx * dx + dy * dy));
-  }
-  return Math.min(1, d);
-}
 
 /* midpoint at half the polyline's arc length (planar approx is fine here) */
 function midpointOf(coords){
@@ -900,7 +1032,7 @@ function toBuildingFC(rowsPerChunk){
   return { type:'FeatureCollection', features:feats };
 }
 
-var buildingsPromise = (MOBILE
+var buildingsFetch = (MOBILE
   ? fetchJSON(MOBILE_BUILDINGS_LOCAL, MOBILE_BUILDINGS_REMOTE)
       .then(function(rows){ bumpProgress(rows.length); return [rows]; })
   : Promise.all(
@@ -909,10 +1041,13 @@ var buildingsPromise = (MOBILE
           .then(function(rows){ bumpProgress(rows.length); return rows; });
       })
     )
-).then(toBuildingFC);
+);
+var buildingsPromise = Promise.all([buildingsFetch, densityReady])
+  .then(function(r){ return toBuildingFC(r[0]); });
 
-var blocksPromise = fetchJSON(BLOCKS_LOCAL, BLOCKS_REMOTE)
-  .then(function(gj){
+var blocksPromise = Promise.all([fetchJSON(BLOCKS_LOCAL, BLOCKS_REMOTE), densityReady])
+  .then(function(r){
+    var gj = r[0];
     var kept = [];
     gj.features.forEach(function(f){
       if (!f.geometry || !f.geometry.coordinates) return;
@@ -940,10 +1075,11 @@ var blocksPromise = fetchJSON(BLOCKS_LOCAL, BLOCKS_REMOTE)
     return gj;
   });
 
-var streetsPromise = fetchJSON(STREETS_LOCAL, STREETS_REMOTE)
-  .then(function(geo){
+var streetsPromise = Promise.all([fetchJSON(STREETS_LOCAL, STREETS_REMOTE), densityReady])
+  .then(function(r){
+    var geo = r[0];
     /* score every segment at its half-arc-length midpoint against the
-       widened analytic field */
+       widened field */
     var feats = geo.features || [];
     for (var i = 0; i < feats.length; i++){
       var g = feats[i].geometry;
@@ -962,7 +1098,8 @@ var streetsPromise = fetchJSON(STREETS_LOCAL, STREETS_REMOTE)
 
 /* labels are decorative — they load quietly alongside the density layers
    and never touch the progress pill or the degrade ladder */
-var nhoodsPromise = fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE).then(toNhoodLabelFC);
+var nhoodsPromise = Promise.all([fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE), densityReady])
+  .then(function(r){ return toNhoodLabelFC(r[0]); });
 
 /* ---------- shared paint state ---------- */
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
@@ -1246,7 +1383,12 @@ map.on('load', function(){
 
   collectRoads();
 
-  map.addSource('incidents', { type:'geojson', data:incidents });
+  map.addSource('incidents', { type:'geojson', data:{ type:'FeatureCollection', features:[] } });
+  /* real points land when the fetch settles (fake fallback included) */
+  densityReady.then(function(){
+    var src = map.getSource('incidents');
+    if (src) src.setData(incidentData.fc);
+  });
 
   /* points ride ON TOP of everything, extrusions included — under the
      volumes they vanish into the fabric at tilt; a faint paper halo keeps
@@ -1456,48 +1598,126 @@ function setPoints(on){
 ptOn.addEventListener('click', function(){ setPoints(true); });
 ptOff.addEventListener('click', function(){ setPoints(false); });
 
-/* ---------- 30-bar histogram (deterministic) ---------- */
-(function(){
-  var h = mulberry32(7);
+/* ---------- panel: real numbers from the fetched window ---------- */
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDay(iso){
+  var d = new Date(iso + 'T00:00:00Z');
+  return MONTHS[d.getUTCMonth()] + ' ' + d.getUTCDate();
+}
+
+/* the window itself needs no fetch — label it immediately */
+document.getElementById('period-range').textContent =
+  fmtDay(PERIOD_START) + ' – ' + fmtDay(PERIOD_END) + ', ' + PERIOD_END.slice(0, 4);
+document.getElementById('hist-start').textContent = fmtDay(PERIOD_START);
+document.getElementById('hist-end').textContent = fmtDay(PERIOD_END);
+
+function renderHistogram(vals){
   var el = document.getElementById('histogram');
-  var vals = [], max = 0;
-  for (var d = 0; d < 30; d++){
-    var weekly = 1 + 0.28 * Math.sin(d * 2 * Math.PI / 7 + 0.9); /* weekend swell */
-    var v = weekly * (0.55 + 0.45 * h());
-    vals.push(v); if (v > max) max = v;
-  }
-  var peak = vals.indexOf(max);
+  el.innerHTML = '';
+  var max = 0, peak = 0;
+  vals.forEach(function(v, idx){ if (v > max){ max = v; peak = idx; } });
+  if (!max) max = 1;
   vals.forEach(function(v, idx){
     var bar = document.createElement('span');
     bar.style.height = Math.round((v / max) * 100) + '%';
     if (idx === peak) bar.className = 'hi';
     el.appendChild(bar);
   });
-})();
-
-/* ---------- neighborhood ranking ---------- */
-(function(){
-  var rows = [
-    ['Tenderloin', 1842],
-    ['Mission', 1301],
-    ['SoMa', 1240],
-    ['Bayview', 872],
-    ['North Beach', 511]
-  ];
-  var max = rows[0][1];
+}
+function renderChips(items){   /* [[label, count?], ...] */
+  var el = document.getElementById('chips');
+  el.innerHTML = '';
+  items.forEach(function(it){
+    var chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = it[0];
+    if (it[1] != null){
+      var n = document.createElement('span');
+      n.className = 'n num';
+      n.textContent = it[1].toLocaleString('en-US');
+      chip.appendChild(n);
+    }
+    el.appendChild(chip);
+  });
+}
+function renderRanking(rows){   /* [[name, count], ...] */
   var ol = document.getElementById('ranking');
+  ol.innerHTML = '';
+  var max = rows.length ? rows[0][1] : 1;
   rows.forEach(function(r, idx){
     var li = document.createElement('li');
     li.innerHTML =
       '<div class="rank-row">' +
         '<span class="idx num">' + (idx + 1) + '</span>' +
-        '<span class="name">' + r[0] + '</span>' +
+        '<span class="name"></span>' +
         '<span class="val num">' + r[1].toLocaleString('en-US') + '</span>' +
       '</div>' +
       '<div class="rank-bar"><i style="width:' + Math.round(r[1] / max * 100) + '%"></i></div>';
+    li.querySelector('.name').textContent = r[0];
     ol.appendChild(li);
   });
-})();
+}
+
+function computeStats(rows){
+  var daily = {}, cats = {}, hoods = {};
+  rows.forEach(function(r){
+    var day = (r.incident_date || '').slice(0, 10);
+    if (day) daily[day] = (daily[day] || 0) + 1;
+    if (r.incident_category) cats[r.incident_category] = (cats[r.incident_category] || 0) + 1;
+    if (r.analysis_neighborhood) hoods[r.analysis_neighborhood] = (hoods[r.analysis_neighborhood] || 0) + 1;
+  });
+  function top5(m){
+    return Object.keys(m)
+      .map(function(k){ return [k, m[k]]; })
+      .sort(function(a, b){ return b[1] - a[1]; })
+      .slice(0, 5);
+  }
+  return { daily: daily, topCats: top5(cats), topHoods: top5(hoods) };
+}
+
+function applyLivePanel(rows){
+  var s = computeStats(rows);
+  document.getElementById('count-value').textContent = rows.length.toLocaleString('en-US');
+  var startMs = new Date(PERIOD_START + 'T00:00:00Z').getTime();
+  var vals = [];
+  for (var i = 0; i < WINDOW_DAYS; i++){
+    var day = new Date(startMs + i * MS_DAY).toISOString().slice(0, 10);
+    vals.push(s.daily[day] || 0);
+  }
+  renderHistogram(vals);
+  renderChips(s.topCats);
+  renderRanking(s.topHoods.map(function(h){ return [NHOOD_DISPLAY[h[0]] || h[0], h[1]]; }));
+  document.getElementById('updated').textContent =
+    'Updated ' + fmtDay(PERIOD_END) + ', ' + PERIOD_END.slice(0, 4) + '.';
+  if (rows.length >= INCIDENT_CAP){
+    showNotice('Unusually heavy period — showing the ' + INCIDENT_CAP.toLocaleString('en-US') +
+      ' most recent reports.');
+  }
+}
+
+function applyFallbackPanel(){
+  document.getElementById('count-value').textContent = '—';
+  /* the mockup's original seeded 30-bar histogram, so the panel isn't empty */
+  var h = mulberry32(7), vals = [];
+  for (var d = 0; d < 30; d++){
+    var weekly = 1 + 0.28 * Math.sin(d * 2 * Math.PI / 7 + 0.9); /* weekend swell */
+    vals.push(weekly * (0.55 + 0.45 * h()));
+  }
+  renderHistogram(vals);
+  renderChips([['Larceny / Theft'], ['Assault'], ['Motor Vehicle Theft'], ['Burglary'], ['Robbery']]);
+  renderRanking([
+    ['Tenderloin', 1842], ['Mission', 1301], ['SoMa', 1240],
+    ['Bayview', 872], ['North Beach', 511]
+  ]);
+  document.getElementById('data-note').textContent =
+    'Live SFPD data could not be reached — the density shown is simulated.';
+  showNotice('Live incident data could not be loaded — showing simulated density.');
+}
+
+densityReady.then(function(){
+  if (incidentData.live) applyLivePanel(incidentData.rows);
+  else applyFallbackPanel();
+});
 </script>
 
 </body>
