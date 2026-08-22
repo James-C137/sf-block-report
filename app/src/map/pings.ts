@@ -6,8 +6,9 @@
    Persisted per device in localStorage; the earliest saves were bare
    [lng,lat] pairs and still restore. */
 
-import maplibregl, { type Map as MLMap } from 'maplibre-gl';
+import maplibregl, { type GeoJSONSource, type Map as MLMap } from 'maplibre-gl';
 import { LABEL_INVERT_DENS, PING_SCALE_AT, PING_STORAGE_KEY } from '../config';
+import { labelHaloWidthExpr, labelSizeExpr } from './expressions';
 
 export interface Ping {
   label: string;
@@ -18,6 +19,7 @@ export interface Ping {
 interface Live extends Ping {
   marker: maplibregl.Marker;
   pinEl: HTMLElement;
+  dark: boolean; /* label sits on hotspot ink — inverted like the nhood labels */
 }
 
 export interface PingsHandle {
@@ -35,6 +37,47 @@ export function createPings(map: MLMap, densityAt?: (lng: number, lat: number) =
   const pings: Live[] = [];
   const changeFns: Array<() => void> = [];
   const notify = (): void => changeFns.forEach((f) => f());
+
+  /* Pin labels are a SYMBOL layer, not DOM — all map text goes through
+     the library so type, halo, collision, and fading stay one system
+     (user call after the DOM experiment). The layer sits above the
+     nhood label layers (labels.ts inserts beneath it), so pins out-place
+     the wayfinding; allow-overlap keeps a pin's own label from ever
+     being culled. The em-based offset clears the head at every zoom
+     because text size and pin both follow the same doubling law. */
+  const LABELS_SRC = 'pin-labels';
+  const labelsFC = (): GeoJSON.FeatureCollection => ({
+    type: 'FeatureCollection',
+    features: pings.map((p) => ({
+      type: 'Feature',
+      properties: { label: p.label, dark: p.dark },
+      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+    })),
+  });
+  const syncLabels = (): void => {
+    (map.getSource(LABELS_SRC) as GeoJSONSource | undefined)?.setData(labelsFC() as never);
+  };
+  map.addSource(LABELS_SRC, { type: 'geojson', data: labelsFC() as never });
+  map.addLayer({
+    id: LABELS_SRC,
+    type: 'symbol',
+    source: LABELS_SRC,
+    layout: {
+      'text-field': ['get', 'label'],
+      'text-font': ['Montserrat Medium', 'Noto Sans Regular'],
+      'text-size': labelSizeExpr(),
+      'text-anchor': 'bottom',
+      'text-offset': [0, -1.9], /* ems above the tip ≈ just over the head */
+      'text-max-width': 12,
+      'text-allow-overlap': true,
+    } as never,
+    paint: {
+      'text-color': ['case', ['get', 'dark'], '#FFFFFF', '#3A3A3A'],
+      'text-halo-color': ['case', ['get', 'dark'], 'rgba(26,26,26,0.9)', '#FFFFFF'],
+      'text-halo-width': labelHaloWidthExpr(),
+      'text-halo-blur': 0.2,
+    } as never,
+  });
 
   const scale = (): number => {
     const z = map.getZoom();
@@ -63,19 +106,14 @@ export function createPings(map: MLMap, densityAt?: (lng: number, lat: number) =
     el.title = p.label;
     const pinEl = document.createElement('span');
     pinEl.className = 'pin';
-    /* the label rides inside the scaled element, so it grows in-world
-       with the pin under the same 2^(z-14) law as the map labels */
-    const labelEl = document.createElement('span');
-    labelEl.className = 'map-label pin-label';
-    if ((densityAt?.(p.lng, p.lat) ?? 0) >= LABEL_INVERT_DENS) labelEl.classList.add('on-dark');
-    labelEl.textContent = p.label;
-    pinEl.appendChild(labelEl);
     el.appendChild(pinEl);
     const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([p.lng, p.lat])
       .addTo(map);
-    pings.push({ ...p, marker, pinEl });
+    const dark = (densityAt?.(p.lng, p.lat) ?? 0) >= LABEL_INVERT_DENS;
+    pings.push({ ...p, marker, pinEl, dark });
     updateScales();
+    syncLabels();
     if (!skipSave) save();
     notify();
   };
@@ -104,6 +142,7 @@ export function createPings(map: MLMap, densityAt?: (lng: number, lat: number) =
       if (!p) return;
       p.marker.remove();
       pings.splice(index, 1);
+      syncLabels();
       save();
       notify();
     },

@@ -55,7 +55,14 @@ export const BLDG_FULL_OPACITY = 0.85; /* 0.96 read too intense in charcoal */
 export const BLDG_DEFAULT_HEIGHT_M = 8;
 
 /* ---- dots ---- */
-export const DOTS_FADE_AT = 12.5; /* threshold; crossing runs a timed fade */
+/* LoD ladder: the dots are always on, but WHAT a dot means refines with
+   zoom — one combined dot per neighborhood at citywide framing, then
+   grid-clustered "area" dots (a few blocks each, ≈ major intersections),
+   then the individual geocoded intersections once the sub-streets are on
+   screen to hang them off. Level changes crossfade over DOTS_FADE_MS. */
+export const DOTS_LOD_AREA_AT = 12.5; /* nhood → area (was the old fade-in) */
+export const DOTS_LOD_SPOT_AT = 14.0; /* area → individual: sub-streets have appeared */
+export const DOTS_GRID_STEP = 0.002; /* ≈180-220m cells at SF latitudes */
 export const DOTS_FADE_MS = 300;
 export const DOTS_MAX = BLOCKS_MAX; /* strength cap, same dimension as blocks */
 export const DOTS_SIZE = 1.5;

@@ -226,67 +226,6 @@ button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
   transform:rotate(45deg);   /* square corner points down = the tip */
   box-shadow:0 1px 3px rgba(26,26,26,0.3);
 }
-/* ---- one label system for everything ON the map ----
-   Pins and neighborhoods share font, weight, halo, and the on-dark
-   inversion, so DOM-crisp text reads as a single family. */
-.map-label{
-  /* Montserrat Medium — the geographic voice from the symbol-layer era,
-     kept when labels went DOM; Inter stays the UI voice */
-  font-family:'Montserrat', 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
-  font-size:10.5px; font-weight:500; line-height:1.35;
-  color:var(--ink);
-  /* a REAL outline: stroke painted UNDER the glyph fill. It's vector, so
-     it scales cleanly with the in-world transform — offset text-shadow
-     copies read as displaced clones once the label is 16x. The soft
-     glow underneath is only for separation on busy ground. */
-  -webkit-text-stroke:3px var(--paper);
-  paint-order:stroke fill;
-  text-shadow:0 0 4px var(--paper);
-}
-/* over hotspot cores the ground ink is near-black — invert
-   (threshold LABEL_INVERT_DENS, sampled from the pristine field) */
-.map-label.on-dark{
-  color:var(--paper);
-  -webkit-text-stroke-color:#211E1C;
-  text-shadow:0 0 4px rgba(26,26,26,0.9);
-}
-
-/* pin label: centered ABOVE the teardrop, inside the scaled span so it
-   grows with the pin about the tip */
-.ping .pin-label{
-  position:absolute;
-  left:50%; bottom:20px;      /* head's visual top is y=2 of the 20px box */
-  transform:translateX(-50%);
-  width:max-content;
-  padding:0 3px;              /* room for the halo — overflow clips at the
-                                 padding edge, so it survives */
-  text-align:center;
-  white-space:nowrap;
-  max-width:150px; overflow:hidden; text-overflow:ellipsis;
-}
-
-/* neighborhood labels (DOM markers; scale/translate set from JS under
-   the same law as the pins) */
-.nhood{ pointer-events:none; z-index:1; }
-/* entrance + collision fades live on an inner wrapper: MapLibre writes
-   an inline opacity on the marker root itself (terrain occlusion), which
-   would override any stylesheet rule there */
-.nhood-fade{ display:block; opacity:0; transition:opacity 0.3s ease; }
-.nhood-fade.nhood-in{ opacity:1; }
-/* collision loser — fades out via the same transition (must follow
-   .nhood-in: equal specificity, source order decides) */
-.nhood-fade.nhood-culled{ opacity:0; }
-.ping{ z-index:2; }           /* your pins ride above the wayfinding */
-.nhood-label{
-  position:absolute;
-  width:max-content;
-  max-width:96px;             /* long names wrap like the symbol layer did */
-  text-align:center;
-  text-transform:uppercase;
-  letter-spacing:0.14em;
-  transform:translate(-50%,-50%);
-}
-
 /* ranking */
 .ranking{ list-style:none; margin-top:12px; }
 .ranking li{ padding:7px 0; }

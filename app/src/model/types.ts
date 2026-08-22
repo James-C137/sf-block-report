@@ -9,14 +9,19 @@ export interface Incident {
   lat: number;
 }
 
-/* An aggregated dot: one per unique location. */
+/* An aggregated dot. `kind` says what one dot stands for at each LoD:
+   an exact geocoded location, a grid-clustered area (~a few blocks), or
+   a whole neighborhood. */
+export type SpotKind = 'spot' | 'area' | 'nhood';
+
 export interface Spot {
   lng: number;
   lat: number;
   n: number;
   w: number; /* normalized weight, the shared scaling law */
-  intersection: string;
+  intersection: string; /* nhood level: the neighborhood name */
   cats: Record<string, number>;
+  kind: SpotKind;
 }
 
 export interface DensityField {

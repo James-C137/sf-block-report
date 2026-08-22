@@ -6,7 +6,7 @@ import type { ReportWindow } from './data/incidents';
 import { buildField } from './model/density';
 import { applyFilters, isPristine } from './model/filters';
 import type { DensityField, Filters, Incident, Spot } from './model/types';
-import { aggregateSpots } from './model/aggregate';
+import { aggregateAreas, aggregateNhoods, aggregateSpots } from './model/aggregate';
 
 export type SourceStatus = 'pending' | 'ok' | 'failed';
 
@@ -21,12 +21,18 @@ export interface AppState {
   load: { blocks: SourceStatus; buildings: SourceStatus };
 }
 
+export interface LodSpots {
+  nhood: Spot[]; /* one combined dot per neighborhood */
+  area: Spot[]; /* grid-clustered, ~major-intersection scale */
+  spot: Spot[]; /* individual geocoded locations */
+}
+
 export interface Derived {
   filtered: Incident[];
   pristine: boolean;
   /* = pristineField when pristine; rebuilt from the filtered set otherwise */
   activeField: DensityField;
-  spots: Spot[];
+  spots: LodSpots;
 }
 
 export class Store {
@@ -41,7 +47,11 @@ export class Store {
     const pristine = isPristine(state.filters, state.allCats.length);
     const filtered = pristine ? state.incidents : applyFilters(state.incidents, state.filters);
     const activeField = pristine ? state.pristineField : buildField(filtered);
-    const spots = aggregateSpots(filtered);
+    const spots: LodSpots = {
+      nhood: aggregateNhoods(filtered),
+      area: aggregateAreas(filtered),
+      spot: aggregateSpots(filtered),
+    };
     this.cachedDerived = { filtered, pristine, activeField, spots };
     return this.cachedDerived;
   }

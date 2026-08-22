@@ -107,41 +107,53 @@ deleted from the deploy, individual files remain reachable by URL).
   density-aware inversion (paper-white text over dark ink). ONE size
   law, two regimes: constant screen-space px up to z14, then — just
   before the buildings enter at 14.5 — doubling per zoom level (fixed
-  world size), so the names scale with the city. In the app
-  (2026-08-22) these are DOM markers, NOT symbol layers: symbol text
-  comes from a 24px SDF glyph atlas and went soft once the size law
-  blew it up in-world, reading low-res next to the crisp DOM pin
-  labels. Pins and neighborhoods now share one DOM `.map-label` system
-  (Montserrat Medium via Google Fonts — the symbol era's face, kept by
-  user request; same halo, inversion rule, and scale law in
-  `layers/labels.ts` / `pings.ts`), which also drops the CARTO glyph
-  fetch and the symbol-bucket warm-up jump. The halo is a real
-  `-webkit-text-stroke` under the fill (`paint-order: stroke fill`) —
-  offset text-shadow copies read as displaced clones at in-world
-  scale. Collision culling is reimplemented by hand in rank order
-  (majors > minors, curation order breaks ties, the user's pins block
-  everything; losers fade via the opacity transition). GOTCHA: MapLibre
-  Markers write an inline style.opacity on the root element they manage
-  (terrain occlusion), overriding any stylesheet rule there — all our
-  fade classes live on an inner `.nhood-fade` wrapper for that reason.
-  Upright camera-facing text reads as standing billboards. Dead ends on
+  world size), so the names scale with the city; the halo scales in
+  step. SETTLED 2026-08-22 after a full DOM-marker experiment: map text
+  is MapLibre SYMBOL LAYERS, period ("rely on the library itself for
+  everything"). The DOM attempt chased crisper text but demanded
+  hand-rolled collision culling, entrance/reveal fades, halo mechanics
+  (offset shadows → text-stroke), and a Google-Fonts Montserrat — and
+  still didn't land. With symbols the library owns collision, fading,
+  and the reveal; Montserrat Medium comes from the CARTO glyph stack;
+  the SDF softness at big in-world sizes and the one-time
+  symbol-bucket warm-up jump are ACCEPTED costs. Pin labels are a
+  symbol layer too (`pin-labels` in pings.ts: anchor bottom, em offset
+  above the head, allow-overlap, per-pin `dark` inversion property);
+  nhood layers insert beneath it so pins out-place wayfinding. GOTCHA
+  kept for the record: MapLibre Markers write an inline style.opacity
+  on elements they manage, silently overriding stylesheet opacity —
+  bit the DOM experiment's fades. Upright camera-facing text reads as
+  standing billboards. Dead ends on
   record: a ground-plane variant (`pitch-alignment: map`) looked
   knocked over, and a separate timed-crossfade "world" layer was
   scrapped as redundant.
-- **Points overlay** (not a separate view, no toggle): dots draw above
-  the extrusions and enter via a TIMED fade at the z12.5 threshold —
-  crossing it in either direction runs a fixed 300ms opacity transition
-  (`updateDotRegime`), not a zoom-interpolated entrance (a zoom-scaled
-  snap-in existed and was replaced on request). GOTCHA that shapes the
-  implementation: data-driven paint props aren't transitionable, so the
-  per-spot strength lives in the COLOR's alpha (an `['rgba',...]`
-  expression) and circle-opacity / circle-stroke-opacity stay plain
-  constants the watcher flips. Minzoom cull sits half a level below the
-  threshold so the fade finishes before the cut. Related GOTCHA (bit us
-  earlier): `circle-opacity` fades the FILL only; the stroke rides a
-  separate `circle-stroke-opacity` (default 1) — the watcher flips both.
-  If BOTH density layers fail, the degrade path un-gates the dots' zoom
-  range so they can carry the map alone.
+- **Points overlay** (not a separate view, no toggle): dots are ALWAYS
+  on since 2026-08-22, but what one dot MEANS refines with zoom — an
+  LoD ladder (user request): one combined dot per neighborhood at
+  citywide framing, grid-clustered "area" dots (`DOTS_GRID_STEP` 0.002°
+  cells ≈ a few blocks, standing in for major intersections) from
+  z12.5, and the individual geocoded intersections from z14, once the
+  sub-streets are on screen to hang them off. Each level re-runs the
+  same aggregation machinery with a coarser key (aggregate.ts), keeps
+  the shared weight law against ITS OWN p99.5, positions combined dots
+  at their members' mean, and names them for the busiest member
+  intersection (neighborhood dots carry the neighborhood name; the
+  popup adapts by `kind`). Combined dots get a radius boost (nhood
+  2.4x, area 1.5x) so a 60-report dot isn't a speck. Level changes
+  CROSSFADE over 300ms via TWO mirrored circle layers ('points',
+  'points-b') — the incoming level fades in on the idle layer while the
+  outgoing fades out (one layer + setData would snap); the idle layer
+  is emptied after the fade so invisible circles stop catching clicks,
+  and its click handler ignores events while inactive. GOTCHA that
+  shapes the implementation: data-driven paint props aren't
+  transitionable, so the per-spot strength lives in the COLOR's alpha
+  (an `['rgba',...]` expression) and circle-opacity /
+  circle-stroke-opacity stay plain constants the regime watcher flips.
+  Related GOTCHA (bit us earlier): `circle-opacity` fades the FILL
+  only; the stroke rides a separate `circle-stroke-opacity` (default
+  1) — the watcher flips both. If BOTH density layers fail, the
+  degrade path forces the individual-spot level at every zoom so the
+  dots can carry the map alone.
 - **LOCKED-IN LOOK (2026-08-22, tuned by eye via panel sliders that have
   since been REMOVED — the panel is a pure report again)**: street ink
   OFF (the block mosaic carries the ground alone; the deck.gl MAX-blend
@@ -206,12 +218,13 @@ deleted from the deploy, individual files remain reachable by URL).
   MapLibre DOM Markers own their element's transform, so the scalable
   pin lives on an inner span. Tap-to-drop was replaced by
   address-entry on request. Each pin carries its label text on the map
-  (added 2026-08-22), centered ABOVE the teardrop inside the scaled
-  span (a beside-the-head placement read awkward and was moved on
-  request); shares the `.map-label` system with the neighborhood
-  labels, inverting over hotspot cores under the same
+  (added 2026-08-22), rendered by the `pin-labels` SYMBOL layer above
+  the teardrop (anchor bottom, em offset clears the head at every zoom
+  since text and pin follow the same doubling law); allow-overlap so a
+  pin's own label never culls, layered above the nhood labels so pins
+  out-place wayfinding, inverting over hotspot cores under the same
   LABEL_INVERT_DENS rule (sampled once from the pristine field at add
-  time).
+  time, stored as a `dark` feature property).
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1

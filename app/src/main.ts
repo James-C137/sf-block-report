@@ -7,7 +7,7 @@ import { createMap } from './map/createMap';
 import { addBlocksLayer, updateBlocks } from './map/layers/blocks';
 import { addBuildingsLayer, setBuildingsVisible } from './map/layers/buildings';
 import { addDotsLayer } from './map/layers/dots';
-import { addLabelMarkers } from './map/layers/labels';
+import { addLabelLayers, toLabelFC } from './map/layers/labels';
 import { createPings } from './map/pings';
 import { buildField, sampleField } from './model/density';
 import { categoryCounts, sortedCounts } from './model/stats';
@@ -52,6 +52,7 @@ async function boot(): Promise<void> {
   await mapLoaded;
   const dots = addDotsLayer(map);
   dots.setSpots(store.derive().spots);
+  (window as unknown as { __blockReport: Record<string, unknown> }).__blockReport.dots = dots;
   const pings = createPings(map, (lng, lat) => sampleField(pristineField, lng, lat));
   initPinsUI(pings);
 
@@ -110,12 +111,7 @@ async function boot(): Promise<void> {
   /* labels are decorative — they load quietly and never touch the
      progress pill or the degrade ladder */
   nhoodsP
-    .then((features) => {
-      const labels = addLabelMarkers(map, features, state.pristineField);
-      /* a new pin blocks label space — re-place without waiting for the
-         next camera move */
-      pings.onChange(() => labels.refresh());
-    })
+    .then((features) => addLabelLayers(map, toLabelFC(features, state.pristineField)))
     .catch((err) => console.warn('Neighborhood names could not be loaded — map stays unlabeled:', err));
 
   /* ---- the commit path: every filter change re-derives the page ---- */

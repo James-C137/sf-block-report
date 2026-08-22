@@ -150,28 +150,18 @@ const browser = await chromium.launch({
     return !!m && !!m.getLayer('blocks') && !!m.getLayer('buildings') && !!m.getLayer('points');
   }, 'blocks, buildings and dots layers all present');
 
-  await waitFor(page, () => document.querySelectorAll('.nhood-label').length >= 15, 'neighborhood labels render as DOM markers');
+  /* labels are MapLibre symbol layers — collision, fades, and the minor
+     tier's z12.6 reveal are all library behavior; we assert the layers
+     and their contract, not the library */
   await waitFor(page, () => {
-    const n = document.querySelector('.nhood-fade.nhood-in');
-    return !!n && getComputedStyle(n).opacity === '1';
-  }, 'labels fade in on first placement');
-  /* the minor tier's zoom-driven reveal: hidden below 12.6, half-faded
-     mid-ramp, full past 13.1 */
-  const minorState = (z) => page.evaluate((zoom) => {
-    window.__blockReport.map.jumpTo({ zoom });
-    const els = document.querySelectorAll('.nhood-label');
-    const m = els[els.length - 1]; /* rank order: last is deepest minor */
-    return {
-      culled: m.parentElement.classList.contains('nhood-culled'),
-      opacity: parseFloat(m.style.opacity || '1'),
-    };
-  }, z);
-  const atLow = await minorState(11.85);
-  const atMid = await minorState(12.85);
-  const atHigh = await minorState(13.2);
-  ok(atLow.culled, 'minor labels culled below z12.6');
-  ok(Math.abs(atMid.opacity - 0.5) < 0.02, `minor reveal half-faded at z12.85 (got ${atMid.opacity})`);
-  ok(atHigh.opacity === 1, 'minor reveal complete past z13.1');
+    const m = window.__blockReport.map;
+    return !!m.getLayer('nhood-labels-major') && !!m.getLayer('nhood-labels-minor');
+  }, 'neighborhood labels render as symbol layers');
+  ok((await page.evaluate(() => window.__blockReport.map.getLayer('nhood-labels-minor').minzoom)) === 12.6, 'minor tier gated to z12.6+');
+  ok((await page.evaluate(() => {
+    const src = window.__blockReport.map.getSource('nhoods').serialize().data;
+    return src.features.length >= 40 && src.features.every((f) => typeof f.properties.dens === 'number');
+  })), 'every neighborhood carries its density for the inversion rule');
   await page.evaluate(() => window.__blockReport.map.jumpTo({ zoom: 11.85 }));
 
   /* live data flowed into the panel */
@@ -182,10 +172,21 @@ const browser = await chromium.launch({
   ok(nChips === 4, `one chip per live category (got ${nChips})`);
   ok(await page.evaluate(() => (document.getElementById('data-note')?.textContent ?? '').includes('fetched live')), 'data note reports live data');
 
-  /* dots: hidden below the threshold, timed-fade regime above it */
-  ok((await page.evaluate(() => window.__blockReport.map.getPaintProperty('points', 'circle-opacity'))) === 0, 'dots opacity 0 below z12.5');
-  await page.evaluate(() => window.__blockReport.map.jumpTo({ zoom: 13 }));
-  await waitFor(page, () => window.__blockReport.map.getPaintProperty('points', 'circle-opacity') === 1, 'dots flip to 1 above z12.5');
+  /* dots LoD: one combined dot per neighborhood citywide, grid areas
+     mid-zoom, individual intersections once sub-streets are in */
+  const lodAt = (z) => page.evaluate((zoom) => {
+    window.__blockReport.map.jumpTo({ zoom });
+    return window.__blockReport.dots.lodState();
+  }, z);
+  const lodCity = await lodAt(11.85);
+  const lodMid = await lodAt(13.0);
+  const lodHigh = await lodAt(15.0);
+  ok(lodCity.level === 'nhood' && lodCity.count === 1, `citywide: one dot for the single fixture neighborhood (got ${lodCity.level}/${lodCity.count})`);
+  ok(lodMid.level === 'area' && lodMid.count > lodCity.count, `mid-zoom: grid areas (got ${lodMid.level}/${lodMid.count})`);
+  ok(lodHigh.level === 'spot' && lodHigh.count > lodMid.count, `high zoom: individual intersections (got ${lodHigh.level}/${lodHigh.count})`);
+  const srcMax = await page.evaluate(() => Math.max(...['points', 'points-b']
+    .map((id) => window.__blockReport.map.getSource(id).serialize().data.features.length)));
+  ok(srcMax === lodHigh.count, `the active source holds the level's dots (${srcMax})`);
   await page.evaluate(() => window.__blockReport.map.jumpTo({ zoom: 11.85 }));
 
   /* chips drive the whole page: count drops, buildings hide (blocks carry it) */
@@ -215,7 +216,10 @@ const browser = await chromium.launch({
   await page.fill('#pin-input', '335 McAllister St');
   await page.press('#pin-input', 'Enter');
   await waitFor(page, () => document.querySelectorAll('#pin-list li').length === 1, 'pin added from address');
-  ok((await page.evaluate(() => document.querySelector('.ping .pin-label')?.textContent)) === '335 McAllister St', 'pin carries its label on the map');
+  ok(await page.evaluate(() => {
+    const feats = window.__blockReport.map.getSource('pin-labels').serialize().data.features;
+    return feats.length === 1 && feats[0].properties.label === '335 McAllister St' && typeof feats[0].properties.dark === 'boolean';
+  }), 'pin label rides the pin-labels symbol source');
   await page.fill('#pin-input', '335 McAllister St');
   await page.press('#pin-input', 'Enter');
   await waitFor(page, () => /already pinned/i.test(document.getElementById('pin-status')?.textContent ?? ''), 'duplicate address rejected');
@@ -240,17 +244,8 @@ const browser = await chromium.launch({
   await waitFor(page, () => !!window.__blockReport.map.getLayer('blocks'), 'blocks layer present (mobile snapshot)');
   ok((await page.evaluate(() => document.scrollingElement.scrollWidth <= window.innerWidth)), 'no horizontal overflow at 390px');
   ok(await page.evaluate(() => !!document.querySelector('.maplibregl-cooperative-gesture-screen')), 'cooperative gestures active on narrow viewports');
-  /* the majors crowd on a phone at citywide zoom — collision culling
-     must thin them */
-  await waitFor(page, () => document.querySelectorAll('.nhood-label').length >= 15, 'labels present on mobile');
-  /* assert the EFFECTIVE rendered opacity, not just the class — MapLibre's
-     inline marker opacity once masked a culling no-op */
-  const cull = await page.evaluate(() => {
-    const els = [...document.querySelectorAll('.nhood-fade')];
-    const gone = els.filter((n) => n.classList.contains('nhood-culled') && getComputedStyle(n).opacity !== '1').length;
-    return { total: els.length, gone };
-  });
-  ok(cull.gone >= 1, `collision culling visually thins the crowd on narrow viewports (${cull.gone}/${cull.total} culled)`);
+  await waitFor(page, () => !!window.__blockReport.map.getLayer('nhood-labels-major'), 'label layers present on mobile');
+  ok((await page.evaluate(() => window.__blockReport.dots.lodState().level)) === 'nhood', 'mobile citywide framing starts at neighborhood dots');
   await context.close();
 }
 
