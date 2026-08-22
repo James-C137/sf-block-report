@@ -57,8 +57,10 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
   }
   #map{
     position:absolute; inset:0;
-    /* pull any residual color cast out of the basemap */
-    filter:saturate(0) contrast(1.01);
+    /* NOTE: no saturate(0) here — the heat layers render into this same
+       canvas and a grayscale filter would kill them. Positron is already
+       near-gray; the faint blue of the bay reads fine under the heat ramp. */
+    filter:contrast(1.01);
   }
 
   /* maplibre chrome, quieted */
@@ -1126,7 +1128,29 @@ var nhoodsPromise = Promise.all([fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE), density
 
 /* ---------- shared paint state ---------- */
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
-var INKC = '#1A1A1A';
+
+/* heat ramp: density runs white (paper) → yellow → red. On the ground
+   layers the paper white comes from ALPHA — the hue slides yellow→red as
+   the soft-toe alpha ramp rises, so compositing over the basemap reads as
+   white→yellow→red. Buildings are opaque, so they carry the whole ramp in
+   the surface color. All four hue anchors, on t = ink * d^contrast: */
+var HEAT = [
+  [0.00, [247, 201, 72]],   /* #F7C948 yellow      */
+  [0.40, [240, 138, 36]],   /* #F08A24 orange      */
+  [0.70, [221, 74, 28]],    /* #DD4A1C orange-red  */
+  [1.00, [193, 18, 31]]     /* #C1121F red         */
+];
+function heatHue(t){
+  if (t <= HEAT[0][0]) return HEAT[0][1];
+  for (var i = 1; i < HEAT.length; i++){
+    if (t <= HEAT[i][0]){
+      var k = (t - HEAT[i-1][0]) / (HEAT[i][0] - HEAT[i-1][0]);
+      var a = HEAT[i-1][1], b = HEAT[i][1];
+      return [a[0] + k * (b[0] - a[0]), a[1] + k * (b[1] - a[1]), a[2] + k * (b[2] - a[2])];
+    }
+  }
+  return HEAT[HEAT.length - 1][1];
+}
 
 var INK = 1.0;                  /* density → ink strength */
 var CONTRAST = 1.2;             /* density → darkness steepness (exponent) */
@@ -1136,15 +1160,15 @@ var pointsOn = false;
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
-  /* shade = ink * d^contrast, mixed pale -> graphite */
+  /* shade = ink * d^contrast, mixed neutral pale -> straw -> gold -> red */
   return ['interpolate', ['linear'],
     ['*', INK, ['^', ['get','d'], CONTRAST]],
     0.00, PALE,
-    0.15, '#C9C9C9',
-    0.35, '#A3A3A3',
-    0.60, '#6E6E6E',
-    0.85, '#3A3A3A',
-    1.00, INKC
+    0.15, '#F6DFA3',
+    0.35, '#F5BE52',
+    0.60, '#EE8A31',
+    0.85, '#D8481F',
+    1.00, '#C1121F'
   ];
 }
 function buildingHeightExpr(){
@@ -1159,6 +1183,17 @@ function buildingOpacityExpr(){
   /* zero at the entrance start (and below, down to minzoom) so the layer
      can unload underneath without a blink */
   return zoomCurve(ENTRANCE.op, function(f){ return f * BLDG_FULL_OPACITY; });
+}
+function blockColorExpr(){
+  /* hue slides yellow→red with t while blockOpacityExpr drives strength —
+     composited over the paper basemap the pair reads white→yellow→red */
+  var t = ['*', INK, ['^', ['get','v'], CONTRAST]];
+  return ['interpolate', ['linear'], t,
+    0.00, '#F7C948',
+    0.40, '#F08A24',
+    0.70, '#DD4A1C',
+    1.00, '#C1121F'
+  ];
 }
 function blockOpacityExpr(){
   /* same ink * v^contrast law as the buildings, pushed through a soft-toe
@@ -1180,19 +1215,20 @@ function blockOpacityExpr(){
   });
 }
 function streetColorExpr(){
-  /* same ink * d^contrast law pushed through the SAME soft-toe ramp as the
-     blocks, so the network sits in the block mosaic's tonal plane instead
-     of reading as a darker layer on top (MapLibre fallback layer only) */
+  /* same ink * d^contrast law pushed through the SAME soft-toe alpha ramp
+     as the blocks, hue sliding along the heat anchors at each stop, so the
+     network sits in the block mosaic's tonal plane instead of reading as a
+     separate layer on top (MapLibre fallback layer only) */
   var t = ['*', INK, ['^', ['get','d'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, 'rgba(26,26,26,0)',
-    0.03, 'rgba(26,26,26,0.02)',
-    0.10, 'rgba(26,26,26,0.08)',
-    0.22, 'rgba(26,26,26,0.17)',
-    0.40, 'rgba(26,26,26,0.32)',
-    0.60, 'rgba(26,26,26,0.52)',
-    0.80, 'rgba(26,26,26,0.75)',
-    1.00, 'rgba(26,26,26,1)'
+    0.00, 'rgba(247,201,72,0)',
+    0.03, 'rgba(247,196,69,0.02)',
+    0.10, 'rgba(245,185,63,0.08)',
+    0.22, 'rgba(243,166,52,0.17)',
+    0.40, 'rgba(240,138,36,0.32)',
+    0.60, 'rgba(227,95,31,0.52)',
+    0.80, 'rgba(212,55,29,0.75)',
+    1.00, 'rgba(193,18,31,1)'
   ];
 }
 function streetWidthExpr(){
@@ -1221,11 +1257,14 @@ function streetOpacityExpr(){
 
 /* ---------- deck.gl street ink (overdraw-free) ----------
    Street strokes render through a deck.gl PathLayer on its own canvas with
-   blendEquation MAX: the ink lives entirely in PREMULTIPLIED alpha over a
-   constant graphite hue, so where segments overlap (intersections, shared
-   endpoints) fragments take max(alpha) instead of summing — a crossing is
-   exactly as dark as a single stroke. The canvas then composites once over
-   the map; its CSS opacity carries the zoom-fade handoff. */
+   blendEquation MAX: the ink lives entirely in PREMULTIPLIED alpha over the
+   heat hue, so where segments overlap (intersections, shared endpoints)
+   fragments take max(alpha) instead of summing — a crossing is exactly as
+   strong as its strongest stroke. (With the hue now varying, channels are
+   not perfectly monotonic where a weak yellow crosses a strong red; the
+   shift is a few RGB points and reads as nothing.) The canvas then
+   composites once over the map; its CSS opacity carries the zoom-fade
+   handoff. */
 var HAS_DECK = !MOBILE && (typeof window.deck !== 'undefined') && !!window.deck.MapboxOverlay;
 
 /* alpha ramp = the block layer's soft-toe ramp, so street strokes and the
@@ -1240,9 +1279,6 @@ function lerpStops(stops, x){
     }
   }
   return stops[stops.length - 1][1];
-}
-function streetAlpha(d){
-  return lerpStops(STREET_ALPHA_STOPS, Math.min(1, INK * Math.pow(d, CONTRAST)));
 }
 function streetWidthPx(d){
   return 0.8 + 2.7 * Math.pow(d, CONTRAST);
@@ -1303,11 +1339,11 @@ function deckStreetLayer(){
     data: streetPaths,
     getPath: function(f){ return f.geometry.coordinates; },
     getColor: function(f){
-      /* premultiplied graphite: rgb = 26 * a, alpha = 255 * a — both
-         monotonic in a, so per-channel MAX stays consistent */
-      var a = streetAlpha(f.properties.d) * labelClearFactor(f.properties, zq);
-      var g = Math.round(26 * a);
-      return [g, g, g, Math.round(255 * a)];
+      /* premultiplied heat: rgb = hue(t) * a, alpha = 255 * a */
+      var t = Math.min(1, INK * Math.pow(f.properties.d, CONTRAST));
+      var a = lerpStops(STREET_ALPHA_STOPS, t) * labelClearFactor(f.properties, zq);
+      var h = heatHue(t);
+      return [Math.round(h[0] * a), Math.round(h[1] * a), Math.round(h[2] * a), Math.round(255 * a)];
     },
     getWidth: function(f){ return streetWidthPx(f.properties.d); },
     widthUnits:'pixels',
@@ -1444,7 +1480,7 @@ map.on('load', function(){
       type:'fill',
       source:'blocks',
       paint:{
-        'fill-color':INKC,
+        'fill-color':blockColorExpr(),
         'fill-opacity': blockOpacityExpr(),
         'fill-antialias': false
       }
@@ -1567,7 +1603,7 @@ map.on('load', function(){
     var onDark = ['>=', ['get','dens'], 0.5];
     var labelPaint = {
       'text-color': ['case', onDark, '#FFFFFF', '#3A3A3A'],
-      'text-halo-color': ['case', onDark, 'rgba(26,26,26,0.9)', '#FFFFFF'],
+      'text-halo-color': ['case', onDark, 'rgba(122,10,18,0.9)', '#FFFFFF'],
       'text-halo-width': 1.5,
       'text-halo-blur': 0.2
     };

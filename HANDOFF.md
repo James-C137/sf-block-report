@@ -22,10 +22,17 @@ deleted from the deploy, individual files remain reachable by URL).
 
 ### The winning design, in short
 
-- **Aesthetic** ("Graphite", from mockup 07): CARTO Positron-nolabels basemap
-  desaturated to gray, single graphite ink `#1A1A1A`, Inter type, slim floating
-  control column (desktop) / map-first-viewport with panel scrolled below
-  (mobile). Tilted camera (pitch 57, bearing −30), rotation interactive.
+- **Aesthetic** ("Graphite" chrome, from mockup 07, with a heat-ramp density
+  by user request 2026-08-22): CARTO Positron-nolabels basemap, Inter type,
+  slim floating control column (desktop) / map-first-viewport with panel
+  scrolled below (mobile). Tilted camera (pitch 57, bearing −30), rotation
+  interactive. Density runs white → yellow (`#F7C948`) → red (`#C1121F`)
+  instead of the original paper→graphite: ground layers slide the hue along
+  the alpha ramp (paper white comes from transparency), buildings carry the
+  full ramp in surface color. NOTE: the basemap's `saturate(0)` CSS filter
+  had to go — it lived on `#map` and would grayscale the heat layers in the
+  same canvas; Positron is near-gray anyway. Panel UI stays monochrome
+  graphite, as do the incident dots (neutral over the colored surface).
 - **Density rendering**: census-block choropleth + inked street segments at
   citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade
