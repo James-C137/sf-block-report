@@ -63,7 +63,9 @@ deleted from the deploy, individual files remain reachable by URL).
   to north; pitch stays a map gesture.
 - **Points overlay dots** keep their faint paper outline — a blurred
   no-stroke variant stacked too intensely; the outline is what gives the
-  dots their softness. Color is the accent orange. Reports are aggregated
+  dots their softness. Color is a signal red (`#C1121F`) — the one colored
+  data mark on the map; UI accents stay the burnt orange. Reports are
+  aggregated
   to ONE dot per location (repeat addresses stack on the same spot), and
   each dot's opacity scales with its report count through the SAME law as
   blocks/buildings: normalize to the p99.5 spot, sqrt gamma, the shared
@@ -84,9 +86,10 @@ deleted from the deploy, individual files remain reachable by URL).
   at citywide zoom, rest reveal past z12.6, pole-of-inaccessibility anchors,
   density-aware inversion (paper-white text over dark ink).
 - **Points overlay** (not a separate view, no toggle): dots draw above the
-  extrusions and FADE IN one zoom level BEFORE the buildings — the
-  buildings' entrance curve shifted −1 (z12→13), minzoom-culled below —
-  so dots surface out of the block mosaic, then the volumes rise.
+  extrusions and FADE IN starting one zoom level before the buildings but
+  snapping in fast — z12→12.4 (a slow full-level fade felt draggy),
+  minzoom-culled below — so dots pop out of the block mosaic, then the
+  volumes rise.
   The panel now has zero controls (the On/Off switch was removed; the
   compass is the only interactive control, and it lives on the map). If
   BOTH density layers fail, the degrade path un-gates the dots' zoom

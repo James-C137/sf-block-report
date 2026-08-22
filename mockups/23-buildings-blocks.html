@@ -1294,10 +1294,10 @@ function blockOpacityExpr(){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
-/* points entrance: the buildings' opacity curve shifted exactly one zoom
-   level DOWN — the dots surface out of the block mosaic first, then the
-   volumes rise beneath them */
-var POINTS_ENTRANCE = ENTRANCE.op.map(function(s){ return [s[0] - 1, s[1]]; });
+/* points entrance: starts one zoom level before the buildings' entrance
+   but snaps in over ~0.4 of a level — the dots pop out of the block
+   mosaic quickly, then the volumes rise beneath them */
+var POINTS_ENTRANCE = [[12.0, 0], [12.15, 0.5], [12.3, 0.9], [12.4, 1]];
 var POINTS_MINZOOM = POINTS_ENTRANCE[0][0] - 0.1;
 function pointBaseOpacityExpr(){
   /* per-spot report weight w (normalized + sqrt in aggregatePoints) sets
@@ -1642,14 +1642,14 @@ map.on('load', function(){
           16, ['*', 4.2, f]
         ];
       })(),
-      /* the accent orange — the one touch of color on the map itself.
-         The faint paper outline stays: a blurred no-stroke variant was
-         tried and stacked too intensely — the outline is what gives the
-         dots their softness. Opacity scales per spot with report count,
-         same law as the ground layers. The stroke thins at citywide zoom:
-         a 0.7px ring around a ~1.6px dot outweighed the fill and the
-         overlay read as measles */
-      'circle-color':'#B7470A',
+      /* signal red — the dots are the one colored data mark on the map
+         (UI accents stay the burnt orange). The faint paper outline
+         stays: a blurred no-stroke variant was tried and stacked too
+         intensely — the outline is what gives the dots their softness.
+         Opacity scales per spot with report count. The stroke thins at
+         citywide zoom: a 0.7px ring around a ~1.6px dot outweighed the
+         fill and the overlay read as measles */
+      'circle-color':'#C1121F',
       'circle-opacity': pointOpacityExpr(),
       'circle-stroke-color':'rgba(255,255,255,0.7)',
       'circle-stroke-width':['interpolate',['linear'],['zoom'], 10, 0.2, 13, 0.5, 16, 0.9]
