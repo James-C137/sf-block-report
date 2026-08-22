@@ -1091,15 +1091,11 @@ var map = new maplibregl.Map(mapOptions);
 /* ---------- rubber-band camera constraints ----------
    Soft limits keep the framing on SF and the Bay: zooming out stops
    meaning anything past a Bay Area view, and the center shouldn't drift
-   far from the city. You can pull a little PAST the soft limits (the
-   hard backstops — minZoom / maxBounds — sit further out), and on
-   gesture release the camera springs back with an ease-out. MapLibre's
-   native limits are hard walls; the elasticity is the gap between the
-   soft and hard limits plus the snap-back. */
+   far from the city. NO hard walls (minZoom/maxBounds stay unset — a
+   hard stop mid-gesture felt wrong): pull as far as you like, and on
+   release the camera springs back to the soft limits with an ease-out. */
 var SOFT_MIN_ZOOM = 10.0;                          /* ~Bay Area framing */
 var SOFT_BOUNDS = { w:-122.75, e:-122.15, s:37.55, n:37.98 };
-map.setMinZoom(9.3);                               /* rubber space beyond the soft stop */
-map.setMaxBounds([[-123.4, 37.15], [-121.5, 38.4]]);
 
 function rubberBand(){
   var z = map.getZoom();
