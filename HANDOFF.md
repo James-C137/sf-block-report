@@ -67,10 +67,11 @@ deleted from the deploy, individual files remain reachable by URL).
   to ONE dot per location (repeat addresses stack on the same spot), and
   each dot's opacity scales with its report count through the SAME law as
   blocks/buildings: normalize to the p99.5 spot, sqrt gamma, the shared
-  near-linear ramp, capped at 0.85. A lone report paints ~0.2, a repeat
-  address builds toward full ink. Radius also grows with the weight
-  (0.7x singles → 1.2x hot addresses) and the paper stroke thins at
-  citywide zoom (it read as measles at full width there).
+  ramp with a HIGH floor (a lone report paints ~0.4 — small dots stay
+  clearly visible), capped at 0.85; repeat addresses build toward full
+  ink. Radius also grows with the weight (0.6x singles → 1.35x hot
+  addresses) and the paper stroke thins at citywide zoom (it read as
+  measles at full width there).
 - **Density rendering**: census-block choropleth + inked street segments at
   citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade
@@ -83,8 +84,9 @@ deleted from the deploy, individual files remain reachable by URL).
   at citywide zoom, rest reveal past z12.6, pole-of-inaccessibility anchors,
   density-aware inversion (paper-white text over dark ink).
 - **Points overlay** (not a separate view, no toggle): dots draw above the
-  extrusions and FADE IN one zoom level above the buildings — the
-  buildings' entrance curve shifted +1 (z14→15), minzoom-culled below.
+  extrusions and FADE IN one zoom level BEFORE the buildings — the
+  buildings' entrance curve shifted −1 (z12→13), minzoom-culled below —
+  so dots surface out of the block mosaic, then the volumes rise.
   The panel now has zero controls (the On/Off switch was removed; the
   compass is the only interactive control, and it lives on the map). If
   BOTH density layers fail, the degrade path un-gates the dots' zoom

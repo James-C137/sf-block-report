@@ -1295,24 +1295,19 @@ function blockOpacityExpr(){
   });
 }
 /* points entrance: the buildings' opacity curve shifted exactly one zoom
-   level up — the dots arrive once the volumes have fully resolved */
-var POINTS_ENTRANCE = ENTRANCE.op.map(function(s){ return [s[0] + 1, s[1]]; });
+   level DOWN — the dots surface out of the block mosaic first, then the
+   volumes rise beneath them */
+var POINTS_ENTRANCE = ENTRANCE.op.map(function(s){ return [s[0] - 1, s[1]]; });
 var POINTS_MINZOOM = POINTS_ENTRANCE[0][0] - 0.1;
 function pointBaseOpacityExpr(){
-  /* the dots overlay under the SAME scaling law as blocks/buildings:
-     ink * w^contrast through the shared near-linear ramp, capped like the
-     ground layers — a lone report reads faint, a repeat address builds
-     toward full ink (w is per-spot report count, normalized + sqrt in
-     aggregatePoints) */
+  /* per-spot report weight w (normalized + sqrt in aggregatePoints) sets
+     the strength, but with a HIGH floor: small single-report dots stay
+     clearly visible, repeat addresses still build toward full ink */
   var t = ['*', INK, ['^', ['get','w'], CONTRAST]];
   return ['*', BLOCKS_MAX, ['interpolate', ['linear'], t,
-    0.00, 0,
-    0.03, 0.05,
-    0.10, 0.15,
-    0.22, 0.27,
-    0.40, 0.42,
-    0.60, 0.60,
-    0.80, 0.79,
+    0.00, 0.35,
+    0.25, 0.50,
+    0.55, 0.70,
     1.00, 1.0
   ]];
 }
@@ -1627,8 +1622,8 @@ map.on('load', function(){
   /* points ride ON TOP of everything, extrusions included — under the
      volumes they vanish into the fabric at tilt; a faint paper halo keeps
      them legible over dark block/building ink. No toggle: they fade in
-     one zoom level above the buildings (see POINTS_ENTRANCE), arriving
-     once the volumes have fully resolved */
+     one zoom level BEFORE the buildings (see POINTS_ENTRANCE) — dots
+     surface out of the block mosaic, then the volumes rise beneath them */
   map.addLayer({
     id:'points',
     type:'circle',
@@ -1636,11 +1631,11 @@ map.on('load', function(){
     minzoom:POINTS_MINZOOM,   /* truly gone when zoomed out — entrance curve
                                  is already at zero here, so no pop */
     paint:{
-      /* radius grows a little with the spot's report weight so hot
-         addresses read bigger, not just darker (zoom stays the OUTER
-         interpolate — same MapLibre gotcha as line-width) */
+      /* radius grows with the spot's report weight so hot addresses read
+         bigger, not just darker — 0.6x singles up to 1.35x (zoom stays
+         the OUTER interpolate — same MapLibre gotcha as line-width) */
       'circle-radius':(function(){
-        var f = ['+', 0.7, ['*', 0.5, ['get','w']]];
+        var f = ['+', 0.6, ['*', 0.75, ['get','w']]];
         return ['interpolate',['linear'],['zoom'],
           10, ['*', 1.6, f],
           13, ['*', 2.6, f],
