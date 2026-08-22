@@ -63,9 +63,9 @@ deleted from the deploy, individual files remain reachable by URL).
   to north; pitch stays a map gesture.
 - **Points overlay dots** keep their faint paper outline — a blurred
   no-stroke variant stacked too intensely; the outline is what gives the
-  dots their softness. Color is a signal red (`#C1121F`) — the one colored
-  data mark on the map; UI accents stay the burnt orange. Reports are
-  aggregated
+  dots their softness. Color is the accent orange (a signal-red pass was
+  tried; the real complaint turned out to be the stroke popping — see the
+  gotcha below). Reports are aggregated
   to ONE dot per location (repeat addresses stack on the same spot), and
   each dot's opacity scales with its report count through the SAME law as
   blocks/buildings: normalize to the p99.5 spot, sqrt gamma, the shared
@@ -89,7 +89,10 @@ deleted from the deploy, individual files remain reachable by URL).
   extrusions and FADE IN starting one zoom level before the buildings but
   snapping in fast — z12→12.4 (a slow full-level fade felt draggy),
   minzoom-culled below — so dots pop out of the block mosaic, then the
-  volumes rise.
+  volumes rise. GOTCHA (bit us): `circle-opacity` fades the FILL only;
+  the stroke rides a separate `circle-stroke-opacity` (default 1), so it
+  must follow the same entrance curve or the borders blink in at full
+  strength at the minzoom boundary.
   The panel now has zero controls (the On/Off switch was removed; the
   compass is the only interactive control, and it lives on the map). If
   BOTH density layers fail, the degrade path un-gates the dots' zoom

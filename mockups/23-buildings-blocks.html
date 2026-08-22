@@ -1506,6 +1506,7 @@ function degradeIfBothFailed(){
     if (map.getLayer('points')){
       map.setLayerZoomRange('points', 0, 24);
       map.setPaintProperty('points', 'circle-opacity', pointBaseOpacityExpr());
+      map.setPaintProperty('points', 'circle-stroke-opacity', 0.7);
     }
   }
 }
@@ -1642,16 +1643,19 @@ map.on('load', function(){
           16, ['*', 4.2, f]
         ];
       })(),
-      /* signal red — the dots are the one colored data mark on the map
-         (UI accents stay the burnt orange). The faint paper outline
-         stays: a blurred no-stroke variant was tried and stacked too
-         intensely — the outline is what gives the dots their softness.
-         Opacity scales per spot with report count. The stroke thins at
-         citywide zoom: a 0.7px ring around a ~1.6px dot outweighed the
-         fill and the overlay read as measles */
-      'circle-color':'#C1121F',
+      /* the accent orange — the one touch of color on the map itself.
+         The faint paper outline stays: a blurred no-stroke variant was
+         tried and stacked too intensely — the outline is what gives the
+         dots their softness. Opacity scales per spot with report count.
+         The stroke thins at citywide zoom: a 0.7px ring around a ~1.6px
+         dot outweighed the fill and the overlay read as measles.
+         GOTCHA: circle-opacity fades the FILL only — the stroke rides its
+         own circle-stroke-opacity, so it follows the same entrance curve
+         or it pops in at full strength while the fill is still fading */
+      'circle-color':'#B7470A',
       'circle-opacity': pointOpacityExpr(),
-      'circle-stroke-color':'rgba(255,255,255,0.7)',
+      'circle-stroke-color':'#FFFFFF',
+      'circle-stroke-opacity': zoomCurve(POINTS_ENTRANCE, function(f){ return f * 0.7; }),
       'circle-stroke-width':['interpolate',['linear'],['zoom'], 10, 0.2, 13, 0.5, 16, 0.9]
     }
   });
