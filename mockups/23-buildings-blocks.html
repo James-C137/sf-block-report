@@ -1296,7 +1296,9 @@ var BLOCKS_MAX = 0.85;          /* opacity cap on the block mosaic */
    plane tuning */
 var STREETS_ON = true;
 var STREET_FADE_TO = BLOCK_FADE_TO;   /* zoom where street ink is fully gone */
-var STREETS_MAX = BLOCKS_MAX;         /* strength cap, same scale as blocks */
+var STREETS_MAX = 0.15;               /* strength cap, same scale as blocks
+                                         (0.85 = match the mosaic); 15% tuned
+                                         in by eye via the panel slider */
 function streetFadeStops(){
   /* the ground-fade curve, shape preserved, translated so its endpoint
      lands on the slider value */
@@ -1364,10 +1366,10 @@ function blockOpacityExpr(){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
-/* points entrance: anchored at z12, well before the buildings' handoff,
-   and snapping in over ~a quarter level — the dots pop out of the block
-   mosaic, own the z12–14 phase, then the volumes rise beneath them */
-var POINTS_ENTRANCE = [[12.0, 0], [12.1, 0.6], [12.2, 0.95], [12.25, 1]];
+/* points entrance: anchored at z13, one level before the buildings'
+   handoff, snapping in over ~a quarter level — the dots pop out of the
+   block mosaic, then the volumes rise beneath them from z14 */
+var POINTS_ENTRANCE = [[13.0, 0], [13.1, 0.6], [13.2, 0.95], [13.25, 1]];
 var POINTS_MINZOOM = POINTS_ENTRANCE[0][0] - 0.1;
 function pointBaseOpacityExpr(){
   /* per-spot report weight w (normalized + sqrt in aggregatePoints) sets
@@ -1719,9 +1721,8 @@ map.on('load', function(){
       'circle-radius':(function(){
         var f = ['+', 0.6, ['*', 0.75, ['get','w']]];
         return ['interpolate',['linear'],['zoom'],
-          12.0,  ['*', 0.8, f],
-          12.25, ['*', 2.3, f],
-          13,    ['*', 2.6, f],
+          13.0,  ['*', 0.8, f],
+          13.25, ['*', 2.35, f],
           16,    ['*', 4.2, f]
         ];
       })(),

@@ -87,11 +87,10 @@ deleted from the deploy, individual files remain reachable by URL).
   at citywide zoom, rest reveal past z12.6, pole-of-inaccessibility anchors,
   density-aware inversion (paper-white text over dark ink).
 - **Points overlay** (not a separate view, no toggle): dots draw above the
-  extrusions and SNAP in at z12→12.25, opacity and radius together (they
+  extrusions and SNAP in at z13→13.25, opacity and radius together (they
   scale from a third of their size to full — slower fades felt draggy),
-  minzoom-culled below. With the building handoff pushed to z14→15.5 the
-  dots own a long z12–14 phase over the block mosaic before the volumes
-  rise. GOTCHA (bit us): `circle-opacity` fades the FILL only;
+  minzoom-culled below — one level before the z14→15.5 building handoff,
+  so the dots get a beat over the block mosaic before the volumes rise. GOTCHA (bit us): `circle-opacity` fades the FILL only;
   the stroke rides a separate `circle-stroke-opacity` (default 1), so it
   must follow the same entrance curve or the borders blink in at full
   strength at the minzoom boundary.
