@@ -110,6 +110,13 @@ deleted from the deploy, individual files remain reachable by URL).
   road-dim follows: roads un-dim when the ink is off and return along
   the slider's fade curve. Other defaults remain baked in: ink 100%,
   contrast 1.0, blocks 85%, height 100%, entrance "Both".
+- **Handoff slider** (panel, "Buildings in / blocks out", z12–16): slides
+  the ENTIRE building-in/blocks-out crossfade along the zoom axis —
+  entrance opacity + height curves, the ground fade, and the buildings'
+  minzoom cull all translate together with their shapes intact
+  (`HANDOFF_SHIFT` applied via `shiftStops`). The readout shows the live
+  window (e.g. "z14.0–15.5"). Street ink and the dots' entrance have
+  their own timing and deliberately do NOT follow this slider.
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1

@@ -542,6 +542,15 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <hr class="rule">
 
+    <span class="microlabel">Handoff</span>
+    <div class="slider-head">
+      <span class="microlabel">Buildings in / blocks out</span>
+      <span class="microlabel num" id="handoff-val"></span>
+    </div>
+    <input type="range" class="slider" id="handoff" min="12" max="16" step="0.1" aria-label="Zoom level where buildings fade in and blocks fade out">
+
+    <hr class="rule">
+
     <span class="microlabel">By neighborhood</span>
     <ol class="ranking" id="ranking"></ol>
 
@@ -1294,6 +1303,16 @@ var BLOCKS_MAX = 0.85;          /* opacity cap on the block mosaic */
    measured in the SAME dimension as BLOCKS_MAX — set the slider to 85%
    and street ink matches the blocks exactly, the original one-ground-
    plane tuning */
+/* handoff slider: translates the WHOLE building-in / blocks-out crossfade
+   (entrance curves, ground fade, minzoom cull — shapes preserved) by up
+   to ±2 zoom levels around the baked anchor */
+var HANDOFF_BASE = ENTRANCE.op[0][0];   /* z14.0 — entrance start */
+var HANDOFF_SHIFT = 0;
+function shiftStops(stops){
+  if (!HANDOFF_SHIFT) return stops;
+  return stops.map(function(s){ return [s[0] + HANDOFF_SHIFT, s[1]]; });
+}
+
 var STREETS_ON = true;
 var STREET_FADE_TO = BLOCK_FADE_TO;   /* zoom where street ink is fully gone */
 var STREETS_MAX = 0.15;               /* strength cap, same scale as blocks
@@ -1324,14 +1343,14 @@ function buildingHeightExpr(){
   /* the entrance raises height from 0 across the handoff range so
      buildings rise out of the block mosaic */
   var full = ['*', HEIGHT_MULT, ['get','h']];
-  return zoomCurve(ENTRANCE.h, function(f){
+  return zoomCurve(shiftStops(ENTRANCE.h), function(f){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
 function buildingOpacityExpr(){
   /* zero at the entrance start (and below, down to minzoom) so the layer
      can unload underneath without a blink */
-  return zoomCurve(ENTRANCE.op, function(f){ return f * BLDG_FULL_OPACITY; });
+  return zoomCurve(shiftStops(ENTRANCE.op), function(f){ return f * BLDG_FULL_OPACITY; });
 }
 function blockColorExpr(){
   /* hue deepens warm gray→charcoal with t while blockOpacityExpr drives
@@ -1362,7 +1381,7 @@ function blockOpacityExpr(){
     0.80, 0.79,
     1.00, 1.0
   ]];
-  return zoomCurve(GROUND_FADE, function(f){
+  return zoomCurve(shiftStops(GROUND_FADE), function(f){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
@@ -1966,6 +1985,33 @@ stStrength.addEventListener('input', function(){
   applyStreetSettings();
 });
 paintStreetControls();
+
+/* ---------- handoff slider: slide the whole buildings-in/blocks-out
+   crossfade along the zoom axis, shapes intact ---------- */
+var handoffEl = document.getElementById('handoff');
+var handoffVal = document.getElementById('handoff-val');
+function paintHandoff(){
+  handoffVal.textContent =
+    'z' + (HANDOFF_BASE + HANDOFF_SHIFT).toFixed(1) +
+    '–' + (GROUND_FADE[GROUND_FADE.length - 1][0] + HANDOFF_SHIFT).toFixed(1);
+}
+function applyHandoff(){
+  if (map.getLayer('blocks')){
+    map.setPaintProperty('blocks', 'fill-opacity', blockOpacityExpr());
+  }
+  if (map.getLayer('buildings')){
+    map.setPaintProperty('buildings', 'fill-extrusion-opacity', buildingOpacityExpr());
+    map.setPaintProperty('buildings', 'fill-extrusion-height', buildingHeightExpr());
+    map.setLayerZoomRange('buildings', BLDG_MINZOOM + HANDOFF_SHIFT, 24);
+  }
+}
+handoffEl.value = HANDOFF_BASE;
+handoffEl.addEventListener('input', function(){
+  HANDOFF_SHIFT = parseFloat(handoffEl.value) - HANDOFF_BASE;
+  paintHandoff();
+  applyHandoff();
+});
+paintHandoff();
 
 /* ---------- compass: needle tracks bearing, press resets to north ---------- */
 var compassEl = document.getElementById('compass');
