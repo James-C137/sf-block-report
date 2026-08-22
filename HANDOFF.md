@@ -95,12 +95,20 @@ deleted from the deploy, individual files remain reachable by URL).
   the stroke rides a separate `circle-stroke-opacity` (default 1), so it
   must follow the same entrance curve or the borders blink in at full
   strength at the minzoom boundary.
-  The panel now has zero controls (the On/Off switch was removed; the
-  compass is the only interactive control, and it lives on the map). If
-  BOTH density layers fail, the degrade path un-gates the dots' zoom
-  range so they can carry the map alone. All tuning dials were removed
-  with defaults baked in: ink 100%, contrast 1.0, blocks 85%, height
-  100%, entrance "Both", streets on.
+  If BOTH density layers fail, the degrade path un-gates the dots' zoom
+  range so they can carry the map alone.
+- **Street-ink controls** (panel; the one tuning section that came back
+  after the great dial purge — the points On/Off stayed gone): an On/Off
+  toggle, a "fades out at" zoom slider (z13–17, default = the building
+  handoff end, currently 15.5; the fade keeps the ground-fade's
+  held-then-release shape, translated so its endpoint lands on the slider
+  value), and a strength slider measured in the SAME dimension as the
+  block cap — 85% = `BLOCKS_MAX`, and the readout flags "= blocks" at
+  that value. All three drive both street renderers (deck.gl canvas +
+  MapLibre fallback, via paint + zoom-range updates), and the basemap
+  road-dim follows: roads un-dim when the ink is off and return along
+  the slider's fade curve. Other defaults remain baked in: ink 100%,
+  contrast 1.0, blocks 85%, height 100%, entrance "Both".
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1
