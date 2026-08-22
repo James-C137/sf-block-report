@@ -54,15 +54,16 @@ deleted from the deploy, individual files remain reachable by URL).
   dots. Everything else stays graphite. Building extrusion opacity is
   capped at 0.85 (was 0.96) — full-strength charcoal volumes read too
   intense.
-- **Compass / 2D-3D toggle** (top-right on the map): needle counter-rotates
-  to track true north (accent-orange north tip), the dial foreshortens
-  with camera pitch via a CSS rotateX so the control mirrors the view, and
-  a small caption reads 3D/2D. Pressing it eases pitch between 57 and 0.
-  Bearing is left alone on toggle — rotation stays a map gesture.
-- **Points overlay dots** have no stroke halo anymore: the old paper
-  stroke occluded neighboring dots (overlaps read as blobs swallowing
-  each other); a soft `circle-blur` edge at 0.5 opacity lets stacked
-  points accumulate into darker orange instead.
+- **Compass** (top-right on the map): a bare needle living directly on
+  the page — no chip, no border, no caption (a chipped version with a
+  2D/3D press-toggle was tried and stripped back). Needle counter-rotates
+  to track true north (accent-orange tip), foreshortens with camera pitch
+  via CSS rotateX so it sits in the scene, and carries a whisper of paper
+  drop-shadow for legibility over dark ink. Pressing it eases bearing back
+  to north; pitch stays a map gesture.
+- **Points overlay dots** keep their faint paper outline at 0.55 opacity —
+  a blurred no-stroke variant stacked too intensely; the outline is what
+  gives the dots their softness. Color is the accent orange.
 - **Density rendering**: census-block choropleth + inked street segments at
   citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade
