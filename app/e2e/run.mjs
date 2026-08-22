@@ -151,6 +151,25 @@ const browser = await chromium.launch({
   }, 'blocks, buildings and dots layers all present');
 
   await waitFor(page, () => document.querySelectorAll('.nhood-label').length >= 15, 'neighborhood labels render as DOM markers');
+  await waitFor(page, () => {
+    const n = document.querySelector('.nhood.nhood-in');
+    return !!n && getComputedStyle(n).opacity === '1';
+  }, 'labels fade in on first placement');
+  /* the minor tier's zoom-driven reveal: hidden below 12.6, half-faded
+     mid-ramp, full past 13.1 */
+  const minorState = (z) => page.evaluate((zoom) => {
+    window.__blockReport.map.jumpTo({ zoom });
+    const els = document.querySelectorAll('.nhood-label');
+    const m = els[els.length - 1]; /* rank order: last is deepest minor */
+    return { display: m.style.display, opacity: parseFloat(m.style.opacity || '1') };
+  }, z);
+  const atLow = await minorState(11.85);
+  const atMid = await minorState(12.85);
+  const atHigh = await minorState(13.2);
+  ok(atLow.display === 'none', 'minor labels hidden below z12.6');
+  ok(Math.abs(atMid.opacity - 0.5) < 0.02 && atMid.display !== 'none', `minor reveal half-faded at z12.85 (got ${atMid.opacity})`);
+  ok(atHigh.opacity === 1, 'minor reveal complete past z13.1');
+  await page.evaluate(() => window.__blockReport.map.jumpTo({ zoom: 11.85 }));
 
   /* live data flowed into the panel */
   const count = await page.evaluate(() => document.getElementById('count-value')?.textContent ?? '');

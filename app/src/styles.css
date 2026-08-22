@@ -263,7 +263,8 @@ button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
 
 /* neighborhood labels (DOM markers; scale/translate set from JS under
    the same law as the pins) */
-.nhood{ pointer-events:none; z-index:1; }
+.nhood{ pointer-events:none; z-index:1; opacity:0; transition:opacity 0.3s ease; }
+.nhood.nhood-in{ opacity:1; }
 .ping{ z-index:2; }           /* your pins ride above the wayfinding */
 .nhood-label{
   position:absolute;

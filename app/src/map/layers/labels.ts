@@ -66,6 +66,14 @@ export function addLabelMarkers(map: MLMap, features: NhoodFeature[], field: Den
       .addTo(map);
     items.push({ el, minor });
   });
+  /* symbol layers faded labels in on first placement (~300ms); mirror
+     that on the marker roots so the names don't pop in when the
+     geometry lands. Runs a frame after insertion so the 0→1 transition
+     actually plays. The per-zoom minor reveal lives on the inner label
+     element, so the two opacities compose instead of fighting. */
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    for (const n of document.querySelectorAll<HTMLElement>('.nhood')) n.classList.add('nhood-in');
+  }));
 
   /* same law as the pins: constant screen size to the bend, then fixed
      world size, scaling about the anchor */
