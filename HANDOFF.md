@@ -103,7 +103,9 @@ deleted from the deploy, individual files remain reachable by URL).
   held-then-release shape, translated so its endpoint lands on the slider
   value), and a strength slider measured in the SAME dimension as the
   block cap — 85% = `BLOCKS_MAX`, and the readout flags "= blocks" at
-  that value. All three drive both street renderers (deck.gl canvas +
+  that value. DEFAULT is 15%, tuned in by eye: street ink is a whisper
+  under the mosaic, not an equal ground plane.
+  All three drive both street renderers (deck.gl canvas +
   MapLibre fallback, via paint + zoom-range updates), and the basemap
   road-dim follows: roads un-dim when the ink is off and return along
   the slider's fade curve. Other defaults remain baked in: ink 100%,
