@@ -82,6 +82,11 @@ Was crashing (WebGL memory kill). Fixed and confirmed on-device: mobile path
 `pixelRatio` to 1.5, and skips deck.gl entirely. Desktop path verified
 pixel-identical to before.
 
+Narrow viewports also run `cooperativeGestures` (one finger scrolls the
+page, two fingers move the map) — without it the full-viewport map captured
+every touch and the panel below was unreachable — and the "Details below"
+pill is a real button that scrolls to the panel.
+
 ## Decisions on record
 
 - **Stack for the real build**: Vite + **vanilla TypeScript, no React** (the

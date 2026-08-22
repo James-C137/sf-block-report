@@ -321,12 +321,15 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     transition:width 400ms ease;
   }
 
-  /* scroll affordance (mobile) */
+  /* scroll affordance (mobile) — a real button: the map holds one-finger
+     gestures for itself on phones, so this is the guaranteed way down */
   .scroll-hint{
     position:absolute;
     left:50%; bottom:46px;
     transform:translateX(-50%);
     display:flex; align-items:center; gap:7px;
+    appearance:none;
+    font-family:inherit;
     background:var(--paper);
     border:1px solid var(--hair);
     border-radius:999px;
@@ -336,8 +339,21 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     letter-spacing:0.16em;
     text-transform:uppercase;
     color:var(--ink-60);
-    pointer-events:none;
+    cursor:pointer;
     z-index:5;
+  }
+  .scroll-hint:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:2px;
+  }
+
+  /* cooperative-gesture overlay ("use two fingers to move the map"),
+     set in the house type */
+  .maplibregl-cooperative-gesture-screen{
+    font-family:'Inter', sans-serif;
+    font-size:11px;
+    font-weight:500;
+    letter-spacing:0.06em;
   }
   .scroll-hint .arrow{
     display:inline-block;
@@ -388,7 +404,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     <span id="loading-label">Loading layers</span>
     <span class="track" aria-hidden="true"><i id="loading-bar"></i></span>
   </div>
-  <div class="scroll-hint" aria-hidden="true"><span>Details below</span><span class="arrow">&darr;</span></div>
+  <button type="button" class="scroll-hint" id="scroll-hint"><span>Details below</span><span class="arrow" aria-hidden="true">&darr;</span></button>
 </div>
 
 <section class="panel" aria-label="Report summary and filters">
@@ -869,6 +885,13 @@ if (MOBILE){
   /* DPR-3 phones quadruple the framebuffer (and the CSS-filter compositing
      buffer over it) versus DPR 1.5 — clamp it; text stays crisp enough */
   mapOptions.pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+}
+if (narrow){
+  /* the map owns the whole first viewport with the panel scrolled below it,
+     so a one-finger drag must keep scrolling the PAGE — cooperative
+     gestures reserve the map for two fingers (which pan, pinch, and rotate
+     as before) and let single-finger swipes reach the details */
+  mapOptions.cooperativeGestures = true;
 }
 var map = new maplibregl.Map(mapOptions);
 
@@ -1597,6 +1620,11 @@ function setPoints(on){
 }
 ptOn.addEventListener('click', function(){ setPoints(true); });
 ptOff.addEventListener('click', function(){ setPoints(false); });
+
+/* ---------- "details below" pill scrolls to the panel ---------- */
+document.getElementById('scroll-hint').addEventListener('click', function(){
+  document.querySelector('.panel').scrollIntoView({ behavior:'smooth' });
+});
 
 /* ---------- panel: real numbers from the fetched window ---------- */
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
