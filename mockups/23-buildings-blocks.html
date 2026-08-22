@@ -230,6 +230,42 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     margin-top:12px;
   }
 
+  .slider{
+    appearance:none;
+    -webkit-appearance:none;
+    display:block;
+    width:100%;
+    height:18px;
+    margin-top:4px;
+    background:transparent;
+    cursor:pointer;
+  }
+  .slider::-webkit-slider-runnable-track{
+    height:2px;
+    background:var(--hair);
+  }
+  .slider::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:12px; height:12px;
+    margin-top:-5px;
+    border-radius:50%;
+    background:var(--ink);
+  }
+  .slider::-moz-range-track{
+    height:2px;
+    background:var(--hair);
+  }
+  .slider::-moz-range-thumb{
+    width:12px; height:12px;
+    border:0;
+    border-radius:50%;
+    background:var(--ink);
+  }
+  .slider:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:4px;
+  }
+
   /* ranking */
   .ranking{ list-style:none; margin-top:12px; }
   .ranking li{ padding:7px 0; }
@@ -485,6 +521,24 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     <span class="microlabel">Category</span>
     <div class="chips" id="chips"></div>
     <div class="notice" id="notice"></div>
+
+    <hr class="rule">
+
+    <span class="microlabel" id="streets-label">Street ink</span>
+    <div class="segment" role="group" aria-labelledby="streets-label">
+      <button type="button" id="streets-on" class="active" aria-pressed="true">On</button>
+      <button type="button" id="streets-off" aria-pressed="false">Off</button>
+    </div>
+    <div class="slider-head">
+      <span class="microlabel">Fades out at</span>
+      <span class="microlabel num" id="street-fade-val"></span>
+    </div>
+    <input type="range" class="slider" id="street-fade" min="13" max="17" step="0.1" aria-label="Zoom level where street ink fades out">
+    <div class="slider-head">
+      <span class="microlabel">Strength</span>
+      <span class="microlabel num" id="street-strength-val"></span>
+    </div>
+    <input type="range" class="slider" id="street-strength" min="0" max="100" step="1" aria-label="Street ink strength, percent — 85 matches the blocks">
 
     <hr class="rule">
 
@@ -1234,7 +1288,21 @@ var INK = 1.0;                  /* density → ink strength */
 var CONTRAST = 1.0;             /* density → strength exponent; 1.2 muted the
                                    low end to near-white — linear keeps a
                                    visible wash across the whole city */
-var BLOCKS_MAX = 0.85;          /* opacity cap on the ground layers (blocks + street ink) */
+var BLOCKS_MAX = 0.85;          /* opacity cap on the block mosaic */
+
+/* street-ink controls (panel): toggle, fade-out zoom, and a strength cap
+   measured in the SAME dimension as BLOCKS_MAX — set the slider to 85%
+   and street ink matches the blocks exactly, the original one-ground-
+   plane tuning */
+var STREETS_ON = true;
+var STREET_FADE_TO = BLOCK_FADE_TO;   /* zoom where street ink is fully gone */
+var STREETS_MAX = BLOCKS_MAX;         /* strength cap, same scale as blocks */
+function streetFadeStops(){
+  /* the ground-fade curve, shape preserved, translated so its endpoint
+     lands on the slider value */
+  var shift = STREET_FADE_TO - GROUND_FADE[GROUND_FADE.length - 1][0];
+  return GROUND_FADE.map(function(s){ return [s[0] + shift, s[1]]; });
+}
 var HEIGHT_MULT = 1.0;          /* building extrusion height multiplier */
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
@@ -1353,11 +1421,10 @@ function streetWidthExpr(){
   ];
 }
 function streetOpacityExpr(){
-  /* inverse of the building entrance: full street ink when zoomed out,
-     dissolving across the handoff as the volumes rise. The blocks cap
-     limits street ink the same way it caps the mosaic — one ground plane.
-     (MapLibre fallback layer only) */
-  return zoomCurve(GROUND_FADE, function(f){ return f * BLOCKS_MAX; });
+  /* full street ink when zoomed out, dissolving by STREET_FADE_TO. The
+     strength cap works in the blocks' dimension — at the default both
+     read as one ground plane. (MapLibre fallback layer only) */
+  return zoomCurve(streetFadeStops(), function(f){ return f * STREETS_MAX; });
 }
 
 /* ---------- deck.gl street ink (overdraw-free) ----------
@@ -1391,9 +1458,9 @@ function streetWidthPx(d){
 var STREET_ZOOM_WIDTH = [[10,0.8],[12,1.0],[14,1.35],[16,2.1]];
 function zoomWidthScale(z){ return lerpStops(STREET_ZOOM_WIDTH, z); }
 function zoomFade(z){
-  /* deck.gl canvas follows the same held-then-release ground fade as the
-     block mosaic, so street ink and blocks let go together */
-  return lerpStops(GROUND_FADE, z);
+  /* deck.gl canvas follows the same held-then-release fade shape as the
+     block mosaic, anchored to the slider's fade-out zoom */
+  return lerpStops(streetFadeStops(), z);
 }
 
 var deckOverlay = null;
@@ -1457,7 +1524,7 @@ function deckStreetLayer(){
     jointRounded: true,
     capRounded: true,
     opacity: 1,               /* fade handled on the canvas, post-blend */
-    visible: z < BLOCK_FADE_TO,
+    visible: STREETS_ON && z < STREET_FADE_TO,
     parameters:{
       blendColorOperation:'max',
       blendColorSrcFactor:'one',
@@ -1476,8 +1543,7 @@ function updateDeckStreets(){
   deckOverlay.setProps({ layers:[deckStreetLayer()] });
   var c = findDeckCanvas();
   if (c){
-    /* the blocks cap limits street ink exactly as it caps the mosaic */
-    c.style.opacity = BLOCKS_MAX * zoomFade(map.getZoom());
+    c.style.opacity = STREETS_ON ? STREETS_MAX * zoomFade(map.getZoom()) : 0;
     c.style.pointerEvents = 'none';
   }
 }
@@ -1591,17 +1657,28 @@ function collectRoads(){
 function roadDimExpr(orig){
   var hi = (typeof orig === 'number') ? orig : 1;
   var lo = Math.min(ROAD_DIM, hi);
-  /* basemap roads return as the inverse of the ground fade, so they stay
-     whisper-quiet exactly as long as the street ink is still holding */
-  return zoomCurve(GROUND_FADE, function(f){ return lo + (1 - f) * (hi - lo); });
+  /* basemap roads return as the inverse of the street-ink fade, so they
+     stay whisper-quiet exactly as long as the street ink is still holding */
+  return zoomCurve(streetFadeStops(), function(f){ return lo + (1 - f) * (hi - lo); });
 }
 function applyRoadDim(){
-  var dim = streetsReady;
+  var dim = streetsReady && STREETS_ON;
   roadLayerIds.forEach(function(id){
     try{
       map.setPaintProperty(id, 'line-opacity', dim ? roadDimExpr(roadOrigOpacity[id]) : roadOrigOpacity[id]);
     }catch(e){}
   });
+}
+
+/* re-apply the street-ink controls to whichever renderer is active */
+function applyStreetSettings(){
+  if (deckOverlay) updateDeckStreets();
+  if (map.getLayer('streets')){
+    map.setLayoutProperty('streets', 'visibility', STREETS_ON ? 'visible' : 'none');
+    map.setPaintProperty('streets', 'line-opacity', streetOpacityExpr());
+    map.setLayerZoomRange('streets', 0, STREET_FADE_TO);
+  }
+  applyRoadDim();
 }
 
 map.on('load', function(){
@@ -1718,8 +1795,9 @@ map.on('load', function(){
         id:'streets',
         type:'line',
         source:'streets',
-        maxzoom:BLOCK_FADE_TO,   /* truly gone above the handoff — opacity is
-                                    already 0 at the cutoff, so no pop */
+        maxzoom:STREET_FADE_TO,  /* truly gone above the fade-out — opacity is
+                                    already 0 at the cutoff, so no pop;
+                                    slider updates this via setLayerZoomRange */
         layout:{
           'line-cap':'butt',     /* round caps are discs that double-paint at
                                     every shared node — butt/miter kills it */
@@ -1848,6 +1926,45 @@ map.on('load', function(){
 document.getElementById('scroll-hint').addEventListener('click', function(){
   document.querySelector('.panel').scrollIntoView({ behavior:'smooth' });
 });
+
+/* ---------- street-ink controls ---------- */
+var stOn = document.getElementById('streets-on');
+var stOff = document.getElementById('streets-off');
+var stFade = document.getElementById('street-fade');
+var stFadeVal = document.getElementById('street-fade-val');
+var stStrength = document.getElementById('street-strength');
+var stStrengthVal = document.getElementById('street-strength-val');
+
+function paintStreetControls(){
+  stOn.classList.toggle('active', STREETS_ON);
+  stOff.classList.toggle('active', !STREETS_ON);
+  stOn.setAttribute('aria-pressed', STREETS_ON);
+  stOff.setAttribute('aria-pressed', !STREETS_ON);
+  stFadeVal.textContent = 'z' + STREET_FADE_TO.toFixed(1);
+  var pct = Math.round(STREETS_MAX * 100);
+  /* flag the setting that matches the block mosaic's cap */
+  stStrengthVal.textContent = pct + '%' + (pct === Math.round(BLOCKS_MAX * 100) ? ' = blocks' : '');
+}
+function setStreets(on){
+  STREETS_ON = on;
+  paintStreetControls();
+  applyStreetSettings();
+}
+stOn.addEventListener('click', function(){ setStreets(true); });
+stOff.addEventListener('click', function(){ setStreets(false); });
+stFade.value = STREET_FADE_TO;
+stFade.addEventListener('input', function(){
+  STREET_FADE_TO = parseFloat(stFade.value);
+  paintStreetControls();
+  applyStreetSettings();
+});
+stStrength.value = Math.round(STREETS_MAX * 100);
+stStrength.addEventListener('input', function(){
+  STREETS_MAX = stStrength.value / 100;
+  paintStreetControls();
+  applyStreetSettings();
+});
+paintStreetControls();
 
 /* ---------- compass: needle tracks bearing, press resets to north ---------- */
 var compassEl = document.getElementById('compass');
