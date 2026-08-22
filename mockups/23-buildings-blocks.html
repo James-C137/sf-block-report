@@ -446,6 +446,11 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     right:14px;
     width:52px; height:52px;               /* snug round hit target */
     border-radius:50%;
+    /* the rotated needle svg's square bounding box pokes past the button
+       (a 48px square at 30 degrees bounds ~66px) and was widening the
+       page into horizontal scroll on mobile — clip to the circle; the
+       drawn needle never reaches the corners, so nothing visible is cut */
+    overflow:hidden;
     display:flex; align-items:center; justify-content:center;
     appearance:none;
     background:none;
