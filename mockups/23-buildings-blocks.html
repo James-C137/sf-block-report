@@ -678,6 +678,147 @@ function centroidOf(geom){
   return [sx / n, sy / n];
 }
 
+/* ---------- neighborhood label anchors ----------
+   one label point per neighborhood: a pole-of-inaccessibility-ish interior
+   point — the grid sample (plus the ring centroid as a candidate) that sits
+   inside the largest polygon and farthest from its edges, so labels land
+   over their neighborhoods even for concave shapes */
+function shoelace(ring){
+  var a = 0;
+  for (var i = 0, n = ring.length - 1; i < n; i++){
+    a += ring[i][0] * ring[i+1][1] - ring[i+1][0] * ring[i][1];
+  }
+  return a / 2;
+}
+function pointInRing(x, y, ring){
+  var inside = false;
+  for (var i = 0, j = ring.length - 1; i < ring.length; j = i++){
+    var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi){
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+function labelPointOf(geom){
+  var polys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+  var poly = null, area = 0;
+  for (var i = 0; i < polys.length; i++){
+    var a = Math.abs(shoelace(polys[i][0]));
+    if (a > area){ area = a; poly = polys[i]; }
+  }
+  if (!poly) return null;
+  var outer = poly[0];
+  var inside = function(x, y){
+    if (!pointInRing(x, y, outer)) return false;
+    for (var h = 1; h < poly.length; h++){
+      if (pointInRing(x, y, poly[h])) return false;
+    }
+    return true;
+  };
+  /* edge vertices, decimated for scoring (rings are dense) */
+  var verts = [];
+  for (var r = 0; r < poly.length; r++){
+    var ring = poly[r];
+    var step = Math.max(1, Math.floor(ring.length / 300));
+    for (var v = 0; v < ring.length; v += step) verts.push(ring[v]);
+  }
+  var KY = 1, KX = Math.cos(37.76 * Math.PI / 180); /* lon degrees are shorter */
+  function edgeDist2(x, y){
+    var best = Infinity;
+    for (var k = 0; k < verts.length; k++){
+      var dx = (x - verts[k][0]) * KX, dy = (y - verts[k][1]) * KY;
+      var d = dx * dx + dy * dy;
+      if (d < best) best = d;
+    }
+    return best;
+  }
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (var b = 0; b < outer.length; b++){
+    var p = outer[b];
+    if (p[0] < minX) minX = p[0];
+    if (p[0] > maxX) maxX = p[0];
+    if (p[1] < minY) minY = p[1];
+    if (p[1] > maxY) maxY = p[1];
+  }
+  var cands = [];
+  var c = centroidOf(geom);
+  if (c && inside(c[0], c[1])) cands.push(c);
+  var N = 17;
+  for (var gy = 1; gy < N; gy++){
+    for (var gx = 1; gx < N; gx++){
+      var x = minX + (maxX - minX) * gx / N;
+      var y = minY + (maxY - minY) * gy / N;
+      if (inside(x, y)) cands.push([x, y]);
+    }
+  }
+  if (!cands.length) return { point: c, area: area };
+  var bestPt = cands[0], bestD = -1;
+  for (var q = 0; q < cands.length; q++){
+    var d2 = edgeDist2(cands[q][0], cands[q][1]);
+    if (d2 > bestD){ bestD = d2; bestPt = cands[q]; }
+  }
+  return { point: bestPt, area: area };
+}
+
+/* well-known neighborhoods surface first at the citywide framing; the rest
+   rank by polygon area and appear as you zoom past the handoff */
+var NHOOD_MAJORS = [
+  'Tenderloin', 'Mission', 'South of Market', 'Bayview Hunters Point',
+  'North Beach', 'Financial District/South Beach', 'Castro/Upper Market',
+  'Marina', 'Haight Ashbury', 'Nob Hill', 'Sunset/Parkside',
+  'Outer Richmond', 'Excelsior', 'Noe Valley', 'Pacific Heights'
+];
+/* compact display names — the minimal design has no room for slashes */
+var NHOOD_DISPLAY = {
+  'South of Market': 'SoMa',
+  'Bayview Hunters Point': 'Bayview',
+  'Financial District/South Beach': 'Financial District',
+  'Castro/Upper Market': 'Castro',
+  'Oceanview/Merced/Ingleside': 'Oceanview',
+  'Sunset/Parkside': 'Sunset',
+  'Lone Mountain/USF': 'Lone Mountain'
+};
+var NHOOD_MAJOR_COUNT = NHOOD_MAJORS.length;
+
+function toNhoodLabelFC(gj){
+  var rows = [];
+  (gj.features || []).forEach(function(f){
+    if (!f.geometry || !f.geometry.coordinates) return;
+    var name = (f.properties || {}).nhood;
+    if (!name) return;
+    var lp = labelPointOf(f.geometry);
+    if (!lp || !lp.point) return;
+    rows.push({ name: name, point: lp.point, area: lp.area });
+  });
+  /* curated majors first (in curated order), the rest by area, largest first */
+  rows.sort(function(a, b){
+    var ia = NHOOD_MAJORS.indexOf(a.name), ib = NHOOD_MAJORS.indexOf(b.name);
+    if (ia !== -1 || ib !== -1){
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    }
+    return b.area - a.area;
+  });
+  return {
+    type:'FeatureCollection',
+    features: rows.map(function(r, idx){
+      return {
+        type:'Feature',
+        properties:{
+          label: NHOOD_DISPLAY[r.name] || r.name,
+          rank: idx + 1,
+          /* density under the anchor — labels sitting on the dark ink
+             invert to paper-on-graphite so they stay readable */
+          dens: +densityAt(r.point[0], r.point[1]).toFixed(3)
+        },
+        geometry:{ type:'Point', coordinates: r.point }
+      };
+    })
+  };
+}
+
 /* ---------- map: citywide tilted by default, rotation left interactive ---------- */
 var narrow = window.innerWidth < 900;
 
@@ -713,8 +854,8 @@ var BLDG_FULL_OPACITY = 0.96;
 /* ground fade (blocks + street ink), as [zoom, fraction-of-full] stops.
    NOT linear: the ground holds near-full deep into the handoff and only
    lets go once the volumes carry the ink, so total darkness never dips
-   mid-crossfade — a linear 13->14.5 ramp read as a lighter "gap" in the
-   middle where both layers were at half strength. */
+   mid-crossfade — a linear 13->14.5 ramp reads as a lighter "gap" in the
+   middle where both layers sit at half strength. */
 var GROUND_FADE = [
   [13.0, 1.00],
   [13.5, 0.96],
@@ -724,7 +865,7 @@ var GROUND_FADE = [
 ];
 
 /* entrance treatments, as [zoom, fraction] stops for opacity and height
-   (h:null = full height). Opacity fronts-loads — steep at the start of the
+   (h:null = full height). Opacity front-loads — steep at the start of the
    range, easing into full — so the buildings are already inking the
    hotspot while the ground is still holding, and the two curves overlap
    instead of trading off through a pale middle. */
@@ -776,6 +917,11 @@ var STREETS_REMOTE = 'https://data.sfgov.org/resource/3psu-pn9h.geojson' +
   '?$select=line,classcode' +
   '&$where=' + encodeURIComponent("active=true AND layer in('STREETS','FREEWAYS','STREETS_TI','STREETS_YBI','STREETS_HUNTERSP')") +
   '&$limit=20000';
+
+/* DataSF "Analysis Neighborhoods" — the standard 41-neighborhood analysis
+   geography (nhood + multipolygon) that names the city */
+var NHOODS_LOCAL = 'data/neighborhoods.geojson';
+var NHOODS_REMOTE = 'https://data.sfgov.org/resource/j2bu-swwd.geojson?$limit=50';
 
 function fetchJSON(localUrl, remoteUrl){
   return fetch(localUrl)
@@ -886,12 +1032,17 @@ var streetsPromise = fetchJSON(STREETS_LOCAL, STREETS_REMOTE)
         continue;
       }
       var m = midpointOf(g.coordinates);
-      feats[i].properties = { d: +streetFieldAt(m[0], m[1]).toFixed(3) };
+      /* midpoint kept for the label clearings (see deckStreetLayer) */
+      feats[i].properties = { d: +streetFieldAt(m[0], m[1]).toFixed(3), mx: m[0], my: m[1] };
     }
     streetsShare = 1;
     paintProgress();
     return geo;
   });
+
+/* labels are decorative — they load quietly alongside the density layers
+   and never touch the progress pill or the degrade ladder */
+var nhoodsPromise = fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE).then(toNhoodLabelFC);
 
 /* ---------- shared paint state ---------- */
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
@@ -1028,6 +1179,32 @@ var deckOverlay = null;
 var deckCanvasEl = null;
 var streetPaths = null;   /* LineString features scored with d */
 
+/* ---------- label clearings in the street ink ----------
+   The deck canvas composites OVER the map canvas, so strokes would stripe
+   across the neighborhood names rendered by MapLibre below. For the two
+   names anchored on the hotspot cores (where strokes are densest) the
+   strokes ease off inside a small screen-radius around the anchor — the
+   near-black block ink beneath carries the darkness there, so the clearing
+   is invisible, but the glyphs composite unobstructed. */
+var LABEL_CLEAR_PX = 78;                    /* clearing radius, screen px */
+var streetClearAnchors = [];                /* [lng, lat] of inverted labels */
+var COSLAT = Math.cos(37.76 * Math.PI / 180);
+function labelClearFactor(p, z){
+  if (!streetClearAnchors.length) return 1;
+  /* radius in latitude degrees at this zoom (512px world tiles) */
+  var rLat = LABEL_CLEAR_PX * 360 / (512 * Math.pow(2, z));
+  var f = 1;
+  for (var i = 0; i < streetClearAnchors.length; i++){
+    var a = streetClearAnchors[i];
+    var dx = (p.mx - a[0]) * COSLAT;
+    var dy = p.my - a[1];
+    var t = Math.sqrt(dx * dx + dy * dy) / rLat;   /* 0 at anchor, 1 at rim */
+    var k = (t - 0.55) / 0.45;                     /* full clear inside 55% */
+    if (k < f) f = k;
+  }
+  return Math.max(0, Math.min(1, f));
+}
+
 function findDeckCanvas(){
   if (deckCanvasEl && deckCanvasEl.isConnected) return deckCanvasEl;
   var cs = document.getElementById('map').querySelectorAll('canvas');
@@ -1038,6 +1215,9 @@ function findDeckCanvas(){
 }
 function deckStreetLayer(){
   var z = map.getZoom();
+  /* quantized zoom for the clearing radius, so stroke colors only
+     regenerate a handful of times across a zoom, not every frame */
+  var zq = Math.round(z * 8) / 8;
   return new deck.PathLayer({
     id:'streets-ink',
     data: streetPaths,
@@ -1045,7 +1225,7 @@ function deckStreetLayer(){
     getColor: function(f){
       /* premultiplied graphite: rgb = 26 * a, alpha = 255 * a — both
          monotonic in a, so per-channel MAX stays consistent */
-      var a = streetAlpha(f.properties.d);
+      var a = streetAlpha(f.properties.d) * labelClearFactor(f.properties, zq);
       var g = Math.round(26 * a);
       return [g, g, g, Math.round(255 * a)];
     },
@@ -1066,7 +1246,7 @@ function deckStreetLayer(){
       blendAlphaDstFactor:'one'
     },
     updateTriggers:{
-      getColor: [state.ink, state.contrast],
+      getColor: [state.ink, state.contrast, zq, streetClearAnchors.length],
       getWidth: [state.contrast]
     }
   });
@@ -1271,6 +1451,72 @@ map.on('load', function(){
     settleLoading();
     if (!blocksFailed) showNotice('Building footprints could not be loaded — density shown per block only.');
     degradeIfBothFailed();
+  });
+
+  /* ----- neighborhood names: a symbol layer above everything (symbols
+     billboard at tilt, so they naturally float over the scene), with
+     MapLibre's own collision fades and zoom fades. Majors hold the
+     citywide framing; the rest arrive past the handoff. Names anchored on
+     the hotspot ink (dens >= 0.5: Tenderloin, Mission) invert to
+     paper-on-graphite, and the street ink above clears a small radius
+     around them (see labelClearFactor) so strokes never stripe the glyphs
+     — the body reads fully opaque. Inter glyphs aren't served by the
+     CARTO stack; Montserrat Medium is the closest grotesque it has. ----- */
+  nhoodsPromise.then(function(fc){
+    map.addSource('nhoods', { type:'geojson', data:fc });
+    streetClearAnchors = fc.features
+      .filter(function(f){ return f.properties.dens >= 0.5; })
+      .map(function(f){ return f.geometry.coordinates; });
+    updateDeckStreets();   /* re-color strokes now the clearings are known */
+    var labelLayout = {
+      'text-field': ['get','label'],
+      'text-font': ['Montserrat Medium', 'Noto Sans Regular'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10, 13.5, 10.5, 16, 11.5],
+      'text-transform': 'uppercase',
+      'text-letter-spacing': 0.14,
+      'text-line-height': 1.4,
+      'text-max-width': 7,
+      'text-padding': 6,
+      'symbol-sort-key': ['get','rank']   /* majors win collisions */
+    };
+    var onDark = ['>=', ['get','dens'], 0.5];
+    var labelPaint = {
+      'text-color': ['case', onDark, '#FFFFFF', '#3A3A3A'],
+      'text-halo-color': ['case', onDark, 'rgba(26,26,26,0.9)', '#FFFFFF'],
+      'text-halo-width': 1.5,
+      'text-halo-blur': 0.2
+    };
+    map.addLayer({
+      id:'nhood-labels-major',
+      type:'symbol',
+      source:'nhoods',
+      filter:['<=', ['get','rank'], NHOOD_MAJOR_COUNT],
+      layout: labelLayout,
+      paint: Object.assign({}, labelPaint, {
+        'text-opacity': ['interpolate', ['linear'], ['zoom'],
+          13.8, 1,
+          14.6, 0.85
+        ]
+      })
+    });
+    map.addLayer({
+      id:'nhood-labels-minor',
+      type:'symbol',
+      source:'nhoods',
+      minzoom:12.6,
+      filter:['>', ['get','rank'], NHOOD_MAJOR_COUNT],
+      layout: labelLayout,
+      paint: Object.assign({}, labelPaint, {
+        'text-opacity': ['interpolate', ['linear'], ['zoom'],
+          12.6, 0,
+          13.1, 1,
+          13.8, 1,
+          14.6, 0.85
+        ]
+      })
+    });
+  }).catch(function(err){
+    console.warn('Neighborhood names could not be loaded — map stays unlabeled:', err);
   });
 });
 
