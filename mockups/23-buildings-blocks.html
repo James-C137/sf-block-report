@@ -2080,6 +2080,12 @@ map.on('load', function(){
           WORLD_LABEL_AT, S0,
           WORLD_LABEL_AT + 4, S0 * 16
         ],
+        /* yaw-only billboarding: the glyphs lie in the ground plane
+           (pitch-alignment map — they foreshorten with the tilt like the
+           city does) but swivel with the camera bearing (rotation-
+           alignment viewport) so they always read left-to-right */
+        'text-pitch-alignment': 'map',
+        'text-rotation-alignment': 'viewport',
         /* the screen set owns collision during the crossfade; the world
            set neither blocks nor is blocked. Constant world size means
            whatever spacing the labels have at the handoff is the spacing

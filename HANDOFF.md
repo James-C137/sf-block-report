@@ -87,9 +87,12 @@ deleted from the deploy, individual files remain reachable by URL).
   at citywide zoom, rest reveal past z12.6, pole-of-inaccessibility anchors,
   density-aware inversion (paper-white text over dark ink). TWO REGIMES:
   screen-space type (constant px) below z14, handing off to an IN-WORLD set
-  just before the buildings enter — same billboarded symbols but with
-  text-size doubling per zoom (exponential base 2 = fixed world size, so
-  the names scale with the city). The swap is a fixed 450ms opacity
+  just before the buildings enter — same symbols but with text-size
+  doubling per zoom (exponential base 2 = fixed world size, so the names
+  scale with the city) and YAW-ONLY billboarding: `text-pitch-alignment:
+  map` lays the glyphs in the ground plane (they foreshorten with the
+  tilt like the city) while `text-rotation-alignment: viewport` swivels
+  them with the bearing so they always read left-to-right. The swap is a fixed 450ms opacity
   crossfade via MapLibre paint transitions, triggered on crossing z14 —
   time-based, not zoom-interpolated. The two size curves meet exactly at
   the threshold, so mid-fade only the scaling law changes, never the glyph
