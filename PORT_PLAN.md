@@ -1,11 +1,13 @@
 # Block Report — Port Plan (mockup → Vite + vanilla TypeScript)
 
-_Written 2026-08-22. The mockup (`mockups/23-buildings-blocks.html`, ~2,770
-lines, one file, two inline ES5 scripts) is feature-complete for V1 and is
-NOT to be touched during the port — it is the reference implementation and
-the test oracle. This document is the full plan: target architecture,
-simplifications, testing strategy, sequencing, known bugs to fix in
-transit, and open decisions._
+_Written 2026-08-22, approved same day (see §7). The mockup
+(`mockups/23-buildings-blocks.html`, ~2,770 lines, one file, two inline
+ES5 scripts) is feature-complete for V1 and is NOT to be touched during
+the port. It is a REFERENCE, not a golden artifact: developers read it and
+eyeball against it, but no test executes it or derives expectations from
+it — testing is fully decoupled (owner's call; see §3). This document is
+the full plan: target architecture, simplifications, testing strategy,
+sequencing, known bugs to fix in transit, and decisions._
 
 Standing decisions this plan honors (see HANDOFF.md):
 
@@ -103,14 +105,20 @@ AppState {
 
 Ordered by conviction.
 
-1. **Drop deck.gl entirely.** The deck street renderer (MAX-blend
-   premultiplied canvas, label clearing radii, canvas-opacity syncing, the
-   conditional `document.write` loader) exists to serve street ink — which
-   is OFF in the locked look. Port only the MapLibre street renderer
-   (already what mobile uses), behind a `STREETS_ON` config flag, default
-   off. Saves ~1MB of library, a second WebGL context, and the single
-   hairiest subsystem. Revisit only if street ink ever comes back strong.
-   _Needs sign-off — it deletes a working renderer._
+1. **Drop deck.gl entirely.** _APPROVED 2026-08-22._ Functional-diff
+   analysis behind the approval: with street ink OFF (the locked
+   default) there is ZERO user-facing difference — the deck renderer
+   (MAX-blend premultiplied canvas, label clearing radii, canvas-opacity
+   syncing, the conditional `document.write` loader) never draws a
+   pixel. The only divergence lives in a non-default config: if street
+   ink is ever re-enabled at high strength on desktop, overlapping
+   crossings render slightly darker under the MapLibre renderer
+   (butt-cap/miter already prevents endpoint double-painting; only true
+   crossing overlaps stack) — the exact rendering mobile has always
+   used. Port only the MapLibre street renderer behind a `STREETS_ON`
+   config flag, default off. Saves ~1MB of library, a second WebGL
+   context, and the single hairiest subsystem. Revisit only if street
+   ink comes back strong.
 
 2. **Drop the remote Socrata fallbacks for geometry.** Snapshots are
    committed and served same-origin; if they 404 the deploy is broken and
@@ -159,21 +167,35 @@ Ordered by conviction.
 
 ## 3. Testing
 
-### 3.1 Golden-oracle parity tests (the port's safety net)
+### 3.1 Spec-driven fixtures (decoupled from the mockup — owner's call)
 
-Before porting any math, extend the existing Node stub harness
-(`scratchpad/harness.js` pattern — promote it into `tools/oracle/`) to run
-the UNTOUCHED mockup script against fixed fixtures and dump goldens:
+Tests never execute the mockup or derive expectations from its output.
+Expected values come from first principles: hand-constructed fixtures
+whose correct answers are computable analytically from the documented
+laws (which live in `config.ts` / `paint.ts`, not in the mockup):
 
-- density field samples on a lat/lng probe grid (Tenderloin ≈ 1, ocean 0,
-  the filtered/pristine pair),
-- aggregated spots (w, n, cats, intersection) for a crafted address mix,
-- panel numbers (count/histogram/ranking) pristine + filtered + restored,
-- block scores for fixture geometry.
+- density: a single point → a blurred field whose peak cell and total
+  mass follow from the box-blur radii; two known clusters → known
+  relative peaks after p99.5 normalization and sqrt gamma; empty input
+  → all-zero field; probe-point sampling (a Tenderloin-like cluster ≈ 1,
+  open ocean = 0) computed from the formula, not from the mockup.
+- aggregation: crafted address mixes (singles, a 5×, a 12×, a p99.5
+  saturator) → w values computed directly from the w-law.
+- filters/stats: fixture incident sets with hand-countable
+  date-window/category slices.
+- block/street scoring: toy geometries with hand-computed centroids and
+  midpoints against a synthetic field.
 
-Ported modules must reproduce these goldens bit-for-bit (or within 1e-6).
-This is how the port proves it didn't drift from the mockup without the
-mockup ever changing.
+The mockup stays open in the next tab as the REFERENCE while porting —
+for reading intent and eyeballing renders — but if a ported module and
+the mockup ever disagree, the spec/fixture decides which one is wrong.
+
+### 3.1b Consistency invariants
+
+Property-style checks that don't need any oracle: filtering to all
+categories + full window is identity; count(activeRows) equals
+sum over aggregated spots of n; restoring pristine filters reproduces the
+pristine field exactly; normalization output is always in [0, 1].
 
 ### 3.2 Unit tests (Vitest) — the pure layer
 
@@ -220,8 +242,12 @@ Route-mock Socrata + Nominatim with fixtures; serve snapshots locally.
 ### 3.4 Visual regression (the parity gate for the flip)
 
 Screenshot at pinned camera states — citywide z11.85, dots regime z13,
-mid-handoff z15, close-in z16, plus the 390px mobile framing — and diff
-against baselines **captured from the mockup first**.
+mid-handoff z15, close-in z16, plus the 390px mobile framing. Baselines
+are captured **from the port itself**: the first render of each state is
+reviewed by eye (with the mockup on the next monitor as the reference)
+and, once approved, becomes the frozen baseline that guards against
+regression from then on. The mockup is never part of the automated
+pipeline.
 
 Honest caveat: the basemap comes from CARTO at runtime, which makes
 pixel-diffs nondeterministic. Two-step approach:
@@ -263,17 +289,17 @@ crash class), brush-commit latency on a mid phone, thermals.
 
 0. **Scaffold** — Vite/TS/lint/test/CI skeleton, deployed to `/app/`
    (hello-map). Root untouched.
-1. **Oracle + pure domain** — promote the stub harness to
-   `tools/oracle/`, capture goldens from the mockup; port
-   `model/*` verbatim with unit tests pinning the goldens.
+1. **Pure domain** — port `model/*` with spec-driven unit tests written
+   FIRST from the documented laws (§3.1), plus the consistency
+   invariants (§3.1b). The mockup is read for intent, never executed.
 2. **Data layer** — `socrata`/`incidents`/`geometry` + `config.ts`;
    window math + fallback under test.
 3. **Map shell** — `createMap` (desaturation, camera, constraints,
    sub-streets), then layers in dependency order: blocks → dots →
    buildings → labels → (streets, flag-off). Visual baselines per layer.
 4. **UI + store** — widgets, the commit path, degrade ladder as state.
-5. **Parity gate** — full E2E + visual diff against mockup baselines;
-   burn down drift; on-device checklist.
+5. **Parity gate** — full E2E green; visual baselines reviewed by eye
+   against the mockup reference and frozen (§3.4); on-device checklist.
 6. **Flip** — root redirect → app; `mockups/` stays deployed as the
    archive. Watch feedback; revert is one line.
 7. **Post-port (separate tasks)**: one-time geometry refresh with widened
@@ -309,20 +335,27 @@ crash class), brush-commit latency on a mid phone, thermals.
 
 ---
 
-## 7. Open decisions (need sign-off before/during port)
+## 7. Decisions
 
-| # | Decision | Recommendation |
+Plan LGTM'd by the owner 2026-08-22 with two amendments, both folded in
+above: (a) the deck.gl drop is approved on the condition of no functional
+diffs — the analysis in §2.1 establishes none exist at the locked
+defaults; (b) testing is fully decoupled from the mockup — no goldens
+captured from it, no automated baselines derived from it (§3.1, §3.4).
+
+| # | Decision | Status |
 |---|---|---|
-| 1 | Drop deck.gl + the MAX-blend street renderer | Yes — dead weight behind an off-flag |
-| 2 | Drop remote geometry fallbacks | Yes — same-origin static now |
-| 3 | Streets: port the MapLibre renderer behind a flag, or drop street ink entirely (git history keeps it) | Port behind flag — cheap, preserves the option |
-| 4 | `__other` semantics (quirk #1) | Uncategorized follows the all-chips state |
-| 5 | Mockup archive: keep `mockups/` + its 31MB data deployed after the flip | Keep — it's the design record; revisit if repo size hurts |
-| 6 | Worker-ize recompute | Only if on-device profiling says so |
+| 1 | Drop deck.gl + the MAX-blend street renderer | APPROVED (no functional diff at locked defaults — §2.1) |
+| 2 | Drop remote geometry fallbacks | Approved with plan |
+| 3 | Streets: port the MapLibre renderer behind a flag (git history keeps deck) | Approved with plan |
+| 4 | `__other` semantics (quirk #1): uncategorized follows the all-chips state | Approved with plan |
+| 5 | Keep `mockups/` + its 31MB data deployed after the flip | Approved with plan; revisit if repo size hurts |
+| 6 | Worker-ize recompute | Deferred — only if on-device profiling says so |
 
 ---
 
 _When the port starts, work from this document top-down; keep HANDOFF.md
 as the living state doc and update it per phase. The mockup file itself
-does not change — any bug found in it during the port gets fixed in the
-port and listed in §6, not backported._
+does not change and is never executed by any test — it is a reference to
+read and eyeball, nothing more. Any bug found in it during the port gets
+fixed in the port and listed in §6, not backported._
