@@ -710,12 +710,40 @@ var BLOCK_FADE_TO   = 14.5;
 var BLDG_MINZOOM    = 12.9;   /* unloads while invisible — no pop */
 var BLDG_FULL_OPACITY = 0.96;
 
-/* entrance treatments: [opacity ramp], [height ramp] (null = full height) */
+/* ground fade (blocks + street ink), as [zoom, fraction-of-full] stops.
+   NOT linear: the ground holds near-full deep into the handoff and only
+   lets go once the volumes carry the ink, so total darkness never dips
+   mid-crossfade — a linear 13->14.5 ramp read as a lighter "gap" in the
+   middle where both layers were at half strength. */
+var GROUND_FADE = [
+  [13.0, 1.00],
+  [13.5, 0.96],
+  [13.9, 0.82],
+  [14.2, 0.50],
+  [14.5, 0.00]
+];
+
+/* entrance treatments, as [zoom, fraction] stops for opacity and height
+   (h:null = full height). Opacity fronts-loads — steep at the start of the
+   range, easing into full — so the buildings are already inking the
+   hotspot while the ground is still holding, and the two curves overlap
+   instead of trading off through a pale middle. */
 var ENTRANCES = {
-  fade: { op:[13.0, 14.5], h:null         },  /* full-height volumes fading in   */
-  grow: { op:[13.0, 13.3], h:[13.0, 14.5] },  /* quick toe, then rise from mosaic */
-  both: { op:[13.0, 14.0], h:[13.2, 14.5] }   /* combined, opacity leading        */
+  fade: { op:[[13.0, 0], [13.35, 0.55], [13.8, 0.80], [14.5, 1]],
+          h:null },                                   /* full-height volumes fading in   */
+  grow: { op:[[13.0, 0], [13.15, 0.60], [13.3, 1]],   /* quick toe, then rise from mosaic */
+          h:[[13.0, 0], [13.5, 0.45], [14.0, 0.80], [14.5, 1]] },
+  both: { op:[[13.0, 0], [13.3, 0.50], [13.65, 0.85], [14.0, 1]],
+          h:[[13.2, 0], [13.6, 0.50], [14.05, 0.85], [14.5, 1]] }
 };
+
+/* build a zoom interpolate from [zoom, fraction] stops; `scale` maps each
+   fraction to its final output (a number or a paint expression) */
+function zoomCurve(stops, scale){
+  var e = ['interpolate', ['linear'], ['zoom']];
+  stops.forEach(function(s){ e.push(s[0], scale(s[1])); });
+  return e;
+}
 
 /* ---------- parallel fetches: local snapshots first, Socrata as fallback ----------
    byte-for-byte snapshots of the Socrata queries live in mockups/data/
@@ -891,19 +919,15 @@ function buildingHeightExpr(){
   var full = ['*', state.height, ['get','h']];
   var ramp = ENTRANCES[state.entrance].h;
   if (!ramp) return full;
-  return ['interpolate', ['linear'], ['zoom'],
-    ramp[0], 0,
-    ramp[1], full
-  ];
+  return zoomCurve(ramp, function(f){
+    return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
+  });
 }
 function buildingOpacityExpr(){
   /* zero at the entrance start (and below, down to minzoom) so the layer
      can unload underneath without a blink */
   var ramp = ENTRANCES[state.entrance].op;
-  return ['interpolate', ['linear'], ['zoom'],
-    ramp[0], 0,
-    ramp[1], BLDG_FULL_OPACITY
-  ];
+  return zoomCurve(ramp, function(f){ return f * BLDG_FULL_OPACITY; });
 }
 function blockOpacityExpr(){
   /* same ink * v^contrast law as the buildings, pushed through a soft-toe
@@ -920,10 +944,9 @@ function blockOpacityExpr(){
     0.80, 0.75,
     1.00, 1.0
   ]];
-  return ['interpolate', ['linear'], ['zoom'],
-    BLOCK_FADE_FROM, full,
-    BLOCK_FADE_TO, 0
-  ];
+  return zoomCurve(GROUND_FADE, function(f){
+    return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
+  });
 }
 function streetColorExpr(){
   /* same ink * d^contrast law pushed through the SAME soft-toe ramp as the
@@ -962,10 +985,7 @@ function streetOpacityExpr(){
      dissolving across the handoff as the volumes rise. The Blocks dial
      caps street ink the same way it caps the mosaic — one ground plane.
      (MapLibre fallback layer only) */
-  return ['interpolate', ['linear'], ['zoom'],
-    BLOCK_FADE_FROM, state.blocks,
-    BLOCK_FADE_TO, 0
-  ];
+  return zoomCurve(GROUND_FADE, function(f){ return f * state.blocks; });
 }
 
 /* ---------- deck.gl street ink (overdraw-free) ----------
@@ -999,9 +1019,9 @@ function streetWidthPx(d){
 var STREET_ZOOM_WIDTH = [[10,0.8],[12,1.0],[14,1.35],[16,2.1]];
 function zoomWidthScale(z){ return lerpStops(STREET_ZOOM_WIDTH, z); }
 function zoomFade(z){
-  if (z <= BLOCK_FADE_FROM) return 1;
-  if (z >= BLOCK_FADE_TO) return 0;
-  return 1 - (z - BLOCK_FADE_FROM) / (BLOCK_FADE_TO - BLOCK_FADE_FROM);
+  /* deck.gl canvas follows the same held-then-release ground fade as the
+     block mosaic, so street ink and blocks let go together */
+  return lerpStops(GROUND_FADE, z);
 }
 
 var deckOverlay = null;
@@ -1103,10 +1123,10 @@ function collectRoads(){
 }
 function roadDimExpr(orig){
   var hi = (typeof orig === 'number') ? orig : 1;
-  return ['interpolate', ['linear'], ['zoom'],
-    BLOCK_FADE_FROM, Math.min(ROAD_DIM, hi),
-    BLOCK_FADE_TO, hi
-  ];
+  var lo = Math.min(ROAD_DIM, hi);
+  /* basemap roads return as the inverse of the ground fade, so they stay
+     whisper-quiet exactly as long as the street ink is still holding */
+  return zoomCurve(GROUND_FADE, function(f){ return lo + (1 - f) * (hi - lo); });
 }
 function applyRoadDim(){
   var dim = state.streetsOn && streetsReady;
