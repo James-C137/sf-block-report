@@ -105,14 +105,18 @@ deleted from the deploy, individual files remain reachable by URL).
   a separate timed-crossfade "world" layer was scrapped as redundant; a
   true fixed vertical plane (edge-on from straight above) isn't
   expressible in MapLibre symbols anyway.
-- **Points overlay** (not a separate view, no toggle): dots draw above the
-  extrusions and SNAP in at z13→13.25, opacity and radius together (they
-  scale from a third of their size to full — slower fades felt draggy),
-  minzoom-culled below — one level before the z14→15.5 building handoff,
-  so the dots get a beat over the block mosaic before the volumes rise. GOTCHA (bit us): `circle-opacity` fades the FILL only;
-  the stroke rides a separate `circle-stroke-opacity` (default 1), so it
-  must follow the same entrance curve or the borders blink in at full
-  strength at the minzoom boundary.
+- **Points overlay** (not a separate view, no toggle): dots draw above
+  the extrusions and enter via a TIMED fade at the z12.5 threshold —
+  crossing it in either direction runs a fixed 300ms opacity transition
+  (`updateDotRegime`), not a zoom-interpolated entrance (a zoom-scaled
+  snap-in existed and was replaced on request). GOTCHA that shapes the
+  implementation: data-driven paint props aren't transitionable, so the
+  per-spot strength lives in the COLOR's alpha (an `['rgba',...]`
+  expression) and circle-opacity / circle-stroke-opacity stay plain
+  constants the watcher flips. Minzoom cull sits half a level below the
+  threshold so the fade finishes before the cut. Related GOTCHA (bit us
+  earlier): `circle-opacity` fades the FILL only; the stroke rides a
+  separate `circle-stroke-opacity` (default 1) — the watcher flips both.
   If BOTH density layers fail, the degrade path un-gates the dots' zoom
   range so they can carry the map alone.
 - **LOCKED-IN LOOK (2026-08-22, tuned by eye via panel sliders that have
