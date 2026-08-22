@@ -54,6 +54,13 @@ deleted from the deploy, individual files remain reachable by URL).
   dots. Everything else stays graphite. Building extrusion opacity is
   capped at 0.85 (was 0.96) — full-strength charcoal volumes read too
   intense.
+- **Rubber-band camera limits**: soft limits keep the framing on SF and
+  the Bay — `SOFT_MIN_ZOOM 10` (≈ Bay Area view) and a soft center box
+  around the city (lng −122.75..−122.15, lat 37.55..37.98). You can pull
+  a little past them (hard backstops: `minZoom 9.3`, `maxBounds`
+  −123.4..−121.5 / 37.15..38.4), and on gesture release (`moveend`) an
+  ease-out `easeTo` springs the camera back. MapLibre's native limits are
+  hard walls; the elasticity is the soft/hard gap plus the snap-back.
 - **Compass** (top-right on the map): a bare needle living directly on
   the page — no chip, no border, no caption (a chipped version with a
   2D/3D press-toggle was tried and stripped back). Needle counter-rotates

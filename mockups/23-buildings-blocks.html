@@ -1088,6 +1088,37 @@ if (narrow){
 }
 var map = new maplibregl.Map(mapOptions);
 
+/* ---------- rubber-band camera constraints ----------
+   Soft limits keep the framing on SF and the Bay: zooming out stops
+   meaning anything past a Bay Area view, and the center shouldn't drift
+   far from the city. You can pull a little PAST the soft limits (the
+   hard backstops — minZoom / maxBounds — sit further out), and on
+   gesture release the camera springs back with an ease-out. MapLibre's
+   native limits are hard walls; the elasticity is the gap between the
+   soft and hard limits plus the snap-back. */
+var SOFT_MIN_ZOOM = 10.0;                          /* ~Bay Area framing */
+var SOFT_BOUNDS = { w:-122.75, e:-122.15, s:37.55, n:37.98 };
+map.setMinZoom(9.3);                               /* rubber space beyond the soft stop */
+map.setMaxBounds([[-123.4, 37.15], [-121.5, 38.4]]);
+
+function rubberBand(){
+  var z = map.getZoom();
+  var c = map.getCenter();
+  var tz = Math.max(z, SOFT_MIN_ZOOM);
+  var lng = Math.min(Math.max(c.lng, SOFT_BOUNDS.w), SOFT_BOUNDS.e);
+  var lat = Math.min(Math.max(c.lat, SOFT_BOUNDS.s), SOFT_BOUNDS.n);
+  if (Math.abs(tz - z) < 0.01 && Math.abs(lng - c.lng) < 1e-4 && Math.abs(lat - c.lat) < 1e-4) return;
+  /* fires on moveend, so it never fights an active gesture; a new grab
+     mid-spring cancels the ease and the next release re-snaps */
+  map.easeTo({
+    zoom: tz,
+    center: [lng, lat],
+    duration: 380,
+    easing: function(t){ return 1 - Math.pow(1 - t, 3); }
+  });
+}
+map.on('moveend', rubberBand);
+
 /* ---------- zoom crossfade ----------
    Blocks and the inked street network carry the ink at low zoom;
    buildings take over as they become individually legible. Full block
