@@ -89,10 +89,13 @@ deleted from the deploy, individual files remain reachable by URL).
   screen-space type (constant px) below z14, handing off to an IN-WORLD set
   just before the buildings enter — same symbols but with text-size
   doubling per zoom (exponential base 2 = fixed world size, so the names
-  scale with the city) and YAW-ONLY billboarding: `text-pitch-alignment:
-  map` lays the glyphs in the ground plane (they foreshorten with the
-  tilt like the city) while `text-rotation-alignment: viewport` swivels
-  them with the bearing so they always read left-to-right. The swap is a fixed 450ms opacity
+  scale with the city), standing like PHYSICAL BILLBOARDS: upright
+  camera-facing glyphs (`text-pitch-alignment: viewport`) that swivel
+  with the bearing. A ground-plane variant (`pitch-alignment: map`) was
+  tried and looked knocked over; a true fixed vertical plane (edge-on
+  from straight above) isn't expressible in MapLibre symbols — upright
+  camera-facing is the nearest primitive and reads identically at the
+  default 57° tilt. The swap is a fixed 450ms opacity
   crossfade via MapLibre paint transitions, triggered on crossing z14 —
   time-based, not zoom-interpolated. The two size curves meet exactly at
   the threshold, so mid-fade only the scaling law changes, never the glyph

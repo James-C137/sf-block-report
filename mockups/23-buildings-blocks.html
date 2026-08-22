@@ -2080,11 +2080,14 @@ map.on('load', function(){
           WORLD_LABEL_AT, S0,
           WORLD_LABEL_AT + 4, S0 * 16
         ],
-        /* yaw-only billboarding: the glyphs lie in the ground plane
-           (pitch-alignment map — they foreshorten with the tilt like the
-           city does) but swivel with the camera bearing (rotation-
-           alignment viewport) so they always read left-to-right */
-        'text-pitch-alignment': 'map',
+        /* physical-billboard look: glyphs STAND upright at their anchor
+           (pitch-alignment viewport) and swivel with the bearing so they
+           always face the camera. NOTE: a true fixed vertical plane
+           (edge-on from straight above) isn't expressible in MapLibre
+           symbols — upright camera-facing is the nearest primitive, and
+           at the default 57-degree tilt it reads identically. A
+           pitch-alignment:map variant was tried and looked knocked over. */
+        'text-pitch-alignment': 'viewport',
         'text-rotation-alignment': 'viewport',
         /* the screen set owns collision during the crossfade; the world
            set neither blocks nor is blocked. Constant world size means
