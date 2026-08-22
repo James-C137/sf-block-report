@@ -1783,13 +1783,43 @@ var COLOR_PROPS = {
   circle:          ['circle-color', 'circle-stroke-color'],
   'fill-extrusion':['fill-extrusion-color']
 };
+/* deep-gray a paint value of ANY shape: plain color strings, expression
+   arrays (e.g. landcover greens keyed by class), and legacy {stops}
+   functions. Only strings matching a color syntax are touched, so
+   operator names and class labels pass through untouched. Returns the
+   input reference unchanged when nothing inside was a color. */
+function grayValue(v){
+  if (typeof v === 'string'){
+    return grayColor(v) || v;
+  }
+  if (Array.isArray(v)){
+    var changedA = false;
+    var outA = v.map(function(item){
+      var r = grayValue(item);
+      if (r !== item) changedA = true;
+      return r;
+    });
+    return changedA ? outA : v;
+  }
+  if (v && typeof v === 'object'){
+    var changedO = false, outO = {};
+    Object.keys(v).forEach(function(k){
+      var r = grayValue(v[k]);
+      if (r !== v[k]) changedO = true;
+      outO[k] = r;
+    });
+    return changedO ? outO : v;
+  }
+  return v;
+}
 function desaturateBasemap(){
   /* runs at style load, before any of our own layers exist */
   (map.getStyle().layers || []).forEach(function(l){
     (COLOR_PROPS[l.type] || []).forEach(function(prop){
       try{
-        var gray = grayColor(map.getPaintProperty(l.id, prop));
-        if (gray) map.setPaintProperty(l.id, prop, gray);
+        var v = map.getPaintProperty(l.id, prop);
+        var gray = grayValue(v);
+        if (gray !== v) map.setPaintProperty(l.id, prop, gray);
       }catch(e){}
     });
   });

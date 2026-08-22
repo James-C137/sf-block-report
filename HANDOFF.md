@@ -45,7 +45,10 @@ deleted from the deploy, individual files remain reachable by URL).
   basemap's `saturate(0)` CSS filter had to go — it would grayscale the
   heat layers in the same canvas — so `desaturateBasemap()` grays the
   Positron style's own paint colors at load instead (keeps the bay/parks
-  gray under the colored density). Panel UI stays monochrome graphite.
+  gray under the colored density). It deep-walks ANY paint value shape —
+  plain strings, expression arrays, legacy {stops} functions — graying
+  every string that parses as a color (the greenery layers color via
+  expressions and slipped through the original strings-only pass). Panel UI stays monochrome graphite.
 - **Accent color** (added with the charcoal ramp; user wants "minimal
   colors, esp. on mobile"): one burnt orange, `--accent: #B7470A`, kept
   from the rejected orange ramp. Used ONLY in tiny doses: the wordmark
