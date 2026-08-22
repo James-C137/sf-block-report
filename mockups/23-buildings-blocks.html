@@ -193,6 +193,43 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     color:var(--ink);
     border-color:var(--ink);
   }
+  /* live chips are filter toggles: tapping one off fades it and drops
+     that category from the dots overlay */
+  button.chip{
+    appearance:none;
+    font-family:inherit;
+    cursor:pointer;
+    transition:opacity 120ms ease;
+  }
+  button.chip:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:2px;
+  }
+  .chip.off{ opacity:0.35; }
+
+  /* dot details popup, in the house style */
+  .ink-pop .maplibregl-popup-content{
+    font-family:'Inter', -apple-system, sans-serif;
+    background:var(--paper);
+    border:1px solid var(--hair);
+    border-radius:0;
+    box-shadow:0 2px 12px rgba(26,26,26,0.10);
+    padding:10px 12px;
+    min-width:150px;
+  }
+  .ink-pop .maplibregl-popup-tip{ display:none; }
+  .pop-count{
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    margin-bottom:5px;
+  }
+  .pop-row{
+    display:flex; justify-content:space-between; gap:14px;
+    font-size:10.5px;
+    color:var(--ink-60);
+    padding:2px 0;
+  }
 
   /* map pings (home / work / anywhere): a small graphite teardrop.
      The OUTER div belongs to MapLibre's Marker (it owns its transform),
@@ -533,7 +570,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <span class="microlabel">Pins</span>
     <form id="pin-form">
-      <input type="text" class="pin-input" id="pin-input" placeholder="Add an address &mdash; e.g. 335 McAllister St" aria-label="Add a pin by address" autocomplete="street-address" enterkeyhint="done">
+      <input type="text" class="pin-input" id="pin-input" placeholder="e.g. 335 McAllister St" aria-label="Add a pin by address" autocomplete="street-address" enterkeyhint="done">
     </form>
     <div class="pin-status" id="pin-status"></div>
     <ul class="pin-list" id="pin-list"></ul>
@@ -746,7 +783,11 @@ function toIncidentFC(rows){
     var lng = parseFloat(rows[i].longitude), lat = parseFloat(rows[i].latitude);
     if (!isFinite(lng) || !isFinite(lat)) continue;
     if (lng < GRID_MIN_LNG || lng > GRID_MAX_LNG || lat < GRID_MIN_LAT || lat > GRID_MAX_LAT) continue;
-    feats.push({ type:'Feature', properties:{}, geometry:{ type:'Point', coordinates:[lng, lat] } });
+    feats.push({
+      type:'Feature',
+      properties:{ c: rows[i].incident_category || '' },
+      geometry:{ type:'Point', coordinates:[lng, lat] }
+    });
   }
   return { type:'FeatureCollection', features:feats };
 }
@@ -760,8 +801,11 @@ function aggregatePoints(fc){
   fc.features.forEach(function(f){
     var c = f.geometry.coordinates;
     var k = c[0].toFixed(6) + ',' + c[1].toFixed(6);
-    if (byKey[k]) byKey[k].n += 1;
-    else byKey[k] = { c: c, n: 1 };
+    if (!byKey[k]) byKey[k] = { c: c, n: 0, cats: {} };
+    var s = byKey[k];
+    s.n += 1;
+    var cat = (f.properties && f.properties.c) || '';
+    if (cat) s.cats[cat] = (s.cats[cat] || 0) + 1;
   });
   var spots = Object.keys(byKey).map(function(k){ return byKey[k]; });
   var counts = spots.map(function(s){ return s.n; }).sort(function(a, b){ return a - b; });
@@ -773,7 +817,13 @@ function aggregatePoints(fc){
     features: spots.map(function(s){
       return {
         type:'Feature',
-        properties:{ w: +Math.min(1, Math.sqrt(s.n / ref)).toFixed(3) },
+        properties:{
+          w: +Math.min(1, Math.sqrt(s.n / ref)).toFixed(3),
+          n: s.n,
+          /* per-spot category tally, stringified — MapLibre stringifies
+             nested properties at query time anyway, so own the format */
+          cats: JSON.stringify(s.cats)
+        },
         geometry:{ type:'Point', coordinates: s.c }
       };
     })
@@ -797,6 +847,7 @@ var densityReady = fetchIncidents()
   .then(function(res){
     incidentData = res;
     buildDensityGrids(res.fc);          /* grids want the raw points */
+    res.rawFC = res.fc;                 /* kept for category filtering */
     res.fc = aggregatePoints(res.fc);   /* the dots overlay wants spots */
   });
 
@@ -1827,6 +1878,33 @@ map.on('load', function(){
     }
   });
 
+  /* ----- dot details: tap a dot for its spot's report count and
+     category breakdown (closes on the next map tap) ----- */
+  function escHTML(s){
+    return String(s).replace(/[&<>"']/g, function(ch){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
+    });
+  }
+  map.on('click', 'points', function(e){
+    if (!e.features || !e.features.length) return;
+    var p = e.features[0].properties;
+    var cats = {};
+    try{ cats = JSON.parse(p.cats || '{}'); }catch(err){}
+    var rows = Object.keys(cats)
+      .map(function(k){ return [k, cats[k]]; })
+      .sort(function(a, b){ return b[1] - a[1]; });
+    var html = '<div class="pop-count num">' + p.n + (p.n === 1 ? ' report' : ' reports') + '</div>' +
+      rows.slice(0, 6).map(function(r){
+        return '<div class="pop-row"><span>' + escHTML(r[0]) + '</span><span class="num">' + r[1] + '</span></div>';
+      }).join('');
+    new maplibregl.Popup({ closeButton:false, className:'ink-pop', maxWidth:'260px', offset:10 })
+      .setLngLat(e.features[0].geometry.coordinates)
+      .setHTML(html)
+      .addTo(map);
+  });
+  map.on('mouseenter', 'points', function(){ map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'points', function(){ map.getCanvas().style.cursor = ''; });
+
   /* ----- blocks: ground fill, slid UNDER the basemap's roads so the
      street grid carves through the ink ----- */
   blocksPromise.then(function(gj){
@@ -2176,7 +2254,7 @@ function renderHistogram(vals){
     el.appendChild(bar);
   });
 }
-function renderChips(items){   /* [[label, count?], ...] */
+function renderChips(items){   /* [[label, count?], ...] — static (fallback) */
   var el = document.getElementById('chips');
   el.innerHTML = '';
   items.forEach(function(it){
@@ -2189,6 +2267,52 @@ function renderChips(items){   /* [[label, count?], ...] */
       n.textContent = it[1].toLocaleString('en-US');
       chip.appendChild(n);
     }
+    el.appendChild(chip);
+  });
+}
+
+/* ---------- category filter (live data): chips drive the dots ----------
+   The top-5 chips plus an "Other" bucket are toggles. All start active;
+   tapping one off re-aggregates the dots overlay (and therefore the dot
+   details popups) from only the active categories. The heat surface
+   deliberately stays all-categories — it's the ambient layer. */
+var CAT_KEYS = null;     /* Set of the top-5 category names */
+var activeCats = null;   /* Set of active buckets (names + '__other') */
+function catBucket(c){
+  return (CAT_KEYS && CAT_KEYS.has(c)) ? c : '__other';
+}
+function applyDotFilter(){
+  if (!incidentData || !incidentData.rawFC) return;
+  var feats = incidentData.rawFC.features;
+  if (activeCats){
+    feats = feats.filter(function(f){ return activeCats.has(catBucket(f.properties.c)); });
+  }
+  var src = map.getSource('incidents');
+  if (src) src.setData(aggregatePoints({ features: feats }));
+}
+function renderFilterChips(topCats, otherCount){
+  var el = document.getElementById('chips');
+  el.innerHTML = '';
+  var items = topCats.map(function(c){ return { key: c[0], label: c[0], count: c[1] }; });
+  if (otherCount > 0) items.push({ key: '__other', label: 'Other', count: otherCount });
+  items.forEach(function(it){
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.textContent = it.label;
+    chip.setAttribute('aria-pressed', 'true');
+    var n = document.createElement('span');
+    n.className = 'n num';
+    n.textContent = it.count.toLocaleString('en-US');
+    chip.appendChild(n);
+    chip.addEventListener('click', function(){
+      var on = !activeCats.has(it.key);
+      if (on) activeCats.add(it.key);
+      else activeCats.delete(it.key);
+      chip.classList.toggle('off', !on);
+      chip.setAttribute('aria-pressed', on);
+      applyDotFilter();
+    });
     el.appendChild(chip);
   });
 }
@@ -2237,7 +2361,10 @@ function applyLivePanel(rows){
     vals.push(s.daily[day] || 0);
   }
   renderHistogram(vals);
-  renderChips(s.topCats);
+  CAT_KEYS = new Set(s.topCats.map(function(c){ return c[0]; }));
+  activeCats = new Set(s.topCats.map(function(c){ return c[0]; }).concat(['__other']));
+  var otherCount = rows.length - s.topCats.reduce(function(a, c){ return a + c[1]; }, 0);
+  renderFilterChips(s.topCats, otherCount);
   renderRanking(s.topHoods.map(function(h){ return [NHOOD_DISPLAY[h[0]] || h[0], h[1]]; }));
   document.getElementById('updated').textContent =
     'Updated ' + fmtDay(PERIOD_END) + ', ' + PERIOD_END.slice(0, 4) + '.';

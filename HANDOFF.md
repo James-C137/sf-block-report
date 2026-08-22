@@ -128,6 +128,15 @@ deleted from the deploy, individual files remain reachable by URL).
   past their style minzoom and faded in over ~0.4 zoom, pre-multiplied
   with the street-ink road-dim into a single numeric zoom curve
   (MapLibre allows only one top-level ['zoom'] interpolate per property).
+- **Dot details + category filter (live data)**: tapping a dot opens a
+  house-styled popup (`.ink-pop`) with the spot's report count and
+  category breakdown — aggregatePoints carries `n` and a stringified
+  per-spot `cats` tally. The panel's category chips are now FILTER
+  TOGGLES (top-5 + an "Other" bucket, all on by default): tapping one
+  off fades the chip and re-aggregates the dots overlay from only the
+  active categories (raw points kept as `incidentData.rawFC`). The heat
+  surface deliberately stays all-categories — it's the ambient layer.
+  Fallback (simulated) chips stay static.
 - **Map pings (by address)**: a "Pins" panel section — type an address
   (geocoded by OpenStreetMap Nominatim, browser-direct, bounded to an SF
   viewbox) to drop a graphite teardrop pin and see where home/work land
