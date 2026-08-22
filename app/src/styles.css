@@ -226,6 +226,29 @@ button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
   transform:rotate(45deg);   /* square corner points down = the tip */
   box-shadow:0 1px 3px rgba(26,26,26,0.3);
 }
+.ping .pin-label{
+  position:absolute;
+  left:21px; top:2px;         /* beside the head, clear of the teardrop */
+  line-height:14px;
+  font-size:10.5px; font-weight:500; letter-spacing:0.01em;
+  color:var(--ink);
+  white-space:nowrap;
+  max-width:150px; overflow:hidden; text-overflow:ellipsis;
+  /* paper halo, same read as the map's neighborhood labels */
+  text-shadow:
+    0 1px 0 var(--paper), 0 -1px 0 var(--paper),
+    1px 0 0 var(--paper), -1px 0 0 var(--paper),
+    0 0 3px var(--paper), 0 0 3px var(--paper), 0 0 3px var(--paper);
+}
+/* over hotspot cores the ground ink is near-black — invert, same rule
+   as the neighborhood labels (threshold LABEL_INVERT_DENS) */
+.ping .pin-label.on-dark{
+  color:var(--paper);
+  text-shadow:
+    0 1px 0 rgba(26,26,26,0.9), 0 -1px 0 rgba(26,26,26,0.9),
+    1px 0 0 rgba(26,26,26,0.9), -1px 0 0 rgba(26,26,26,0.9),
+    0 0 3px rgba(26,26,26,0.9), 0 0 3px rgba(26,26,26,0.9), 0 0 3px rgba(26,26,26,0.9);
+}
 
 /* ranking */
 .ranking{ list-style:none; margin-top:12px; }

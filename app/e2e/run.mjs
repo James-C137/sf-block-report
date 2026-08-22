@@ -191,6 +191,7 @@ const browser = await chromium.launch({
   await page.fill('#pin-input', '335 McAllister St');
   await page.press('#pin-input', 'Enter');
   await waitFor(page, () => document.querySelectorAll('#pin-list li').length === 1, 'pin added from address');
+  ok((await page.evaluate(() => document.querySelector('.ping .pin-label')?.textContent)) === '335 McAllister St', 'pin carries its label on the map');
   await page.fill('#pin-input', '335 McAllister St');
   await page.press('#pin-input', 'Enter');
   await waitFor(page, () => /already pinned/i.test(document.getElementById('pin-status')?.textContent ?? ''), 'duplicate address rejected');

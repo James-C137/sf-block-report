@@ -52,7 +52,7 @@ async function boot(): Promise<void> {
   await mapLoaded;
   const dots = addDotsLayer(map);
   dots.setSpots(store.derive().spots);
-  const pings = createPings(map);
+  const pings = createPings(map, (lng, lat) => sampleField(pristineField, lng, lat));
   initPinsUI(pings);
 
   const degradeIfBothFailed = (): void => {

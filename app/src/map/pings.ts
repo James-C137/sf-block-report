@@ -7,7 +7,7 @@
    [lng,lat] pairs and still restore. */
 
 import maplibregl, { type Map as MLMap } from 'maplibre-gl';
-import { PING_SCALE_AT, PING_STORAGE_KEY } from '../config';
+import { LABEL_INVERT_DENS, PING_SCALE_AT, PING_STORAGE_KEY } from '../config';
 
 export interface Ping {
   label: string;
@@ -28,7 +28,10 @@ export interface PingsHandle {
   onChange(fn: () => void): void;
 }
 
-export function createPings(map: MLMap): PingsHandle {
+/* densityAt samples the pristine field: like the neighborhood labels, a
+   pin label over a hotspot core inverts to white-on-graphite so it stays
+   legible on the dark ink */
+export function createPings(map: MLMap, densityAt?: (lng: number, lat: number) => number): PingsHandle {
   const pings: Live[] = [];
   const changeFns: Array<() => void> = [];
   const notify = (): void => changeFns.forEach((f) => f());
@@ -60,6 +63,13 @@ export function createPings(map: MLMap): PingsHandle {
     el.title = p.label;
     const pinEl = document.createElement('span');
     pinEl.className = 'pin';
+    /* the label rides inside the scaled element, so it grows in-world
+       with the pin under the same 2^(z-14) law as the map labels */
+    const labelEl = document.createElement('span');
+    labelEl.className = 'pin-label';
+    if ((densityAt?.(p.lng, p.lat) ?? 0) >= LABEL_INVERT_DENS) labelEl.classList.add('on-dark');
+    labelEl.textContent = p.label;
+    pinEl.appendChild(labelEl);
     el.appendChild(pinEl);
     const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([p.lng, p.lat])

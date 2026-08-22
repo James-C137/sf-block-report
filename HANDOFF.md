@@ -192,7 +192,11 @@ deleted from the deploy, individual files remain reachable by URL).
   {a,lng,lat} objects; the earliest bare-pair saves still restore).
   MapLibre DOM Markers own their element's transform, so the scalable
   pin lives on an inner span. Tap-to-drop was replaced by
-  address-entry on request.
+  address-entry on request. Each pin carries its label text on the map
+  (added 2026-08-22), riding inside the scaled span beside the head;
+  graphite on a paper halo, inverting to white-on-graphite over hotspot
+  cores under the same LABEL_INVERT_DENS rule as the neighborhood
+  labels (sampled once from the pristine field at add time).
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1
