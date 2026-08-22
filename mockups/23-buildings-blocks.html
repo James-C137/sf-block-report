@@ -196,12 +196,17 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
   /* map pings (home / work / anywhere): a small graphite teardrop.
      The OUTER div belongs to MapLibre's Marker (it owns its transform),
-     so the pin shape lives on a pseudo-element */
+     so the scalable pin lives on an inner span, scaling about its TIP
+     so it stays planted while it grows with the world past z14 */
   .ping{
     width:20px; height:20px;
     cursor:pointer;
   }
-  .ping::after{
+  .ping .pin{
+    position:absolute; inset:0;
+    transform-origin:50% 94%;
+  }
+  .ping .pin::after{
     content:'';
     position:absolute;
     left:3px; top:2px;
@@ -212,6 +217,56 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     transform:rotate(45deg);   /* square corner points down = the tip */
     box-shadow:0 1px 3px rgba(26,26,26,0.3);
   }
+
+  /* pins panel section */
+  .pin-input{
+    display:block;
+    width:100%;
+    margin-top:12px;
+    appearance:none;
+    border:1px solid var(--hair);
+    border-radius:0;
+    background:var(--paper);
+    font-family:inherit;
+    font-size:11px;
+    letter-spacing:0.02em;
+    color:var(--ink);
+    padding:8px 10px;
+  }
+  .pin-input::placeholder{ color:var(--ink-25); }
+  .pin-input:focus-visible{ outline:1px solid var(--ink); outline-offset:-1px; }
+  .pin-status{
+    display:none;
+    margin-top:6px;
+    font-size:10px;
+    color:var(--ink-60);
+  }
+  .pin-status.show{ display:block; }
+  .pin-list{ list-style:none; margin-top:4px; }
+  .pin-list li{
+    display:flex; align-items:baseline; gap:8px;
+    padding:6px 0;
+    border-bottom:1px solid var(--hair-lt);
+    font-size:11px;
+  }
+  .pin-list .name{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .pin-list .rm{
+    margin-left:auto;
+    appearance:none;
+    border:0;
+    background:none;
+    font-family:inherit;
+    font-size:13px;
+    line-height:1;
+    color:var(--ink-40);
+    cursor:pointer;
+    padding:0 2px;
+  }
+  .pin-list .rm:hover{ color:var(--ink); }
 
   /* ranking */
   .ranking{ list-style:none; margin-top:12px; }
@@ -476,12 +531,21 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <hr class="rule">
 
+    <span class="microlabel">Pins</span>
+    <form id="pin-form">
+      <input type="text" class="pin-input" id="pin-input" placeholder="Add an address &mdash; e.g. 1 Ferry Building" aria-label="Add a pin by address" autocomplete="street-address" enterkeyhint="done">
+    </form>
+    <div class="pin-status" id="pin-status"></div>
+    <ul class="pin-list" id="pin-list"></ul>
+
+    <hr class="rule">
+
     <span class="microlabel">By neighborhood</span>
     <ol class="ranking" id="ranking"></ol>
 
     <hr class="rule lt">
 
-    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. Tap the map to drop a pin (drag to move it, tap it to remove); pins are saved on this device. <span id="updated"></span></p>
+    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. Add pins by address in the panel (tap a pin to remove; saved on this device; address lookup by OpenStreetMap Nominatim). <span id="updated"></span></p>
 
   </div>
 </section>
@@ -1956,52 +2020,116 @@ document.getElementById('scroll-hint').addEventListener('click', function(){
   document.querySelector('.panel').scrollIntoView({ behavior:'smooth' });
 });
 
-/* ---------- map pings ----------
-   Tap anywhere on the map to drop a pin (home, work, ...) and see where
-   it lands on the density. Drag a pin to move it, tap it to remove it.
-   Pins persist in localStorage, so home/work survive reloads. */
+/* ---------- map pings (by address) ----------
+   Type an address in the panel to drop a pin (home, work, ...) and see
+   where it lands on the density. Pins scale under the SAME law as the
+   neighborhood labels: constant screen size to z14, then fixed world
+   size (doubling per zoom level), growing about their tip. Tap a pin on
+   the map, or its x in the panel list, to remove it. Persisted per
+   device in localStorage. Geocoding is OpenStreetMap Nominatim, bounded
+   to an SF viewbox — browser-direct, no key, like the Socrata calls. */
 var PING_KEY = 'block-report-pings';
 var pings = [];
+var pinForm = document.getElementById('pin-form');
+var pinInput = document.getElementById('pin-input');
+var pinStatus = document.getElementById('pin-status');
+var pinList = document.getElementById('pin-list');
+
+function pingScale(){
+  var z = map.getZoom();
+  return z <= 14 ? 1 : Math.pow(2, z - 14);
+}
+function updatePingScales(){
+  var s = 'scale(' + pingScale().toFixed(3) + ')';
+  pings.forEach(function(p){ p.pinEl.style.transform = s; });
+}
+map.on('zoom', updatePingScales);
+
 function savePings(){
   try{
     localStorage.setItem(PING_KEY, JSON.stringify(
-      pings.map(function(p){ return [+p.lng.toFixed(6), +p.lat.toFixed(6)]; })
+      pings.map(function(p){ return { a: p.label, lng: +p.lng.toFixed(6), lat: +p.lat.toFixed(6) }; })
     ));
   }catch(e){}
 }
-function addPing(lng, lat, skipSave){
+function removePing(p){
+  p.marker.remove();
+  pings.splice(pings.indexOf(p), 1);
+  savePings();
+  renderPinList();
+}
+function renderPinList(){
+  pinList.innerHTML = '';
+  pings.forEach(function(p){
+    var li = document.createElement('li');
+    var name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = p.label;
+    var rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'rm';
+    rm.textContent = '×';
+    rm.setAttribute('aria-label', 'Remove pin: ' + p.label);
+    rm.addEventListener('click', function(){ removePing(p); });
+    li.appendChild(name);
+    li.appendChild(rm);
+    pinList.appendChild(li);
+  });
+}
+function addPing(lng, lat, label, skipSave){
   var el = document.createElement('div');
   el.className = 'ping';
-  el.title = 'Drag to move · tap to remove';
-  var marker = new maplibregl.Marker({ element: el, anchor:'bottom', draggable:true })
+  el.title = label + ' — tap to remove';
+  var pinEl = document.createElement('span');
+  pinEl.className = 'pin';
+  el.appendChild(pinEl);
+  var marker = new maplibregl.Marker({ element: el, anchor:'bottom' })
     .setLngLat([lng, lat])
     .addTo(map);
-  var p = { lng: lng, lat: lat, marker: marker };
-  var justDragged = false;
-  marker.on('dragend', function(){
-    var ll = marker.getLngLat();
-    p.lng = ll.lng; p.lat = ll.lat;
-    savePings();
-    /* the click that follows a drag must not delete the pin */
-    justDragged = true;
-    setTimeout(function(){ justDragged = false; }, 300);
-  });
+  var p = { lng: lng, lat: lat, label: label, marker: marker, pinEl: pinEl };
   el.addEventListener('click', function(ev){
-    ev.stopPropagation();   /* don't let the map click add a new pin here */
-    if (justDragged) return;
-    marker.remove();
-    pings.splice(pings.indexOf(p), 1);
-    savePings();
+    ev.stopPropagation();
+    removePing(p);
   });
   pings.push(p);
+  updatePingScales();
+  renderPinList();
   if (!skipSave) savePings();
 }
-map.on('click', function(e){
-  addPing(e.lngLat.lng, e.lngLat.lat);
+function setPinStatus(msg){
+  pinStatus.textContent = msg || '';
+  pinStatus.classList.toggle('show', !!msg);
+}
+pinForm.addEventListener('submit', function(ev){
+  ev.preventDefault();
+  var q = pinInput.value.trim();
+  if (!q) return;
+  setPinStatus('Looking up “' + q + '”…');
+  pinInput.disabled = true;
+  var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&bounded=1' +
+    '&viewbox=' + encodeURIComponent('-122.55,37.85,-122.33,37.70') +
+    '&q=' + encodeURIComponent(q);
+  fetch(url)
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(rows){
+      if (!rows.length) throw new Error('no match');
+      addPing(parseFloat(rows[0].lon), parseFloat(rows[0].lat), q);
+      pinInput.value = '';
+      setPinStatus('');
+    })
+    .catch(function(){
+      setPinStatus('No match in San Francisco — try a street address.');
+    })
+    .then(function(){
+      pinInput.disabled = false;
+    });
 });
+
+/* restore saved pins (the earliest saves were bare [lng,lat] pairs) */
 try{
   JSON.parse(localStorage.getItem(PING_KEY) || '[]').forEach(function(c){
-    if (Array.isArray(c) && isFinite(c[0]) && isFinite(c[1])) addPing(c[0], c[1], true);
+    if (Array.isArray(c) && isFinite(c[0]) && isFinite(c[1])) addPing(c[0], c[1], 'Pin', true);
+    else if (c && isFinite(c.lng) && isFinite(c.lat)) addPing(c.lng, c.lat, String(c.a || 'Pin'), true);
   });
 }catch(e){}
 

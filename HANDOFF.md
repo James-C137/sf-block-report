@@ -128,13 +128,17 @@ deleted from the deploy, individual files remain reachable by URL).
   past their style minzoom and faded in over ~0.4 zoom, pre-multiplied
   with the street-ink road-dim into a single numeric zoom curve
   (MapLibre allows only one top-level ['zoom'] interpolate per property).
-- **Map pings**: tap anywhere on the map to drop a graphite teardrop pin
-  (home, work, ...) and see where it lands on the density; drag to move,
-  tap the pin to remove. Persisted per device in localStorage
-  (`block-report-pings`). MapLibre DOM Markers — the marker owns its
-  element's transform, so the pin shape lives on a ::after
-  pseudo-element; a dragend flag swallows the click that follows a drag
-  so dragging never deletes.
+- **Map pings (by address)**: a "Pins" panel section — type an address
+  (geocoded by OpenStreetMap Nominatim, browser-direct, bounded to an SF
+  viewbox) to drop a graphite teardrop pin and see where home/work land
+  on the density. Pins scale under the SAME law as the neighborhood
+  labels (constant screen size to z14, then fixed world size, growing
+  about the tip). Remove via tapping the pin or its × in the panel
+  list; persisted per device in localStorage (`block-report-pings`,
+  {a,lng,lat} objects; the earliest bare-pair saves still restore).
+  MapLibre DOM Markers own their element's transform, so the scalable
+  pin lives on an inner span. Tap-to-drop was replaced by
+  address-entry on request.
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1
