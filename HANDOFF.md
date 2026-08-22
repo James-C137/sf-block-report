@@ -112,51 +112,29 @@ deleted from the deploy, individual files remain reachable by URL).
   strength at the minzoom boundary.
   If BOTH density layers fail, the degrade path un-gates the dots' zoom
   range so they can carry the map alone.
-- **Street-ink controls** (panel; the one tuning section that came back
-  after the great dial purge — the points On/Off stayed gone): an On/Off
-  toggle, a "fades out at" zoom slider (z13–17, default = the building
-  handoff end, currently 15.5; the fade keeps the ground-fade's
-  held-then-release shape, translated so its endpoint lands on the slider
-  value), and a strength slider measured in the SAME dimension as the
-  block cap — 85% = `BLOCKS_MAX`, and the readout flags "= blocks" at
-  that value. DEFAULT is 15%, tuned in by eye: street ink is a whisper
-  under the mosaic, not an equal ground plane.
-  All three drive both street renderers (deck.gl canvas +
-  MapLibre fallback, via paint + zoom-range updates), and the basemap
-  road-dim follows: roads un-dim when the ink is off and return along
-  the slider's fade curve. Other defaults remain baked in: ink 100%,
-  contrast 1.0, blocks 85%, height 100%, entrance "Both".
-- **LOCKED-IN LOOK (2026-08-22, tuned by eye via the panel sliders)**:
-  street ink OFF (the block mosaic carries the ground alone — the whole
-  deck.gl MAX-blend street apparatus survives behind the toggle for
-  experiments), handoff z14.5→16, sub-streets delay +0.5z, dots fade in
-  at z12.5 / strength 85% (= blocks) / size 150%. These are the baked
-  defaults; the reset button returns to exactly this state.
-- **Handoff is baked at z14.5→16** (the crossfade started life at z13 and
-  moved up twice). The slider remains for testing (z12.5–16.5 around the
-  anchor).
-- **Sub-streets delay** (panel slider, 0–2z, default +0.5): the basemap's
-  small road layers (minor/service/path, ids matched at load with their
-  own minzoom ≥ 11) popped in abruptly mid-handoff. Their entrance is now
-  managed: delayed by the slider value past their style minzoom and faded
-  in over ~0.4 zoom, pre-multiplied with the street-ink road-dim into a
-  single numeric zoom curve (MapLibre allows only one top-level ['zoom']
-  interpolate per property, so the two factors are sampled and combined).
-- **Handoff slider** (panel, "Buildings in / blocks out", z12.5–16.5): slides
-  the ENTIRE building-in/blocks-out crossfade along the zoom axis —
-  entrance opacity + height curves, the ground fade, and the buildings'
-  minzoom cull all translate together with their shapes intact
-  (`HANDOFF_SHIFT` applied via `shiftStops`). The readout shows the live
-  window (e.g. "z14.0–15.5"). Street ink and the dots' entrance have
-  their own timing and deliberately do NOT follow this slider.
-- **Dots sliders** (panel): "Fade in at" (z11–15, default z13 — moves the
-  whole quarter-level snap-in, radius scale-in, stroke fade, and minzoom
-  cull together), "Strength" (0–100%, same dimension as the block cap,
-  default 85% "= blocks"), and "Size" (40–200% multiplier on the
-  weight-scaled radius, default 100%).
-- **Reset button** (panel, under the sliders): returns every tuning
-  control — street ink, handoff, dots — to the baked defaults captured at
-  load (`CONTROL_DEFAULTS`).
+- **LOCKED-IN LOOK (2026-08-22, tuned by eye via panel sliders that have
+  since been REMOVED — the panel is a pure report again)**: street ink
+  OFF (the block mosaic carries the ground alone; the deck.gl MAX-blend
+  street apparatus survives in code behind `STREETS_ON`), handoff
+  z14.5→16, sub-streets delay +0.5z, dots fade in at z12.5 / strength
+  85% (= blocks) / size 150%. The pipelines stay parameterized
+  (`STREETS_*`, `DOTS_*`, `SUBSTREET_DELAY`, `shiftStops`) so re-tuning
+  is a constants change; the slider/segment/reset UI and wiring were
+  deleted after lock-in. Other baked values: ink 100%, contrast 1.0,
+  blocks 85%, height 100%, entrance "Both".
+- **Sub-streets** (baked +0.5z): the basemap's small road layers
+  (minor/service/path, ids matched at load with their own minzoom ≥ 11)
+  popped in abruptly mid-handoff. Their entrance is managed: delayed
+  past their style minzoom and faded in over ~0.4 zoom, pre-multiplied
+  with the street-ink road-dim into a single numeric zoom curve
+  (MapLibre allows only one top-level ['zoom'] interpolate per property).
+- **Map pings**: tap anywhere on the map to drop a graphite teardrop pin
+  (home, work, ...) and see where it lands on the density; drag to move,
+  tap the pin to remove. Persisted per device in localStorage
+  (`block-report-pings`). MapLibre DOM Markers — the marker owns its
+  element's transform, so the pin shape lives on a ::after
+  pseudo-element; a dragend flag swallows the click that follows a drag
+  so dragging never deletes.
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1
@@ -183,6 +161,14 @@ with remote Socrata fallback):
 | `streets.geojson` | `3psu-pn9h` Streets – Active and Retired | 14,596 segments |
 | `buildings-0..3.json` | `ynuv-fyni` Building Footprints | 75,634 footprints, core bbox, simplified |
 | `buildings-mobile.json` | same, tighter bbox + coarser simplify | 35,674 footprints |
+
+KNOWN LIMITATION: the building snapshots are bbox-cropped (mobile:
+−122.438..−122.390 / 37.745..37.800; desktop: −122.443..−122.380 /
+37.720..37.805), so buildings visibly cut off at the bbox edge — e.g.
+north of Russian Hill (~lat 37.80) on phones. Deliberate iOS-memory
+trade from the crash fix. Fix path: regenerate the snapshots with a
+wider bbox (needs Socrata access at build time) or accept until the
+real build's build-time fetch.
 | `neighborhoods.geojson` | `j2bu-swwd` Analysis Neighborhoods | 41 polygons |
 
 Incidents are the exception: `wg3w-h783` Police Department Incident Reports

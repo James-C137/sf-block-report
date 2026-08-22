@@ -194,102 +194,23 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     border-color:var(--ink);
   }
 
-  /* segmented control */
-  .segment{
-    display:flex;
-    border:1px solid var(--hair);
-    margin-top:12px;
-  }
-  .segment button{
-    flex:1 1 0;
-    appearance:none;
-    border:0;
-    background:var(--paper);
-    font-family:inherit;
-    font-size:10px;
-    font-weight:500;
-    letter-spacing:0.14em;
-    text-transform:uppercase;
-    color:var(--ink-40);
-    padding:8px 0;
-    cursor:pointer;
-    transition:background 120ms ease, color 120ms ease;
-  }
-  .segment button + button{ border-left:1px solid var(--hair); }
-  .segment button.active{
-    background:var(--ink);
-    color:var(--paper);
-  }
-  .segment button:focus-visible{
-    outline:1px solid var(--ink);
-    outline-offset:-3px;
-  }
-
-  .slider-head{
-    display:flex; justify-content:space-between; align-items:baseline;
-    margin-top:12px;
-  }
-
-  .slider{
-    appearance:none;
-    -webkit-appearance:none;
-    display:block;
-    width:100%;
-    height:18px;
-    margin-top:4px;
-    background:transparent;
+  /* map pings (home / work / anywhere): a small graphite teardrop.
+     The OUTER div belongs to MapLibre's Marker (it owns its transform),
+     so the pin shape lives on a pseudo-element */
+  .ping{
+    width:20px; height:20px;
     cursor:pointer;
   }
-  .slider::-webkit-slider-runnable-track{
-    height:2px;
-    background:var(--hair);
-  }
-  .slider::-webkit-slider-thumb{
-    -webkit-appearance:none;
-    width:12px; height:12px;
-    margin-top:-5px;
-    border-radius:50%;
+  .ping::after{
+    content:'';
+    position:absolute;
+    left:3px; top:2px;
+    width:14px; height:14px;
     background:var(--ink);
-  }
-  .slider::-moz-range-track{
-    height:2px;
-    background:var(--hair);
-  }
-  .slider::-moz-range-thumb{
-    width:12px; height:12px;
-    border:0;
-    border-radius:50%;
-    background:var(--ink);
-  }
-  .slider:focus-visible{
-    outline:1px solid var(--ink);
-    outline-offset:4px;
-  }
-
-  .reset{
-    display:block;
-    width:100%;
-    margin-top:16px;
-    appearance:none;
-    border:1px solid var(--hair);
-    background:var(--paper);
-    font-family:inherit;
-    font-size:10px;
-    font-weight:500;
-    letter-spacing:0.14em;
-    text-transform:uppercase;
-    color:var(--ink-60);
-    padding:8px 0;
-    cursor:pointer;
-    transition:color 120ms ease, border-color 120ms ease;
-  }
-  .reset:hover{
-    color:var(--ink);
-    border-color:var(--ink);
-  }
-  .reset:focus-visible{
-    outline:1px solid var(--ink);
-    outline-offset:-3px;
+    border:1.5px solid var(--paper);
+    border-radius:50% 50% 0 50%;
+    transform:rotate(45deg);   /* square corner points down = the tip */
+    box-shadow:0 1px 3px rgba(26,26,26,0.3);
   }
 
   /* ranking */
@@ -555,65 +476,12 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <hr class="rule">
 
-    <span class="microlabel" id="streets-label">Street ink</span>
-    <div class="segment" role="group" aria-labelledby="streets-label">
-      <button type="button" id="streets-on" aria-pressed="false">On</button>
-      <button type="button" id="streets-off" class="active" aria-pressed="true">Off</button>
-    </div>
-    <div class="slider-head">
-      <span class="microlabel">Fades out at</span>
-      <span class="microlabel num" id="street-fade-val"></span>
-    </div>
-    <input type="range" class="slider" id="street-fade" min="13" max="17" step="0.1" aria-label="Zoom level where street ink fades out">
-    <div class="slider-head">
-      <span class="microlabel">Strength</span>
-      <span class="microlabel num" id="street-strength-val"></span>
-    </div>
-    <input type="range" class="slider" id="street-strength" min="0" max="100" step="1" aria-label="Street ink strength, percent — 85 matches the blocks">
-
-    <hr class="rule">
-
-    <span class="microlabel">Handoff</span>
-    <div class="slider-head">
-      <span class="microlabel">Buildings in / blocks out</span>
-      <span class="microlabel num" id="handoff-val"></span>
-    </div>
-    <input type="range" class="slider" id="handoff" min="12.5" max="16.5" step="0.1" aria-label="Zoom level where buildings fade in and blocks fade out">
-    <div class="slider-head">
-      <span class="microlabel">Sub-streets delay</span>
-      <span class="microlabel num" id="substreet-val"></span>
-    </div>
-    <input type="range" class="slider" id="substreet" min="0" max="2" step="0.1" aria-label="Extra zoom levels before the basemap's minor streets appear">
-
-    <hr class="rule">
-
-    <span class="microlabel">Dots</span>
-    <div class="slider-head">
-      <span class="microlabel">Fade in at</span>
-      <span class="microlabel num" id="dots-fade-val"></span>
-    </div>
-    <input type="range" class="slider" id="dots-fade" min="11" max="15" step="0.1" aria-label="Zoom level where incident dots fade in">
-    <div class="slider-head">
-      <span class="microlabel">Strength</span>
-      <span class="microlabel num" id="dots-strength-val"></span>
-    </div>
-    <input type="range" class="slider" id="dots-strength" min="0" max="100" step="1" aria-label="Dots strength, percent — 85 matches the blocks">
-    <div class="slider-head">
-      <span class="microlabel">Size</span>
-      <span class="microlabel num" id="dots-size-val"></span>
-    </div>
-    <input type="range" class="slider" id="dots-size" min="40" max="200" step="5" aria-label="Dots size, percent">
-
-    <button type="button" class="reset" id="reset-controls">Reset to defaults</button>
-
-    <hr class="rule">
-
     <span class="microlabel">By neighborhood</span>
     <ol class="ranking" id="ranking"></ol>
 
     <hr class="rule lt">
 
-    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. <span id="updated"></span></p>
+    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. Tap the map to drop a pin (drag to move it, tap it to remove); pins are saved on this device. <span id="updated"></span></p>
 
   </div>
 </section>
@@ -1383,14 +1251,9 @@ var CONTRAST = 1.0;             /* density → strength exponent; 1.2 muted the
                                    visible wash across the whole city */
 var BLOCKS_MAX = 0.85;          /* opacity cap on the block mosaic */
 
-/* street-ink controls (panel): toggle, fade-out zoom, and a strength cap
-   measured in the SAME dimension as BLOCKS_MAX — set the slider to 85%
-   and street ink matches the blocks exactly, the original one-ground-
-   plane tuning */
-/* handoff slider: translates the WHOLE building-in / blocks-out crossfade
-   (entrance curves, ground fade, minzoom cull — shapes preserved) by up
-   to ±2 zoom levels around the baked anchor */
-var HANDOFF_BASE = ENTRANCE.op[0][0];   /* z14.0 — entrance start */
+/* the panel's tuning dials are gone (values below are the locked-in
+   look); shiftStops and the street/dots constants survive from that era
+   so the pipelines stay parameterized */
 var HANDOFF_SHIFT = 0;
 function shiftStops(stops){
   if (!HANDOFF_SHIFT) return stops;
@@ -1850,17 +1713,6 @@ function applyRoadDim(){
   });
 }
 
-/* re-apply the street-ink controls to whichever renderer is active */
-function applyStreetSettings(){
-  if (deckOverlay) updateDeckStreets();
-  if (map.getLayer('streets')){
-    map.setLayoutProperty('streets', 'visibility', STREETS_ON ? 'visible' : 'none');
-    map.setPaintProperty('streets', 'line-opacity', streetOpacityExpr());
-    map.setLayerZoomRange('streets', 0, STREET_FADE_TO);
-  }
-  applyRoadDim();
-}
-
 map.on('load', function(){
   /* the basemap's flat building fills draw above the block choropleth and
      patch it up at z14+ — hide them so blocks read as clean slabs of ink
@@ -2104,161 +1956,54 @@ document.getElementById('scroll-hint').addEventListener('click', function(){
   document.querySelector('.panel').scrollIntoView({ behavior:'smooth' });
 });
 
-/* ---------- street-ink controls ---------- */
-var stOn = document.getElementById('streets-on');
-var stOff = document.getElementById('streets-off');
-var stFade = document.getElementById('street-fade');
-var stFadeVal = document.getElementById('street-fade-val');
-var stStrength = document.getElementById('street-strength');
-var stStrengthVal = document.getElementById('street-strength-val');
-
-function paintStreetControls(){
-  stOn.classList.toggle('active', STREETS_ON);
-  stOff.classList.toggle('active', !STREETS_ON);
-  stOn.setAttribute('aria-pressed', STREETS_ON);
-  stOff.setAttribute('aria-pressed', !STREETS_ON);
-  stFadeVal.textContent = 'z' + STREET_FADE_TO.toFixed(1);
-  var pct = Math.round(STREETS_MAX * 100);
-  /* flag the setting that matches the block mosaic's cap */
-  stStrengthVal.textContent = pct + '%' + (pct === Math.round(BLOCKS_MAX * 100) ? ' = blocks' : '');
+/* ---------- map pings ----------
+   Tap anywhere on the map to drop a pin (home, work, ...) and see where
+   it lands on the density. Drag a pin to move it, tap it to remove it.
+   Pins persist in localStorage, so home/work survive reloads. */
+var PING_KEY = 'block-report-pings';
+var pings = [];
+function savePings(){
+  try{
+    localStorage.setItem(PING_KEY, JSON.stringify(
+      pings.map(function(p){ return [+p.lng.toFixed(6), +p.lat.toFixed(6)]; })
+    ));
+  }catch(e){}
 }
-function setStreets(on){
-  STREETS_ON = on;
-  paintStreetControls();
-  applyStreetSettings();
+function addPing(lng, lat, skipSave){
+  var el = document.createElement('div');
+  el.className = 'ping';
+  el.title = 'Drag to move · tap to remove';
+  var marker = new maplibregl.Marker({ element: el, anchor:'bottom', draggable:true })
+    .setLngLat([lng, lat])
+    .addTo(map);
+  var p = { lng: lng, lat: lat, marker: marker };
+  var justDragged = false;
+  marker.on('dragend', function(){
+    var ll = marker.getLngLat();
+    p.lng = ll.lng; p.lat = ll.lat;
+    savePings();
+    /* the click that follows a drag must not delete the pin */
+    justDragged = true;
+    setTimeout(function(){ justDragged = false; }, 300);
+  });
+  el.addEventListener('click', function(ev){
+    ev.stopPropagation();   /* don't let the map click add a new pin here */
+    if (justDragged) return;
+    marker.remove();
+    pings.splice(pings.indexOf(p), 1);
+    savePings();
+  });
+  pings.push(p);
+  if (!skipSave) savePings();
 }
-stOn.addEventListener('click', function(){ setStreets(true); });
-stOff.addEventListener('click', function(){ setStreets(false); });
-stFade.value = STREET_FADE_TO;
-stFade.addEventListener('input', function(){
-  STREET_FADE_TO = parseFloat(stFade.value);
-  paintStreetControls();
-  applyStreetSettings();
+map.on('click', function(e){
+  addPing(e.lngLat.lng, e.lngLat.lat);
 });
-stStrength.value = Math.round(STREETS_MAX * 100);
-stStrength.addEventListener('input', function(){
-  STREETS_MAX = stStrength.value / 100;
-  paintStreetControls();
-  applyStreetSettings();
-});
-paintStreetControls();
-
-/* ---------- handoff slider: slide the whole buildings-in/blocks-out
-   crossfade along the zoom axis, shapes intact ---------- */
-var handoffEl = document.getElementById('handoff');
-var handoffVal = document.getElementById('handoff-val');
-function paintHandoff(){
-  handoffVal.textContent =
-    'z' + (HANDOFF_BASE + HANDOFF_SHIFT).toFixed(1) +
-    '–' + (GROUND_FADE[GROUND_FADE.length - 1][0] + HANDOFF_SHIFT).toFixed(1);
-}
-function applyHandoff(){
-  if (map.getLayer('blocks')){
-    map.setPaintProperty('blocks', 'fill-opacity', blockOpacityExpr());
-  }
-  if (map.getLayer('buildings')){
-    map.setPaintProperty('buildings', 'fill-extrusion-opacity', buildingOpacityExpr());
-    map.setPaintProperty('buildings', 'fill-extrusion-height', buildingHeightExpr());
-    map.setLayerZoomRange('buildings', BLDG_MINZOOM + HANDOFF_SHIFT, 24);
-  }
-}
-handoffEl.value = HANDOFF_BASE;
-handoffEl.addEventListener('input', function(){
-  HANDOFF_SHIFT = parseFloat(handoffEl.value) - HANDOFF_BASE;
-  paintHandoff();
-  applyHandoff();
-});
-paintHandoff();
-
-var substreetEl = document.getElementById('substreet');
-var substreetVal = document.getElementById('substreet-val');
-function paintSubstreet(){
-  substreetVal.textContent = '+' + SUBSTREET_DELAY.toFixed(1) + 'z';
-}
-substreetEl.value = SUBSTREET_DELAY;
-substreetEl.addEventListener('input', function(){
-  SUBSTREET_DELAY = parseFloat(substreetEl.value);
-  paintSubstreet();
-  applyRoadDim();
-});
-paintSubstreet();
-
-/* ---------- dots sliders ---------- */
-var dotsFade = document.getElementById('dots-fade');
-var dotsFadeVal = document.getElementById('dots-fade-val');
-var dotsStrength = document.getElementById('dots-strength');
-var dotsStrengthVal = document.getElementById('dots-strength-val');
-var dotsSize = document.getElementById('dots-size');
-var dotsSizeVal = document.getElementById('dots-size-val');
-
-function paintDotsControls(){
-  dotsFadeVal.textContent = 'z' + DOTS_FADE_AT.toFixed(1);
-  var pct = Math.round(DOTS_MAX * 100);
-  dotsStrengthVal.textContent = pct + '%' + (pct === Math.round(BLOCKS_MAX * 100) ? ' = blocks' : '');
-  dotsSizeVal.textContent = Math.round(DOTS_SIZE * 100) + '%';
-}
-function applyDots(){
-  if (!map.getLayer('points')) return;
-  map.setPaintProperty('points', 'circle-opacity', pointOpacityExpr());
-  map.setPaintProperty('points', 'circle-stroke-opacity', pointStrokeOpacityExpr());
-  map.setPaintProperty('points', 'circle-radius', pointRadiusExpr());
-  map.setLayerZoomRange('points', DOTS_FADE_AT - 0.1, 24);
-}
-dotsFade.value = DOTS_FADE_AT;
-dotsFade.addEventListener('input', function(){
-  DOTS_FADE_AT = parseFloat(dotsFade.value);
-  paintDotsControls();
-  applyDots();
-});
-dotsStrength.value = Math.round(DOTS_MAX * 100);
-dotsStrength.addEventListener('input', function(){
-  DOTS_MAX = dotsStrength.value / 100;
-  paintDotsControls();
-  applyDots();
-});
-dotsSize.value = Math.round(DOTS_SIZE * 100);
-dotsSize.addEventListener('input', function(){
-  DOTS_SIZE = dotsSize.value / 100;
-  paintDotsControls();
-  applyDots();
-});
-paintDotsControls();
-
-/* ---------- reset: every tuning control back to the baked defaults ---------- */
-var CONTROL_DEFAULTS = {
-  streetsOn: STREETS_ON,
-  streetFadeTo: STREET_FADE_TO,
-  streetsMax: STREETS_MAX,
-  handoffShift: HANDOFF_SHIFT,
-  substreetDelay: SUBSTREET_DELAY,
-  dotsFadeAt: DOTS_FADE_AT,
-  dotsMax: DOTS_MAX,
-  dotsSize: DOTS_SIZE
-};
-document.getElementById('reset-controls').addEventListener('click', function(){
-  STREETS_ON = CONTROL_DEFAULTS.streetsOn;
-  STREET_FADE_TO = CONTROL_DEFAULTS.streetFadeTo;
-  STREETS_MAX = CONTROL_DEFAULTS.streetsMax;
-  HANDOFF_SHIFT = CONTROL_DEFAULTS.handoffShift;
-  SUBSTREET_DELAY = CONTROL_DEFAULTS.substreetDelay;
-  DOTS_FADE_AT = CONTROL_DEFAULTS.dotsFadeAt;
-  DOTS_MAX = CONTROL_DEFAULTS.dotsMax;
-  DOTS_SIZE = CONTROL_DEFAULTS.dotsSize;
-  stFade.value = STREET_FADE_TO;
-  stStrength.value = Math.round(STREETS_MAX * 100);
-  handoffEl.value = HANDOFF_BASE + HANDOFF_SHIFT;
-  substreetEl.value = SUBSTREET_DELAY;
-  dotsFade.value = DOTS_FADE_AT;
-  dotsStrength.value = Math.round(DOTS_MAX * 100);
-  dotsSize.value = Math.round(DOTS_SIZE * 100);
-  paintStreetControls();
-  paintHandoff();
-  paintSubstreet();
-  paintDotsControls();
-  applyStreetSettings();
-  applyHandoff();
-  applyDots();
-});
+try{
+  JSON.parse(localStorage.getItem(PING_KEY) || '[]').forEach(function(c){
+    if (Array.isArray(c) && isFinite(c[0]) && isFinite(c[1])) addPing(c[0], c[1], true);
+  });
+}catch(e){}
 
 /* ---------- compass: needle tracks bearing, press resets to north ---------- */
 var compassEl = document.getElementById('compass');
