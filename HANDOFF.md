@@ -26,19 +26,22 @@ deleted from the deploy, individual files remain reachable by URL).
   by user request 2026-08-22): CARTO Positron-nolabels basemap, Inter type,
   slim floating control column (desktop) / map-first-viewport with panel
   scrolled below (mobile). Tilted camera (pitch 57, bearing −30), rotation
-  interactive. Density is MONOCHROME ORANGE — one hue, intensity carries
-  the data: paper white → peach → orange → deep burnt orange (`#E68742`
-  light anchor → `#B74808` at hotspot cores). Palette history (all
-  rejected): saturated red/yellow ("McDonald's"), muted terracotta→dark
-  brick ("dried blood"), diverging green→cream→red (gradients per se
-  didn't work) — single-hue is the settled decision. Ground layers slide
-  the hue along the alpha ramp (paper white comes from transparency; the
-  low anchor is warm enough to tint through the low alphas), buildings
-  carry the full ramp in surface color. Scaling is deliberately generous
-  so color reaches the whole city: sqrt gamma on the normalized density
-  grid, CONTRAST 1.0 (was 1.2), and a near-linear alpha ramp. Labels are
-  strictly black/white — graphite text on white halo, inverting to white
-  on graphite halo over hotspot cores (threshold 0.8 on the lifted field). NOTE: the
+  interactive. Density is WARM CHARCOAL — intensity carries the data, the
+  hue is near-neutral with a subtle warm-taupe tint (deliberately NOT full
+  desaturation): paper white → warm gray → deep charcoal (`#877A70` light
+  anchor → `#26201D` at hotspot cores). Palette history (all tried, all
+  rejected 2026-08-22): saturated red/yellow ("McDonald's"), muted
+  terracotta→dark brick ("dried blood"), diverging green→cream→red,
+  monochrome orange — color gradients per se didn't work; slightly-tinted
+  charcoal is the settled decision. Ground layers slide the hue along the
+  alpha ramp (paper white comes from transparency), buildings carry the
+  full ramp in surface color. Scaling stays generous from the color era so
+  ink reaches the whole city: sqrt gamma on the normalized density grid,
+  CONTRAST 1.0 (was 1.2), and a near-linear alpha ramp (a return to the
+  original soft-toe/1.2 look is a two-line change if the wash feels heavy
+  in gray). Labels are strictly black/white — graphite text on white halo,
+  inverting to white on graphite halo over hotspot cores (threshold 0.8 on
+  the lifted field). NOTE: the
   basemap's `saturate(0)` CSS filter had to go — it would grayscale the
   heat layers in the same canvas — so `desaturateBasemap()` grays the
   Positron style's own paint colors at load instead (keeps the bay/parks

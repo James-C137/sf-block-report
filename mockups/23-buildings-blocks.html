@@ -1135,18 +1135,19 @@ var nhoodsPromise = Promise.all([fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE), density
 /* ---------- shared paint state ---------- */
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
 
-/* heat ramp: monochrome orange — one hue, intensity carries the data
-   (multi-hue gradients were tried and rejected: red/yellow, terracotta,
-   diverging green→red). Reads pale peach → orange → deep burnt orange.
-   On the ground layers the paper white comes from ALPHA — the hue deepens
-   slightly as alpha rises, so the low anchor is warm enough to tint
-   through the low alphas. Buildings are opaque and carry the ramp in
-   surface color. Hue anchors, on t = ink * d^contrast: */
+/* heat ramp: warm charcoal — intensity carries the data, the hue is a
+   near-neutral with a subtle warm-taupe tint (NOT full desaturation; pure
+   grayscale was the original design, color gradients were all tried and
+   rejected: red/yellow, terracotta, green→red, monochrome orange). Reads
+   paper white → warm gray → deep charcoal. On the ground layers the paper
+   white comes from ALPHA — the hue deepens as alpha rises. Buildings are
+   opaque and carry the ramp in surface color. Hue anchors, on
+   t = ink * d^contrast: */
 var HEAT = [
-  [0.00, [230, 135, 66]],   /* #E68742 light orange  */
-  [0.40, [233, 118, 40]],   /* #E97628 orange        */
-  [0.70, [215, 95, 20]],    /* #D75F14 deep orange   */
-  [1.00, [183, 72, 8]]      /* #B74808 burnt orange  */
+  [0.00, [135, 122, 112]],  /* #877A70 warm gray     */
+  [0.40, [110, 98, 90]],    /* #6E625A taupe gray    */
+  [0.70, [75, 66, 60]],     /* #4B423C dark warm gray */
+  [1.00, [38, 32, 29]]      /* #26201D warm charcoal */
 ];
 function heatHue(t){
   if (t <= HEAT[0][0]) return HEAT[0][1];
@@ -1170,15 +1171,15 @@ var pointsOn = false;
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
-  /* shade = ink * d^contrast, mixed neutral pale -> peach -> burnt orange */
+  /* shade = ink * d^contrast, mixed neutral pale -> warm gray -> charcoal */
   return ['interpolate', ['linear'],
     ['*', INK, ['^', ['get','d'], CONTRAST]],
     0.00, PALE,
-    0.15, '#F4DDC4',
-    0.35, '#F0B87E',
-    0.60, '#E68A3C',
-    0.85, '#CE621A',
-    1.00, '#B74808'
+    0.15, '#D6D0CA',
+    0.35, '#B3AAA2',
+    0.60, '#857A72',
+    0.85, '#544B45',
+    1.00, '#2B2521'
   ];
 }
 function buildingHeightExpr(){
@@ -1195,15 +1196,15 @@ function buildingOpacityExpr(){
   return zoomCurve(ENTRANCE.op, function(f){ return f * BLDG_FULL_OPACITY; });
 }
 function blockColorExpr(){
-  /* hue deepens light→burnt orange with t while blockOpacityExpr drives
+  /* hue deepens warm gray→charcoal with t while blockOpacityExpr drives
      strength — composited over the paper basemap the pair reads
-     white→peach→orange */
+     white→warm gray→charcoal */
   var t = ['*', INK, ['^', ['get','v'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, '#E68742',
-    0.40, '#E97628',
-    0.70, '#D75F14',
-    1.00, '#B74808'
+    0.00, '#877A70',
+    0.40, '#6E625A',
+    0.70, '#4B423C',
+    1.00, '#26201D'
   ];
 }
 function blockOpacityExpr(){
@@ -1234,14 +1235,14 @@ function streetColorExpr(){
      separate layer on top (MapLibre fallback layer only) */
   var t = ['*', INK, ['^', ['get','d'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, 'rgba(230,135,66,0)',
-    0.03, 'rgba(230,134,64,0.05)',
-    0.10, 'rgba(231,131,60,0.15)',
-    0.22, 'rgba(232,126,52,0.27)',
-    0.40, 'rgba(233,118,40,0.42)',
-    0.60, 'rgba(221,103,27,0.60)',
-    0.80, 'rgba(204,87,16,0.79)',
-    1.00, 'rgba(183,72,8,1)'
+    0.00, 'rgba(135,122,112,0)',
+    0.03, 'rgba(133,120,110,0.05)',
+    0.10, 'rgba(129,116,107,0.15)',
+    0.22, 'rgba(121,109,100,0.27)',
+    0.40, 'rgba(110,98,90,0.42)',
+    0.60, 'rgba(87,77,70,0.60)',
+    0.80, 'rgba(63,55,50,0.79)',
+    1.00, 'rgba(38,32,29,1)'
   ];
 }
 function streetWidthExpr(){
