@@ -7,7 +7,6 @@ import type { ExpressionSpecification } from 'maplibre-gl';
 import {
   BLDG_FULL_OPACITY, BLOCKS_MAX, DOTS_MAX, DOTS_SIZE, DOT_COLOR_RGB,
   DOT_STRENGTH_RAMP, ENTRANCE_HEIGHT, ENTRANCE_OPACITY, GROUND_FADE,
-  LABEL_BEND_AT,
 } from '../config';
 import { ALPHA_RAMP, BUILDING_RAMP, CHARCOAL_ANCHORS } from './paint';
 
@@ -87,23 +86,5 @@ export function dotStrokeWidthExpr(): Expr {
   return ['interpolate', ['linear'], ['zoom'], 10, 0.2, 13, 0.5, 16, 0.9] as unknown as Expr;
 }
 
-/* labels: one size curve, two regimes — near-constant screen px up to
-   the bend, then doubling per zoom level (exponential base 2 = fixed
-   world size). The curves meet at the bend so nothing jumps. (A one-time
-   size settle on the FIRST crossing is MapLibre symbol-bucket warm-up —
-   inherent, not fixable here.) */
-export function labelSizeExpr(): Expr {
-  return ['interpolate', ['exponential', 2], ['zoom'],
-    11, 10,
-    13.5, 10.5,
-    LABEL_BEND_AT, 10.7,
-    LABEL_BEND_AT + 4, 10.7 * 16,
-  ] as unknown as Expr;
-}
-
-export function labelHaloWidthExpr(): Expr {
-  return ['interpolate', ['exponential', 2], ['zoom'],
-    LABEL_BEND_AT, 1.5,
-    LABEL_BEND_AT + 4, 24,
-  ] as unknown as Expr;
-}
+/* (The label size/halo expressions that lived here died with the symbol
+   layers — neighborhood labels are DOM markers now, see layers/labels.ts.) */

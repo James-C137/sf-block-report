@@ -105,16 +105,21 @@ deleted from the deploy, individual files remain reachable by URL).
 - **Neighborhood labels**: DataSF Analysis Neighborhoods (41), curated majors
   at citywide zoom, rest reveal past z12.6, pole-of-inaccessibility anchors,
   density-aware inversion (paper-white text over dark ink). ONE size
-  curve, two regimes: near-constant screen-space px up to z14, then —
-  just before the buildings enter at 14.5 — the law bends to doubling
-  per zoom level (exponential base 2 = fixed world size), so the names
-  scale with the city; the halo scales in step. The default upright
-  camera-facing symbols already read as standing billboards, so no
-  separate layer or crossfade is needed. Dead ends on record: a
-  ground-plane variant (`pitch-alignment: map`) looked knocked over, and
-  a separate timed-crossfade "world" layer was scrapped as redundant; a
-  true fixed vertical plane (edge-on from straight above) isn't
-  expressible in MapLibre symbols anyway.
+  law, two regimes: constant screen-space px up to z14, then — just
+  before the buildings enter at 14.5 — doubling per zoom level (fixed
+  world size), so the names scale with the city. In the app
+  (2026-08-22) these are DOM markers, NOT symbol layers: symbol text
+  comes from a 24px SDF glyph atlas and went soft once the size law
+  blew it up in-world, reading low-res next to the crisp DOM pin
+  labels. Pins and neighborhoods now share one DOM `.map-label` system
+  (Inter, same halo, same inversion rule, same scale law in
+  `layers/labels.ts` / `pings.ts`), which also drops the glyph fetch
+  and the symbol-bucket warm-up jump. Trade accepted: no collision
+  culling (anchors are sparse enough per visibility tier). Upright
+  camera-facing text reads as standing billboards. Dead ends on
+  record: a ground-plane variant (`pitch-alignment: map`) looked
+  knocked over, and a separate timed-crossfade "world" layer was
+  scrapped as redundant.
 - **Points overlay** (not a separate view, no toggle): dots draw above
   the extrusions and enter via a TIMED fade at the z12.5 threshold —
   crossing it in either direction runs a fixed 300ms opacity transition
@@ -193,10 +198,12 @@ deleted from the deploy, individual files remain reachable by URL).
   MapLibre DOM Markers own their element's transform, so the scalable
   pin lives on an inner span. Tap-to-drop was replaced by
   address-entry on request. Each pin carries its label text on the map
-  (added 2026-08-22), riding inside the scaled span beside the head;
-  graphite on a paper halo, inverting to white-on-graphite over hotspot
-  cores under the same LABEL_INVERT_DENS rule as the neighborhood
-  labels (sampled once from the pristine field at add time).
+  (added 2026-08-22), centered ABOVE the teardrop inside the scaled
+  span (a beside-the-head placement read awkward and was moved on
+  request); shares the `.map-label` system with the neighborhood
+  labels, inverting over hotspot cores under the same
+  LABEL_INVERT_DENS rule (sampled once from the pristine field at add
+  time).
 - **Incident data is LIVE**: the page fetches the last 30 full days of SFPD
   Incident Reports (`wg3w-h783`) from Socrata at runtime — one browser-direct
   request, `$limit=25000` (~2x a typical month of geocoded reports; SODA 2.1

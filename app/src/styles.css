@@ -226,33 +226,53 @@ button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
   transform:rotate(45deg);   /* square corner points down = the tip */
   box-shadow:0 1px 3px rgba(26,26,26,0.3);
 }
-.ping .pin-label{
-  position:absolute;
-  /* beside the head, optically centered on it: the head's center sits at
-     y=9px (::after box 2..16), so center the line box there */
-  left:18px; top:9px;
-  transform:translateY(-50%);
-  padding:0 3px;              /* room for the halo — overflow clips at the
-                                 padding edge, so it survives */
-  line-height:1.2;
-  font-size:10.5px; font-weight:500; letter-spacing:0.01em;
+/* ---- one label system for everything ON the map ----
+   Pins and neighborhoods share font, weight, halo, and the on-dark
+   inversion, so DOM-crisp text reads as a single family. */
+.map-label{
+  font-size:10.5px; font-weight:500; line-height:1.35;
   color:var(--ink);
-  white-space:nowrap;
-  max-width:150px; overflow:hidden; text-overflow:ellipsis;
-  /* paper halo, same read as the map's neighborhood labels */
   text-shadow:
     0 1px 0 var(--paper), 0 -1px 0 var(--paper),
     1px 0 0 var(--paper), -1px 0 0 var(--paper),
     0 0 3px var(--paper), 0 0 3px var(--paper), 0 0 3px var(--paper);
 }
-/* over hotspot cores the ground ink is near-black — invert, same rule
-   as the neighborhood labels (threshold LABEL_INVERT_DENS) */
-.ping .pin-label.on-dark{
+/* over hotspot cores the ground ink is near-black — invert
+   (threshold LABEL_INVERT_DENS, sampled from the pristine field) */
+.map-label.on-dark{
   color:var(--paper);
   text-shadow:
     0 1px 0 rgba(26,26,26,0.9), 0 -1px 0 rgba(26,26,26,0.9),
     1px 0 0 rgba(26,26,26,0.9), -1px 0 0 rgba(26,26,26,0.9),
     0 0 3px rgba(26,26,26,0.9), 0 0 3px rgba(26,26,26,0.9), 0 0 3px rgba(26,26,26,0.9);
+}
+
+/* pin label: centered ABOVE the teardrop, inside the scaled span so it
+   grows with the pin about the tip */
+.ping .pin-label{
+  position:absolute;
+  left:50%; bottom:20px;      /* head's visual top is y=2 of the 20px box */
+  transform:translateX(-50%);
+  width:max-content;
+  padding:0 3px;              /* room for the halo — overflow clips at the
+                                 padding edge, so it survives */
+  text-align:center;
+  white-space:nowrap;
+  max-width:150px; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* neighborhood labels (DOM markers; scale/translate set from JS under
+   the same law as the pins) */
+.nhood{ pointer-events:none; z-index:1; }
+.ping{ z-index:2; }           /* your pins ride above the wayfinding */
+.nhood-label{
+  position:absolute;
+  width:max-content;
+  max-width:96px;             /* long names wrap like the symbol layer did */
+  text-align:center;
+  text-transform:uppercase;
+  letter-spacing:0.14em;
+  transform:translate(-50%,-50%);
 }
 
 /* ranking */

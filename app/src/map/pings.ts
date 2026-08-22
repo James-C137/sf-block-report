@@ -66,7 +66,7 @@ export function createPings(map: MLMap, densityAt?: (lng: number, lat: number) =
     /* the label rides inside the scaled element, so it grows in-world
        with the pin under the same 2^(z-14) law as the map labels */
     const labelEl = document.createElement('span');
-    labelEl.className = 'pin-label';
+    labelEl.className = 'map-label pin-label';
     if ((densityAt?.(p.lng, p.lat) ?? 0) >= LABEL_INVERT_DENS) labelEl.classList.add('on-dark');
     labelEl.textContent = p.label;
     pinEl.appendChild(labelEl);

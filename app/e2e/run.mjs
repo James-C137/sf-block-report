@@ -150,6 +150,8 @@ const browser = await chromium.launch({
     return !!m && !!m.getLayer('blocks') && !!m.getLayer('buildings') && !!m.getLayer('points');
   }, 'blocks, buildings and dots layers all present');
 
+  await waitFor(page, () => document.querySelectorAll('.nhood-label').length >= 15, 'neighborhood labels render as DOM markers');
+
   /* live data flowed into the panel */
   const count = await page.evaluate(() => document.getElementById('count-value')?.textContent ?? '');
   ok(parseInt(count.replace(/[^0-9]/g, ''), 10) === GEOCODED, `count shows the ${GEOCODED} geocoded fixture rows (got "${count}")`);

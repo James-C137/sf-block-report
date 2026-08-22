@@ -1,10 +1,21 @@
-import type { Map as MLMap } from 'maplibre-gl';
-import { LABEL_INVERT_DENS, NHOOD_DISPLAY, NHOOD_MAJORS } from '../../config';
+/* Neighborhood labels as DOM markers, NOT symbol layers. Symbol text
+   comes out of a 24px SDF glyph atlas, so once the size curve blows it
+   up in-world it reads soft/low-res next to the crisp DOM text of the
+   pin labels. Rendering both through the same DOM `.map-label` system
+   (one font, one halo, one inversion rule, one scale law) makes them
+   cohesive — and drops the glyph fetch entirely. Trade accepted: no
+   collision culling; SF neighborhoods are large enough that anchors
+   don't crowd at the zooms where each tier is visible. */
+
+import maplibregl, { type Map as MLMap } from 'maplibre-gl';
+import { LABEL_BEND_AT, LABEL_INVERT_DENS, NHOOD_DISPLAY, NHOOD_MAJORS } from '../../config';
 import type { NhoodFeature } from '../../data/geometry';
 import { labelPointOf } from '../../model/geo';
 import { sampleField } from '../../model/density';
 import type { DensityField } from '../../model/types';
-import { labelHaloWidthExpr, labelSizeExpr } from '../expressions';
+
+const MINOR_FROM = 12.6; /* the long tail reveals over 12.6→13.1 */
+const MINOR_FADE = 0.5;
 
 interface LabelRow {
   name: string;
@@ -14,7 +25,7 @@ interface LabelRow {
 
 /* curated majors surface first at the citywide framing; the rest rank by
    polygon area and appear as you zoom past z12.6 */
-export function toLabelFC(features: NhoodFeature[], field: DensityField): GeoJSON.FeatureCollection {
+export function toLabelRows(features: NhoodFeature[]): LabelRow[] {
   const rows: LabelRow[] = [];
   for (const f of features) {
     const name = f.properties?.nhood;
@@ -34,64 +45,43 @@ export function toLabelFC(features: NhoodFeature[], field: DensityField): GeoJSO
     }
     return b.area - a.area;
   });
-  return {
-    type: 'FeatureCollection',
-    features: rows.map((r, idx) => ({
-      type: 'Feature',
-      properties: {
-        label: NHOOD_DISPLAY[r.name] ?? r.name,
-        rank: idx + 1,
-        /* density under the anchor — labels on the hotspot ink invert to
-           paper-on-graphite so they stay readable */
-        dens: +sampleField(field, r.point[0], r.point[1]).toFixed(3),
-      },
-      geometry: { type: 'Point', coordinates: r.point },
-    })),
-  };
+  return rows;
 }
 
-export function addLabelLayers(map: MLMap, fc: GeoJSON.FeatureCollection): void {
-  map.addSource('nhoods', { type: 'geojson', data: fc as never });
-  const layout = {
-    'text-field': ['get', 'label'],
-    /* Inter glyphs aren't served by the CARTO stack; Montserrat Medium is
-       the closest grotesque it has */
-    'text-font': ['Montserrat Medium', 'Noto Sans Regular'],
-    'text-size': labelSizeExpr(),
-    'text-transform': 'uppercase',
-    'text-letter-spacing': 0.14,
-    'text-line-height': 1.4,
-    'text-max-width': 7,
-    'text-padding': 6,
-    'symbol-sort-key': ['get', 'rank'], /* majors win collisions */
-  };
-  const onDark = ['>=', ['get', 'dens'], LABEL_INVERT_DENS];
-  const paint = {
-    /* strictly black/white type: graphite halo under white text on the
-       hotspot cores, white halo under graphite text everywhere else */
-    'text-color': ['case', onDark, '#FFFFFF', '#3A3A3A'],
-    'text-halo-color': ['case', onDark, 'rgba(26,26,26,0.9)', '#FFFFFF'],
-    'text-halo-width': labelHaloWidthExpr(),
-    'text-halo-blur': 0.2,
-  };
-  map.addLayer({
-    id: 'nhood-labels-major',
-    type: 'symbol',
-    source: 'nhoods',
-    filter: ['<=', ['get', 'rank'], NHOOD_MAJORS.length],
-    layout: layout as never,
-    paint: paint as never,
+export function addLabelMarkers(map: MLMap, features: NhoodFeature[], field: DensityField): void {
+  const items: Array<{ el: HTMLElement; minor: boolean }> = [];
+  toLabelRows(features).forEach((r, idx) => {
+    const minor = idx + 1 > NHOOD_MAJORS.length;
+    const root = document.createElement('div');
+    root.className = 'nhood';
+    const el = document.createElement('span');
+    el.className = 'map-label nhood-label';
+    /* density under the anchor — labels on the hotspot ink invert to
+       paper-on-graphite so they stay readable */
+    if (sampleField(field, r.point[0], r.point[1]) >= LABEL_INVERT_DENS) el.classList.add('on-dark');
+    el.textContent = NHOOD_DISPLAY[r.name] ?? r.name;
+    root.appendChild(el);
+    new maplibregl.Marker({ element: root, anchor: 'center' })
+      .setLngLat(r.point)
+      .addTo(map);
+    items.push({ el, minor });
   });
-  map.addLayer({
-    id: 'nhood-labels-minor',
-    type: 'symbol',
-    source: 'nhoods',
-    minzoom: 12.6,
-    filter: ['>', ['get', 'rank'], NHOOD_MAJORS.length],
-    layout: layout as never,
-    paint: {
-      ...paint,
-      'text-opacity': ['interpolate', ['linear'], ['zoom'], 12.6, 0, 13.1, 1],
-    } as never,
-  });
+
+  /* same law as the pins: constant screen size to the bend, then fixed
+     world size, scaling about the anchor */
+  const update = (): void => {
+    const z = map.getZoom();
+    const s = z <= LABEL_BEND_AT ? 1 : Math.pow(2, z - LABEL_BEND_AT);
+    const t = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
+    const minorOpacity = Math.min(1, Math.max(0, (z - MINOR_FROM) / MINOR_FADE));
+    for (const it of items) {
+      it.el.style.transform = t;
+      if (it.minor) {
+        it.el.style.opacity = String(minorOpacity);
+        it.el.style.display = minorOpacity > 0 ? '' : 'none';
+      }
+    }
+  };
+  map.on('zoom', update);
+  update();
 }
