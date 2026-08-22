@@ -12,7 +12,15 @@
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<script src="https://unpkg.com/deck.gl@9.0.36/dist.min.js"></script>
+<script>
+/* deck.gl powers the desktop street ink (MAX-blend PathLayer). Phones skip
+   it entirely — a second WebGL context plus ~1MB of parsed library is real
+   memory on iOS, and the MapLibre butt-cap street fallback below reads
+   nearly the same — so the library only loads on desktop-class viewports. */
+if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
+  document.write('<script src="https://unpkg.com/deck.gl@9.0.36/dist.min.js"><\/script>');
+}
+</script>
 
 <style>
   :root{
@@ -209,79 +217,11 @@
     outline:1px solid var(--ink);
     outline-offset:-3px;
   }
-  .segment button:disabled{
-    color:var(--ink-25);
-    cursor:not-allowed;
-  }
 
-  /* sliders — minimal graphite range */
   .slider-head{
     display:flex; justify-content:space-between; align-items:baseline;
     margin-top:12px;
   }
-  .slider-head .readout{
-    font-size:10px; font-weight:450;
-    color:var(--ink-60);
-    letter-spacing:0.04em;
-  }
-  input[type="range"].slider{
-    -webkit-appearance:none;
-    appearance:none;
-    display:block;
-    width:100%;
-    height:22px;              /* generous hit area for touch */
-    margin-top:6px;
-    background:transparent;
-    cursor:pointer;
-  }
-  input[type="range"].slider::-webkit-slider-runnable-track{
-    height:2px;
-    background:var(--hair);
-  }
-  input[type="range"].slider::-webkit-slider-thumb{
-    -webkit-appearance:none;
-    appearance:none;
-    width:12px; height:12px;
-    margin-top:-5px;          /* center on 2px track */
-    border-radius:0;
-    background:var(--ink);
-    border:0;
-  }
-  input[type="range"].slider::-moz-range-track{
-    height:2px;
-    background:var(--hair);
-  }
-  input[type="range"].slider::-moz-range-thumb{
-    width:12px; height:12px;
-    border-radius:0;
-    background:var(--ink);
-    border:0;
-  }
-  input[type="range"].slider:focus-visible{
-    outline:1px solid var(--ink);
-    outline-offset:2px;
-  }
-
-  .reset-row{
-    display:flex; justify-content:flex-end;
-    margin-top:10px;
-  }
-  .reset-btn{
-    appearance:none;
-    border:1px solid var(--hair);
-    background:var(--paper);
-    font-family:inherit;
-    font-size:9px;
-    font-weight:500;
-    letter-spacing:0.16em;
-    text-transform:uppercase;
-    color:var(--ink-60);
-    padding:5px 12px;
-    cursor:pointer;
-    transition:color 120ms ease, border-color 120ms ease;
-  }
-  .reset-btn:hover{ color:var(--ink); border-color:var(--ink); }
-  .reset-btn:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
 
   /* ranking */
   .ranking{ list-style:none; margin-top:12px; }
@@ -491,60 +431,11 @@
     <div class="notice" id="notice"></div>
 
     <div class="slider-head">
-      <span class="microlabel" id="entrance-label">Entrance</span>
-    </div>
-    <div class="segment" role="group" aria-labelledby="entrance-label">
-      <button type="button" id="ent-fade" aria-pressed="false">Fade</button>
-      <button type="button" id="ent-grow" aria-pressed="false">Grow</button>
-      <button type="button" id="ent-both" class="active" aria-pressed="true">Both</button>
-    </div>
-
-    <div class="slider-head">
-      <span class="microlabel" id="streets-label">Streets</span>
-    </div>
-    <div class="segment" role="group" aria-labelledby="streets-label">
-      <button type="button" id="streets-on" class="active" aria-pressed="true">On</button>
-      <button type="button" id="streets-off" aria-pressed="false">Off</button>
-    </div>
-
-    <div class="slider-head">
       <span class="microlabel" id="points-label">Points</span>
     </div>
     <div class="segment" role="group" aria-labelledby="points-label">
       <button type="button" id="points-on" aria-pressed="false">On</button>
       <button type="button" id="points-off" class="active" aria-pressed="true">Off</button>
-    </div>
-
-    <div class="slider-head">
-      <label class="microlabel" for="ink">Ink</label>
-      <span class="readout num" id="ink-val">100%</span>
-    </div>
-    <input type="range" class="slider" id="ink" min="10" max="100" step="1" value="100"
-           aria-label="How strongly density tints blocks and buildings">
-
-    <div class="slider-head">
-      <label class="microlabel" for="contrast">Contrast</label>
-      <span class="readout num" id="contrast-val">1.20</span>
-    </div>
-    <input type="range" class="slider" id="contrast" min="50" max="250" step="5" value="120"
-           aria-label="Density to darkness steepness, both layers">
-
-    <div class="slider-head">
-      <label class="microlabel" for="blocks">Blocks</label>
-      <span class="readout num" id="blocks-val">85%</span>
-    </div>
-    <input type="range" class="slider" id="blocks" min="0" max="100" step="1" value="85"
-           aria-label="Maximum opacity of the block choropleth at low zoom">
-
-    <div class="slider-head">
-      <label class="microlabel" for="height">Height</label>
-      <span class="readout num" id="height-val">100%</span>
-    </div>
-    <input type="range" class="slider" id="height" min="0" max="200" step="5" value="100"
-           aria-label="Building extrusion height multiplier">
-
-    <div class="reset-row">
-      <button type="button" class="reset-btn" id="reset">Reset</button>
     </div>
 
     <hr class="rule">
@@ -822,7 +713,13 @@ function toNhoodLabelFC(gj){
 /* ---------- map: citywide tilted by default, rotation left interactive ---------- */
 var narrow = window.innerWidth < 900;
 
-var map = new maplibregl.Map({
+/* phones and tablets get the reduced-budget path: a smaller building
+   snapshot, a clamped framebuffer, and no second WebGL context — iOS and
+   Android kill the tab well before desktop GPU/heap budgets are reached
+   (must mirror the deck.gl loader predicate in <head>) */
+var MOBILE = narrow || (navigator.maxTouchPoints || 0) > 1;
+
+var mapOptions = {
   container:'map',
   style:'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json',
   /* default framing: full-city tilted view — the block mosaic carries the
@@ -835,7 +732,13 @@ var map = new maplibregl.Map({
   attributionControl:{ compact:true }
   /* dragRotate / pitchWithRotate / touch rotation stay enabled:
      the tilt is the default, not a lock */
-});
+};
+if (MOBILE){
+  /* DPR-3 phones quadruple the framebuffer (and the CSS-filter compositing
+     buffer over it) versus DPR 1.5 — clamp it; text stays crisp enough */
+  mapOptions.pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+}
+var map = new maplibregl.Map(mapOptions);
 
 /* ---------- zoom crossfade ----------
    Blocks and the inked street network carry the ink at low zoom;
@@ -864,18 +767,14 @@ var GROUND_FADE = [
   [14.5, 0.00]
 ];
 
-/* entrance treatments, as [zoom, fraction] stops for opacity and height
-   (h:null = full height). Opacity front-loads — steep at the start of the
-   range, easing into full — so the buildings are already inking the
-   hotspot while the ground is still holding, and the two curves overlap
-   instead of trading off through a pale middle. */
-var ENTRANCES = {
-  fade: { op:[[13.0, 0], [13.35, 0.55], [13.8, 0.80], [14.5, 1]],
-          h:null },                                   /* full-height volumes fading in   */
-  grow: { op:[[13.0, 0], [13.15, 0.60], [13.3, 1]],   /* quick toe, then rise from mosaic */
-          h:[[13.0, 0], [13.5, 0.45], [14.0, 0.80], [14.5, 1]] },
-  both: { op:[[13.0, 0], [13.3, 0.50], [13.65, 0.85], [14.0, 1]],
-          h:[[13.2, 0], [13.6, 0.50], [14.05, 0.85], [14.5, 1]] }
+/* entrance treatment (the settled "both": fade + grow together), as
+   [zoom, fraction] stops for opacity and height. Opacity front-loads —
+   steep at the start of the range, easing into full — so the buildings
+   are already inking the hotspot while the ground is still holding, and
+   the two curves overlap instead of trading off through a pale middle. */
+var ENTRANCE = {
+  op:[[13.0, 0], [13.3, 0.50], [13.65, 0.85], [14.0, 1]],
+  h:[[13.2, 0], [13.6, 0.50], [14.05, 0.85], [14.5, 1]]
 };
 
 /* build a zoom interpolate from [zoom, fraction] stops; `scale` maps each
@@ -907,6 +806,23 @@ function remoteChunkUrl(offset){
     '$offset=' + offset
   ].join('&');
 }
+
+/* mobile buildings: one reduced snapshot — a tighter bbox around the
+   hotspot cores of the default framing (Tenderloin/SoMa, Mission,
+   downtown) at a coarser simplify tolerance. 35,674 footprints / 6.3MB
+   instead of 75,634 / 18MB: half the features, a third of the JSON, and
+   a fraction of the extrusion vertex buffers — the difference between an
+   iOS memory kill and a stable tab. Blocks still paint the whole city;
+   outside the bbox the ground mosaic simply keeps carrying the density. */
+var MOBILE_BBOX = 'POLYGON((-122.438 37.745, -122.390 37.745, -122.390 37.800, -122.438 37.800, -122.438 37.745))';
+var MOBILE_BUILDINGS_LOCAL = 'data/buildings-mobile.json';
+var MOBILE_BUILDINGS_REMOTE = SODA + '?' + [
+  '$select=' + encodeURIComponent('simplify_preserve_topology(shape,0.0001) as g,hgt_median_m'),
+  '$where='  + encodeURIComponent('intersects(shape, \'' + MOBILE_BBOX + '\')'),
+  '$order='  + encodeURIComponent(':id'),
+  '$limit=40000'
+].join('&');
+var TOTAL_BLDG_ROWS = MOBILE ? 35674 : 76000;
 
 var BLOCKS_LOCAL = 'data/blocks.geojson';
 var BLOCKS_REMOTE = 'https://data.sfgov.org/resource/p2fw-hsrv.geojson' +
@@ -944,7 +860,7 @@ var blocksShare = 0;
 var streetsShare = 0;
 
 function paintProgress(){
-  var p = Math.min(1, loadedRows / 76000) * 0.75 + blocksShare * 0.15 + streetsShare * 0.10;
+  var p = Math.min(1, loadedRows / TOTAL_BLDG_ROWS) * 0.75 + blocksShare * 0.15 + streetsShare * 0.10;
   loadingBar.style.width = Math.round(p * 100) + '%';
 }
 function bumpProgress(n){
@@ -984,11 +900,15 @@ function toBuildingFC(rowsPerChunk){
   return { type:'FeatureCollection', features:feats };
 }
 
-var buildingsPromise = Promise.all(
-  Array.from({ length:CHUNKS }, function(_, i){
-    return fetchJSON(localChunkUrl(i * CHUNK), remoteChunkUrl(i * CHUNK))
-      .then(function(rows){ bumpProgress(rows.length); return rows; });
-  })
+var buildingsPromise = (MOBILE
+  ? fetchJSON(MOBILE_BUILDINGS_LOCAL, MOBILE_BUILDINGS_REMOTE)
+      .then(function(rows){ bumpProgress(rows.length); return [rows]; })
+  : Promise.all(
+      Array.from({ length:CHUNKS }, function(_, i){
+        return fetchJSON(localChunkUrl(i * CHUNK), remoteChunkUrl(i * CHUNK))
+          .then(function(rows){ bumpProgress(rows.length); return rows; });
+      })
+    )
 ).then(toBuildingFC);
 
 var blocksPromise = fetchJSON(BLOCKS_LOCAL, BLOCKS_REMOTE)
@@ -1048,14 +968,19 @@ var nhoodsPromise = fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE).then(toNhoodLabelFC);
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
 var INKC = '#1A1A1A';
 
-var state = { ink:1.0, contrast:1.2, blocks:0.85, height:1.0, entrance:'both',
-              streetsOn:true, pointsOn:false };
+/* settled design constants — formerly the exploration dials, now locked at
+   their defaults: ink 100%, contrast 1.20, blocks 85%, height 100% */
+var INK = 1.0;
+var CONTRAST = 1.2;
+var BLOCKS_MAX = 0.85;
+var HEIGHT_MULT = 1.0;
+var pointsOn = false;           /* the one remaining toggle */
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
   /* shade = ink * d^contrast, mixed pale -> graphite */
   return ['interpolate', ['linear'],
-    ['*', state.ink, ['^', ['get','d'], state.contrast]],
+    ['*', INK, ['^', ['get','d'], CONTRAST]],
     0.00, PALE,
     0.15, '#C9C9C9',
     0.35, '#A3A3A3',
@@ -1065,27 +990,24 @@ function buildingColorExpr(){
   ];
 }
 function buildingHeightExpr(){
-  /* Height dial multiplies the ceiling; Grow/Both raise it from 0 across
-     the entrance range so buildings rise out of the block mosaic */
-  var full = ['*', state.height, ['get','h']];
-  var ramp = ENTRANCES[state.entrance].h;
-  if (!ramp) return full;
-  return zoomCurve(ramp, function(f){
+  /* the entrance raises height from 0 across the handoff range so
+     buildings rise out of the block mosaic */
+  var full = ['*', HEIGHT_MULT, ['get','h']];
+  return zoomCurve(ENTRANCE.h, function(f){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
 function buildingOpacityExpr(){
   /* zero at the entrance start (and below, down to minzoom) so the layer
      can unload underneath without a blink */
-  var ramp = ENTRANCES[state.entrance].op;
-  return zoomCurve(ramp, function(f){ return f * BLDG_FULL_OPACITY; });
+  return zoomCurve(ENTRANCE.op, function(f){ return f * BLDG_FULL_OPACITY; });
 }
 function blockOpacityExpr(){
   /* same ink * v^contrast law as the buildings, pushed through a soft-toe
      ramp; the Blocks dial caps the whole layer; the outer zoom interpolate
      fades the mosaic out as buildings become individually legible */
-  var t = ['*', state.ink, ['^', ['get','v'], state.contrast]];
-  var full = ['*', state.blocks, ['interpolate', ['linear'], t,
+  var t = ['*', INK, ['^', ['get','v'], CONTRAST]];
+  var full = ['*', BLOCKS_MAX, ['interpolate', ['linear'], t,
     0.00, 0,
     0.03, 0.02,
     0.10, 0.08,
@@ -1103,7 +1025,7 @@ function streetColorExpr(){
   /* same ink * d^contrast law pushed through the SAME soft-toe ramp as the
      blocks, so the network sits in the block mosaic's tonal plane instead
      of reading as a darker layer on top (MapLibre fallback layer only) */
-  var t = ['*', state.ink, ['^', ['get','d'], state.contrast]];
+  var t = ['*', INK, ['^', ['get','d'], CONTRAST]];
   return ['interpolate', ['linear'], t,
     0.00, 'rgba(26,26,26,0)',
     0.03, 'rgba(26,26,26,0.02)',
@@ -1120,7 +1042,7 @@ function streetWidthExpr(){
      CAUTION: ['zoom'] must feed a TOP-LEVEL interpolate — wrapping it in
      ['*'] silently rejects the layer, so the zoom curve wraps the
      per-feature width expression */
-  var t = ['^', ['get','d'], state.contrast];
+  var t = ['^', ['get','d'], CONTRAST];
   function w(scale){
     return ['*', scale, ['+', 0.8, ['*', 2.7, t]]];
   }
@@ -1133,10 +1055,10 @@ function streetWidthExpr(){
 }
 function streetOpacityExpr(){
   /* inverse of the building entrance: full street ink when zoomed out,
-     dissolving across the handoff as the volumes rise. The Blocks dial
-     caps street ink the same way it caps the mosaic — one ground plane.
+     dissolving across the handoff as the volumes rise. The blocks cap
+     limits street ink the same way it caps the mosaic — one ground plane.
      (MapLibre fallback layer only) */
-  return zoomCurve(GROUND_FADE, function(f){ return f * state.blocks; });
+  return zoomCurve(GROUND_FADE, function(f){ return f * BLOCKS_MAX; });
 }
 
 /* ---------- deck.gl street ink (overdraw-free) ----------
@@ -1146,7 +1068,7 @@ function streetOpacityExpr(){
    endpoints) fragments take max(alpha) instead of summing — a crossing is
    exactly as dark as a single stroke. The canvas then composites once over
    the map; its CSS opacity carries the zoom-fade handoff. */
-var HAS_DECK = (typeof window.deck !== 'undefined') && !!window.deck.MapboxOverlay;
+var HAS_DECK = !MOBILE && (typeof window.deck !== 'undefined') && !!window.deck.MapboxOverlay;
 
 /* alpha ramp = the block layer's soft-toe ramp, so street strokes and the
    mosaic they thread through read as one tonal surface */
@@ -1162,10 +1084,10 @@ function lerpStops(stops, x){
   return stops[stops.length - 1][1];
 }
 function streetAlpha(d){
-  return lerpStops(STREET_ALPHA_STOPS, Math.min(1, state.ink * Math.pow(d, state.contrast)));
+  return lerpStops(STREET_ALPHA_STOPS, Math.min(1, INK * Math.pow(d, CONTRAST)));
 }
 function streetWidthPx(d){
-  return 0.8 + 2.7 * Math.pow(d, state.contrast);
+  return 0.8 + 2.7 * Math.pow(d, CONTRAST);
 }
 var STREET_ZOOM_WIDTH = [[10,0.8],[12,1.0],[14,1.35],[16,2.1]];
 function zoomWidthScale(z){ return lerpStops(STREET_ZOOM_WIDTH, z); }
@@ -1236,7 +1158,7 @@ function deckStreetLayer(){
     jointRounded: true,
     capRounded: true,
     opacity: 1,               /* fade handled on the canvas, post-blend */
-    visible: state.streetsOn && z < BLOCK_FADE_TO,
+    visible: z < BLOCK_FADE_TO,
     parameters:{
       blendColorOperation:'max',
       blendColorSrcFactor:'one',
@@ -1246,8 +1168,7 @@ function deckStreetLayer(){
       blendAlphaDstFactor:'one'
     },
     updateTriggers:{
-      getColor: [state.ink, state.contrast, zq, streetClearAnchors.length],
-      getWidth: [state.contrast]
+      getColor: [zq, streetClearAnchors.length]
     }
   });
 }
@@ -1256,8 +1177,8 @@ function updateDeckStreets(){
   deckOverlay.setProps({ layers:[deckStreetLayer()] });
   var c = findDeckCanvas();
   if (c){
-    /* the Blocks dial caps street ink exactly as it caps the mosaic */
-    c.style.opacity = state.streetsOn ? (state.blocks * zoomFade(map.getZoom())) : 0;
+    /* the blocks cap limits street ink exactly as it caps the mosaic */
+    c.style.opacity = BLOCKS_MAX * zoomFade(map.getZoom());
     c.style.pointerEvents = 'none';
   }
 }
@@ -1288,9 +1209,9 @@ function degradeIfBothFailed(){
 }
 
 /* ---------- basemap road dimming ----------
-   while the inked street network is on, the basemap's own road strokes
+   while the inked street network is up, the basemap's own road strokes
    drop to a whisper so the two grids don't double; they come back across
-   the handoff as the street ink dissolves (and stay put when Streets is off) */
+   the handoff as the street ink dissolves */
 var roadLayerIds = [];
 var roadOrigOpacity = {};
 function collectRoads(){
@@ -1309,7 +1230,7 @@ function roadDimExpr(orig){
   return zoomCurve(GROUND_FADE, function(f){ return lo + (1 - f) * (hi - lo); });
 }
 function applyRoadDim(){
-  var dim = state.streetsOn && streetsReady;
+  var dim = streetsReady;
   roadLayerIds.forEach(function(id){
     try{
       map.setPaintProperty(id, 'line-opacity', dim ? roadDimExpr(roadOrigOpacity[id]) : roadOrigOpacity[id]);
@@ -1336,7 +1257,7 @@ map.on('load', function(){
     id:'points',
     type:'circle',
     source:'incidents',
-    layout:{ visibility: state.pointsOn ? 'visible' : 'none' },
+    layout:{ visibility: pointsOn ? 'visible' : 'none' },
     paint:{
       'circle-radius':['interpolate',['linear'],['zoom'], 10, 1.6, 13, 2.6, 16, 4.2],
       'circle-color':'#1A1A1A',
@@ -1366,6 +1287,7 @@ map.on('load', function(){
       }
     }, beforeId || undefined);
     blocksReady = true;
+    blocksPromise = null;   /* release the parsed FC for GC — the source owns it now */
     settleLoading();
   }).catch(function(err){
     console.warn('Block fetch failed, buildings will carry it alone:', err);
@@ -1403,8 +1325,7 @@ map.on('load', function(){
         layout:{
           'line-cap':'butt',     /* round caps are discs that double-paint at
                                     every shared node — butt/miter kills it */
-          'line-join':'miter',
-          visibility: state.streetsOn ? 'visible' : 'none'
+          'line-join':'miter'
         },
         paint:{
           'line-color': streetColorExpr(),
@@ -1414,14 +1335,13 @@ map.on('load', function(){
       }, map.getLayer('buildings') ? 'buildings' : 'points');
     }
     streetsReady = true;
+    streetsPromise = null;  /* release the parsed FC — deck keeps only streetPaths */
     applyRoadDim();
     settleLoading();
   }).catch(function(err){
     console.warn('Street fetch failed, going without the network layer:', err);
     streetsFailed = true;
     settleLoading();
-    document.getElementById('streets-on').disabled = true;
-    document.getElementById('streets-off').disabled = true;
     if (!blocksFailed && !buildingsFailed){
       showNotice('Street centerlines could not be loaded — blocks and buildings carry the density.');
     }
@@ -1444,6 +1364,7 @@ map.on('load', function(){
       }
     }, 'points');           /* keep points above the volumes */
     buildingsReady = true;
+    buildingsPromise = null;  /* release the parsed FC for GC — biggest payload on the page */
     settleLoading();
   }).catch(function(err){
     console.warn('Footprint fetch failed, blocks will carry it alone:', err);
@@ -1463,6 +1384,7 @@ map.on('load', function(){
      — the body reads fully opaque. Inter glyphs aren't served by the
      CARTO stack; Montserrat Medium is the closest grotesque it has. ----- */
   nhoodsPromise.then(function(fc){
+    nhoodsPromise = null;
     map.addSource('nhoods', { type:'geojson', data:fc });
     streetClearAnchors = fc.features
       .filter(function(f){ return f.properties.dens >= 0.5; })
@@ -1520,29 +1442,11 @@ map.on('load', function(){
   });
 });
 
-/* ---------- streets on/off ---------- */
-var stOn = document.getElementById('streets-on');
-var stOff = document.getElementById('streets-off');
-function setStreets(on){
-  state.streetsOn = on;
-  if (map.getLayer('streets')){
-    map.setLayoutProperty('streets', 'visibility', on ? 'visible' : 'none');
-  }
-  updateDeckStreets();
-  applyRoadDim();
-  stOn.classList.toggle('active', on);
-  stOff.classList.toggle('active', !on);
-  stOn.setAttribute('aria-pressed', on);
-  stOff.setAttribute('aria-pressed', !on);
-}
-stOn.addEventListener('click', function(){ if (!stOn.disabled) setStreets(true); });
-stOff.addEventListener('click', function(){ if (!stOff.disabled) setStreets(false); });
-
 /* ---------- points overlay on/off ---------- */
 var ptOn = document.getElementById('points-on');
 var ptOff = document.getElementById('points-off');
 function setPoints(on){
-  state.pointsOn = on;
+  pointsOn = on;
   if (map.getLayer('points')){
     map.setLayoutProperty('points', 'visibility', on ? 'visible' : 'none');
   }
@@ -1553,85 +1457,6 @@ function setPoints(on){
 }
 ptOn.addEventListener('click', function(){ setPoints(true); });
 ptOff.addEventListener('click', function(){ setPoints(false); });
-
-/* ---------- entrance treatment: fade / grow / both ---------- */
-var entBtns = { fade:document.getElementById('ent-fade'),
-                grow:document.getElementById('ent-grow'),
-                both:document.getElementById('ent-both') };
-function setEntrance(name){
-  state.entrance = name;
-  Object.keys(entBtns).forEach(function(k){
-    entBtns[k].classList.toggle('active', k === name);
-    entBtns[k].setAttribute('aria-pressed', k === name);
-  });
-  schedulePaint();
-}
-Object.keys(entBtns).forEach(function(k){
-  entBtns[k].addEventListener('click', function(){ setEntrance(k); });
-});
-
-/* ---------- sliders: ink / contrast / blocks / height, rAF-throttled ---------- */
-var inkEl = document.getElementById('ink');
-var contrastEl = document.getElementById('contrast');
-var blocksEl = document.getElementById('blocks');
-var heightEl = document.getElementById('height');
-var inkVal = document.getElementById('ink-val');
-var contrastVal = document.getElementById('contrast-val');
-var blocksVal = document.getElementById('blocks-val');
-var heightVal = document.getElementById('height-val');
-
-var pendingPaint = false;
-function applyPaint(){
-  pendingPaint = false;
-  if (map.getLayer('buildings')){
-    map.setPaintProperty('buildings', 'fill-extrusion-color', buildingColorExpr());
-    map.setPaintProperty('buildings', 'fill-extrusion-height', buildingHeightExpr());
-    map.setPaintProperty('buildings', 'fill-extrusion-opacity', buildingOpacityExpr());
-  }
-  if (map.getLayer('blocks')){
-    map.setPaintProperty('blocks', 'fill-opacity', blockOpacityExpr());
-  }
-  if (map.getLayer('streets')){
-    map.setPaintProperty('streets', 'line-color', streetColorExpr());
-    map.setPaintProperty('streets', 'line-width', streetWidthExpr());
-    map.setPaintProperty('streets', 'line-opacity', streetOpacityExpr());
-  }
-  updateDeckStreets();
-}
-function schedulePaint(){
-  if (pendingPaint) return;
-  pendingPaint = true;
-  requestAnimationFrame(applyPaint);
-}
-function syncReadouts(){
-  inkVal.textContent = inkEl.value + '%';
-  contrastVal.textContent = (contrastEl.value / 100).toFixed(2);
-  blocksVal.textContent = blocksEl.value + '%';
-  heightVal.textContent = heightEl.value + '%';
-}
-function onSlider(){
-  state.ink = inkEl.value / 100;
-  state.contrast = contrastEl.value / 100;
-  state.blocks = blocksEl.value / 100;
-  state.height = heightEl.value / 100;
-  syncReadouts();
-  schedulePaint();
-}
-inkEl.addEventListener('input', onSlider);
-contrastEl.addEventListener('input', onSlider);
-blocksEl.addEventListener('input', onSlider);
-heightEl.addEventListener('input', onSlider);
-
-document.getElementById('reset').addEventListener('click', function(){
-  inkEl.value = 100;
-  contrastEl.value = 120;
-  blocksEl.value = 85;
-  heightEl.value = 100;
-  onSlider();
-  if (!stOn.disabled) setStreets(true);
-  setPoints(false);
-});
-syncReadouts();
 
 /* ---------- 30-bar histogram (deterministic) ---------- */
 (function(){
