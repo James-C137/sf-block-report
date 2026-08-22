@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Report — Night Dispatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0E14;
+    --water:#070B10;
+    --land:#0D1319;
+    --ink:#FFB000;
+    --ink-dim:rgba(255,176,0,.55);
+    --text:#C7D3DF;
+    --text-dim:#66788B;
+    --text-faint:#425263;
+    --hairline:rgba(154,178,202,.14);
+    --hairline-strong:rgba(154,178,202,.24);
+    --panel:rgba(12,17,25,.58);
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --grot:"Archivo","Inter",system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:12px;
+    line-height:1.45;
+    overflow:hidden;
+    font-variant-numeric:tabular-nums;
+  }
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  button:focus-visible{outline:1px solid var(--ink);outline-offset:2px}
+
+  .console{position:fixed;inset:0}
+
+  /* ---------- MAP ---------- */
+  .map{position:absolute;inset:0;background:var(--water)}
+  .map svg{width:100%;height:100%;display:block}
+  .vignette{
+    position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(120% 90% at 62% 40%, transparent 55%, rgba(4,6,10,.55) 100%);
+  }
+
+  /* ---------- SHARED PANEL ---------- */
+  .panel{
+    position:absolute;
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+  }
+  .eyebrow{
+    font-size:9px;letter-spacing:.18em;color:var(--text-dim);
+    text-transform:uppercase;
+  }
+
+  /* ---------- TOP LEFT : STAT BLOCK ---------- */
+  .stat-block{top:20px;left:20px;padding:14px 18px 16px;min-width:264px}
+  .wordmark{
+    display:flex;align-items:baseline;gap:10px;margin-bottom:2px;
+  }
+  .wordmark .name{
+    font-family:var(--grot);font-weight:700;font-size:14px;
+    letter-spacing:.30em;text-transform:uppercase;color:var(--text);
+  }
+  .wordmark .live{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:9px;letter-spacing:.16em;color:var(--ink);
+  }
+  .live-dot{
+    width:5px;height:5px;border-radius:50%;background:var(--ink);
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  @media (prefers-reduced-motion:reduce){.live-dot{animation:none}}
+  .feed-line{
+    font-size:9px;letter-spacing:.14em;color:var(--text-faint);
+    margin-bottom:14px;
+  }
+  .big-count{
+    font-size:30px;font-weight:500;letter-spacing:.02em;color:var(--text);
+    line-height:1.05;
+  }
+  .big-count .unit{font-size:10px;letter-spacing:.18em;color:var(--text-dim);margin-left:8px}
+  .range-row{
+    display:flex;align-items:center;gap:10px;margin-top:12px;
+    padding-top:12px;border-top:1px solid var(--hairline);
+  }
+  .range-btn{
+    display:flex;align-items:center;gap:8px;
+    border:1px solid var(--hairline-strong);
+    padding:5px 10px;font-size:10px;letter-spacing:.10em;color:var(--text);
+    transition:border-color .15s;
+  }
+  .range-btn:hover{border-color:var(--ink-dim)}
+  .range-btn .caret{color:var(--text-dim);font-size:8px}
+  .range-meta{font-size:9px;letter-spacing:.12em;color:var(--text-dim)}
+  .clock{
+    margin-top:10px;font-size:10px;letter-spacing:.14em;color:var(--text-faint);
+  }
+  .clock b{color:var(--text-dim);font-weight:500}
+
+  /* ---------- TOP RIGHT : FILTERS + TOGGLE ---------- */
+  .filters{
+    top:20px;right:20px;padding:12px 14px;
+    display:flex;flex-direction:column;gap:10px;align-items:flex-end;
+  }
+  .chip-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .chip{
+    border:1px solid var(--hairline-strong);
+    padding:4px 9px;font-size:9px;letter-spacing:.10em;
+    color:var(--text-dim);text-transform:uppercase;white-space:nowrap;
+    transition:color .15s,border-color .15s;
+  }
+  .chip .n{color:var(--text-faint);margin-left:6px}
+  .chip.on{color:var(--text);border-color:var(--hairline-strong)}
+  .chip.on::before{content:"";display:inline-block;width:5px;height:5px;
+    background:var(--ink);margin-right:7px;vertical-align:1px}
+  .chip:hover{border-color:var(--ink-dim);color:var(--text)}
+  .toggle-row{display:flex;align-items:center;gap:10px}
+  .toggle-label{font-size:9px;letter-spacing:.16em;color:var(--text-faint)}
+  .toggle{display:flex;border:1px solid var(--hairline-strong)}
+  .toggle button{
+    padding:5px 14px;font-size:10px;letter-spacing:.14em;color:var(--text-dim);
+    text-transform:uppercase;transition:color .15s;
+  }
+  .toggle button+button{border-left:1px solid var(--hairline-strong)}
+  .toggle button.on{color:var(--ink);background:rgba(255,176,0,.07)}
+  .toggle button:hover{color:var(--text)}
+
+  /* ---------- LEFT MID : RANKING ---------- */
+  .ranking{
+    left:20px;top:50%;transform:translateY(-58%);
+    width:236px;padding:12px 14px 14px;
+  }
+  .ranking header{
+    display:flex;justify-content:space-between;align-items:baseline;
+    padding-bottom:9px;margin-bottom:6px;border-bottom:1px solid var(--hairline);
+  }
+  .ranking header .u{font-size:9px;color:var(--text-faint);letter-spacing:.10em}
+  .rank-row{
+    display:grid;grid-template-columns:20px 1fr auto;
+    align-items:baseline;column-gap:8px;
+    padding:6px 2px 8px;
+    border-bottom:1px solid transparent;
+    transition:background .15s;
+  }
+  .rank-row:hover{background:rgba(154,178,202,.05)}
+  .rank-row .idx{font-size:9px;color:var(--text-faint)}
+  .rank-row .nm{font-size:11px;letter-spacing:.04em;color:var(--text)}
+  .rank-row .ct{font-size:11px;color:var(--text-dim)}
+  .rank-bar{
+    grid-column:2 / 4;height:2px;margin-top:5px;
+    background:rgba(154,178,202,.10);position:relative;
+  }
+  .rank-bar i{
+    position:absolute;inset:0 auto 0 0;background:var(--ink-dim);
+  }
+  .rank-row:first-of-type .rank-bar i{background:var(--ink)}
+
+  /* ---------- BOTTOM : TIMELINE BRUSH ---------- */
+  .timeline{
+    left:0;right:0;bottom:0;border-left:none;border-right:none;border-bottom:none;
+    padding:12px 24px 14px;
+  }
+  .tl-head{
+    display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;
+  }
+  .tl-head .mid{font-size:9px;letter-spacing:.14em;color:var(--text-faint)}
+  .tl-date{font-size:10px;letter-spacing:.16em;color:var(--text)}
+  .brush{position:relative;height:64px}
+  .brush-fill{
+    position:absolute;inset:0;
+    background:rgba(255,176,0,.045);
+    border-left:1px solid var(--ink);
+    border-right:1px solid var(--ink);
+  }
+  .handle{
+    position:absolute;top:50%;width:5px;height:18px;
+    transform:translateY(-50%);
+    background:var(--ink);z-index:3;
+  }
+  .handle.l{left:-3px}.handle.r{right:-3px}
+  .bars{
+    position:absolute;inset:16px 0 0 0;display:flex;align-items:flex-end;gap:3px;
+    padding:0 6px;z-index:2;
+  }
+  .bars i{
+    flex:1;background:rgba(255,176,0,.40);min-height:3px;
+    transition:background .12s;position:relative;
+  }
+  .bars i:hover{background:var(--ink)}
+  .bars i.peak{background:rgba(255,176,0,.88)}
+  .bars i.peak::after{
+    content:"486 · AUG 09";position:absolute;bottom:100%;left:50%;
+    transform:translate(-50%,-4px);font-size:8px;letter-spacing:.10em;
+    color:var(--ink);white-space:nowrap;
+  }
+  .baseline{position:absolute;left:0;right:0;bottom:0;border-bottom:1px solid var(--hairline-strong)}
+  .tl-foot{
+    display:flex;justify-content:space-between;margin-top:7px;
+    font-size:8px;letter-spacing:.12em;color:var(--text-faint);
+  }
+  .ticks{position:absolute;left:6px;right:6px;bottom:-1px;height:4px;z-index:1;display:flex}
+  .ticks i{flex:1;border-left:1px solid var(--hairline)}
+  .ticks i:nth-child(1){border-left:none}
+
+  /* ---------- BOTTOM RIGHT : LEGEND / COORDS ---------- */
+  .legend{
+    right:20px;bottom:150px;padding:10px 12px;width:196px;
+  }
+  .legend .ramp{
+    height:6px;margin:8px 0 6px;
+    background:linear-gradient(90deg, rgba(255,176,0,0), rgba(255,176,0,.9));
+    border:1px solid var(--hairline);
+  }
+  .legend .scale{display:flex;justify-content:space-between;font-size:8px;
+    letter-spacing:.10em;color:var(--text-faint)}
+  .coords{
+    right:20px;bottom:254px;padding:7px 12px;
+    font-size:9px;letter-spacing:.12em;color:var(--text-faint);
+    border:1px solid var(--hairline);
+  }
+  .coords b{color:var(--text-dim);font-weight:500}
+
+  /* ---------- SMALL SCREENS (quality floor) ---------- */
+  @media (max-width:960px){
+    body{overflow:auto}
+    .console{position:static;min-height:100vh}
+    .map{position:fixed}
+    .ranking{top:auto;bottom:200px;transform:none;width:212px}
+    .filters{max-width:52vw}
+    .coords,.legend{display:none}
+  }
+  @media (max-width:640px){
+    .stat-block{left:12px;right:12px;top:12px;min-width:0}
+    .filters{position:absolute;left:12px;right:12px;top:196px;align-items:flex-start}
+    .chip-row{justify-content:flex-start}
+    .ranking{left:12px;bottom:190px}
+    .timeline{padding:10px 12px 12px}
+  }
+</style>
+</head>
+<body>
+<div class="console">
+
+  <!-- ============ MAP ============ -->
+  <div class="map" aria-hidden="true">
+    <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Stylized night map of San Francisco with amber incident density">
+      <defs>
+        <clipPath id="landClip"><path d="M238 1000 L230 720 C226 560 222 420 228 300 C232 240 248 205 292 188 C340 172 380 158 428 150 C500 138 560 142 610 134 C660 128 700 146 745 142 C772 140 782 128 800 130 C826 134 842 152 872 152 C900 152 918 138 938 142 C968 148 988 168 1012 178 C1052 194 1092 214 1122 244 C1152 274 1172 310 1184 352 C1196 396 1200 440 1198 484 C1196 520 1186 548 1192 576 C1198 606 1222 622 1240 646 C1262 676 1300 700 1330 728 C1352 748 1354 770 1338 786 C1322 802 1290 800 1272 816 C1252 834 1268 862 1288 884 C1304 902 1310 930 1300 954 C1294 972 1284 988 1280 1000 Z"/></clipPath>
+
+        <radialGradient id="gHot">
+          <stop offset="0%" stop-color="#FFB000" stop-opacity=".60"/>
+          <stop offset="35%" stop-color="#FFB000" stop-opacity=".32"/>
+          <stop offset="70%" stop-color="#FFB000" stop-opacity=".10"/>
+          <stop offset="100%" stop-color="#FFB000" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="gMid">
+          <stop offset="0%" stop-color="#FFB000" stop-opacity=".36"/>
+          <stop offset="55%" stop-color="#FFB000" stop-opacity=".12"/>
+          <stop offset="100%" stop-color="#FFB000" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="gLow">
+          <stop offset="0%" stop-color="#FFB000" stop-opacity=".20"/>
+          <stop offset="60%" stop-color="#FFB000" stop-opacity=".06"/>
+          <stop offset="100%" stop-color="#FFB000" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- water -->
+      <rect x="0" y="0" width="1600" height="1000" fill="#05080D"/>
+      <!-- faint bathymetry hints in the bay -->
+      <g fill="none" stroke="rgba(120,150,180,.06)" stroke-width="1">
+        <path d="M1240 120 C1300 220 1330 340 1320 470 C1312 580 1350 680 1420 760"/>
+        <path d="M1330 90 C1400 220 1420 380 1400 520 C1386 620 1420 720 1500 800"/>
+        <path d="M120 60 C150 260 140 520 160 760 C168 850 160 930 150 1000"/>
+      </g>
+
+      <!-- land -->
+      <path d="M238 1000 L230 720 C226 560 222 420 228 300 C232 240 248 205 292 188 C340 172 380 158 428 150 C500 138 560 142 610 134 C660 128 700 146 745 142 C772 140 782 128 800 130 C826 134 842 152 872 152 C900 152 918 138 938 142 C968 148 988 168 1012 178 C1052 194 1092 214 1122 244 C1152 274 1172 310 1184 352 C1196 396 1200 440 1198 484 C1196 520 1186 548 1192 576 C1198 606 1222 622 1240 646 C1262 676 1300 700 1330 728 C1352 748 1354 770 1338 786 C1322 802 1290 800 1272 816 C1252 834 1268 862 1288 884 C1304 902 1310 930 1300 954 C1294 972 1284 988 1280 1000 Z"
+            fill="#0F1622" stroke="rgba(150,180,210,.30)" stroke-width="1.25"/>
+
+      <!-- streets, clipped to land -->
+      <g clip-path="url(#landClip)" stroke="rgba(150,175,205,.13)" stroke-width="1" fill="none">
+        <!-- Richmond / Sunset avenues -->
+        <path d="M300 210V940 M348 214V940 M396 216V940 M444 214V940 M492 212V940 M540 210V940 M588 206V940 M636 200V930"/>
+        <path d="M280 250H660 M280 310H660 M280 370H660 M280 430H660 M270 610H680 M270 670H680 M270 730H680 M270 790H680 M270 850H680 M275 900H660"/>
+        <!-- Downtown grid, north of Market -->
+        <path d="M880 165V410 M930 160V373 M980 160V340 M1030 155V305 M1080 160V270 M1130 165V232"/>
+        <path d="M870 200H1160 M870 245H1128 M865 290H1066 M860 335H1005 M860 380H943"/>
+        <!-- SoMa parallels to Market -->
+        <path d="M1177 267 L727 597 M1204 304 L754 634 M1231 341 L781 671 M1258 378 L808 708"/>
+        <!-- SoMa cross streets -->
+        <path d="M1105 263 L1238 444 M1015 329 L1148 510 M925 395 L1058 576 M835 461 L968 642"/>
+        <!-- Mission grid -->
+        <path d="M880 585V900 M925 585V905 M970 590V905 M1015 600V890 M1060 615V860"/>
+        <path d="M860 640H1100 M860 695H1100 M860 750H1090 M865 805H1070 M870 860H1040"/>
+      </g>
+
+      <!-- Twin Peaks contour hint -->
+      <g fill="none" stroke="rgba(150,175,205,.09)" stroke-width="1">
+        <ellipse cx="782" cy="648" rx="52" ry="30" transform="rotate(-18 782 648)"/>
+        <ellipse cx="782" cy="648" rx="30" ry="16" transform="rotate(-18 782 648)"/>
+      </g>
+
+      <!-- Presidio wooded tint -->
+      <path d="M440 158 C520 144 580 148 616 142 L640 250 C560 268 480 262 432 250 Z" fill="rgba(38,64,52,.16)"/>
+
+      <!-- Golden Gate Park + Panhandle -->
+      <rect x="280" y="478" width="380" height="76" fill="rgba(38,64,52,.30)" stroke="rgba(140,165,195,.16)"/>
+      <rect x="660" y="498" width="92" height="22" fill="rgba(38,64,52,.26)" stroke="rgba(140,165,195,.12)"/>
+
+      <!-- Market Street : the diagonal slash -->
+      <path d="M1162 222 L692 566" stroke="rgba(170,195,225,.30)" stroke-width="2.5" fill="none"/>
+
+      <!-- HEAT : single amber ink -->
+      <g clip-path="url(#landClip)" style="mix-blend-mode:screen">
+        <circle cx="978" cy="330" r="112" fill="url(#gHot)"/>
+        <circle cx="1002" cy="368" r="86"  fill="url(#gHot)"/>
+        <circle cx="1072" cy="410" r="128" fill="url(#gMid)"/>
+        <circle cx="1038" cy="372" r="54"  fill="url(#gHot)"/>
+        <circle cx="955"  cy="608" r="106" fill="url(#gMid)"/>
+        <circle cx="948"  cy="640" r="56"  fill="url(#gMid)"/>
+        <circle cx="1195" cy="778" r="88"  fill="url(#gLow)"/>
+        <circle cx="938"  cy="192" r="48"  fill="url(#gLow)"/>
+      </g>
+
+      <!-- chart labels -->
+      <g font-family="IBM Plex Mono, monospace" fill="rgba(110,135,160,.38)" font-size="11" letter-spacing="4">
+        <text x="96" y="520" transform="rotate(-90 96 520)">PACIFIC OCEAN</text>
+        <text x="1408" y="560" transform="rotate(-90 1408 560)">SAN FRANCISCO BAY</text>
+        <text x="560" y="86">GOLDEN GATE</text>
+      </g>
+      <g font-family="IBM Plex Mono, monospace" fill="rgba(150,175,205,.30)" font-size="9" letter-spacing="2.5">
+        <text x="900" y="292">TENDERLOIN</text>
+        <text x="1082" y="466">SOMA</text>
+        <text x="905" y="672">MISSION</text>
+        <text x="1160" y="836">BAYVIEW</text>
+        <text x="912" y="170">NORTH BEACH</text>
+        <text x="392" y="522" fill="rgba(150,175,205,.24)">GOLDEN GATE PARK</text>
+      </g>
+      <!-- scale bar -->
+      <g stroke="rgba(150,175,205,.30)" stroke-width="1">
+        <path d="M1440 930 h80 M1440 926 v8 M1520 926 v8"/>
+      </g>
+      <text x="1466" y="920" font-family="IBM Plex Mono, monospace" font-size="8" letter-spacing="2" fill="rgba(110,135,160,.45)">2 KM</text>
+    </svg>
+    <div class="vignette"></div>
+  </div>
+
+  <!-- ============ TOP LEFT : STAT BLOCK ============ -->
+  <section class="panel stat-block">
+    <div class="wordmark">
+      <span class="name">Block&nbsp;Report</span>
+      <span class="live"><span class="live-dot"></span>LIVE</span>
+    </div>
+    <div class="feed-line">SF INCIDENT DENSITY · DATASF/SFPD · SYNCED 6 MIN AGO</div>
+    <div class="big-count">12,408<span class="unit">REPORTS</span></div>
+    <div class="range-row">
+      <button class="range-btn" type="button">JUL 22 – AUG 21, 2026 <span class="caret">▾</span></button>
+      <span class="range-meta">30 DAYS</span>
+    </div>
+    <div class="clock"><b>02:14:07</b> PST · TUE AUG 21</div>
+  </section>
+
+  <!-- ============ TOP RIGHT : FILTERS + TOGGLE ============ -->
+  <section class="panel filters">
+    <div class="chip-row" role="group" aria-label="Category filter">
+      <button class="chip on" type="button">Larceny/Theft<span class="n">4,982</span></button>
+      <button class="chip on" type="button">Assault<span class="n">2,214</span></button>
+      <button class="chip on" type="button">Motor Vehicle Theft<span class="n">1,876</span></button>
+      <button class="chip on" type="button">Burglary<span class="n">1,655</span></button>
+      <button class="chip on" type="button">Robbery<span class="n">1,081</span></button>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">RENDER</span>
+      <div class="toggle" role="group" aria-label="Heat or points">
+        <button class="on" type="button">Heat</button>
+        <button type="button">Points</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LEFT MID : NEIGHBORHOOD RANKING ============ -->
+  <section class="panel ranking">
+    <header>
+      <span class="eyebrow">Neighborhoods</span>
+      <span class="u">TOP 5 / 41</span>
+    </header>
+    <div class="rank-row">
+      <span class="idx">01</span><span class="nm">Tenderloin</span><span class="ct">1,842</span>
+      <span class="rank-bar"><i style="width:100%"></i></span>
+    </div>
+    <div class="rank-row">
+      <span class="idx">02</span><span class="nm">Mission</span><span class="ct">1,301</span>
+      <span class="rank-bar"><i style="width:71%"></i></span>
+    </div>
+    <div class="rank-row">
+      <span class="idx">03</span><span class="nm">SoMa</span><span class="ct">1,240</span>
+      <span class="rank-bar"><i style="width:67%"></i></span>
+    </div>
+    <div class="rank-row">
+      <span class="idx">04</span><span class="nm">Bayview</span><span class="ct">872</span>
+      <span class="rank-bar"><i style="width:47%"></i></span>
+    </div>
+    <div class="rank-row">
+      <span class="idx">05</span><span class="nm">North Beach</span><span class="ct">511</span>
+      <span class="rank-bar"><i style="width:28%"></i></span>
+    </div>
+  </section>
+
+  <!-- ============ BOTTOM RIGHT : COORDS + LEGEND ============ -->
+  <div class="coords panel" style="background:var(--panel)"><b>37.7749°N</b> · <b>122.4194°W</b> · Z12</div>
+  <section class="panel legend">
+    <span class="eyebrow">Density</span>
+    <div class="ramp"></div>
+    <div class="scale"><span>0</span><span>REPORTS / KM²</span><span>148</span></div>
+  </section>
+
+  <!-- ============ BOTTOM : TIMELINE BRUSH ============ -->
+  <section class="panel timeline" aria-label="Daily report volume, brushable range">
+    <div class="tl-head">
+      <span class="tl-date">JUL 22</span>
+      <span class="mid">DAILY REPORT VOLUME · DRAG HANDLES TO BRUSH</span>
+      <span class="tl-date">AUG 21</span>
+    </div>
+    <div class="brush">
+      <div class="brush-fill"></div>
+      <span class="handle l"></span>
+      <span class="handle r"></span>
+      <div class="ticks"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="bars">
+        <i style="height:58%"></i><i style="height:52%"></i><i style="height:61%"></i>
+        <i style="height:47%"></i><i style="height:55%"></i><i style="height:66%"></i>
+        <i style="height:72%"></i><i style="height:50%"></i><i style="height:44%"></i>
+        <i style="height:57%"></i><i style="height:63%"></i><i style="height:81%"></i>
+        <i style="height:69%"></i><i style="height:54%"></i><i style="height:48%"></i>
+        <i style="height:59%"></i><i style="height:74%"></i><i style="height:88%"></i>
+        <i class="peak" style="height:100%"></i><i style="height:77%"></i>
+        <i style="height:62%"></i><i style="height:56%"></i><i style="height:68%"></i>
+        <i style="height:71%"></i><i style="height:49%"></i><i style="height:53%"></i>
+        <i style="height:64%"></i><i style="height:79%"></i><i style="height:70%"></i>
+        <i style="height:60%"></i>
+      </div>
+      <div class="baseline"></div>
+    </div>
+    <div class="tl-foot">
+      <span>MIN 318 / DAY</span>
+      <span>AVG 414 / DAY</span>
+      <span>MAX 486 / DAY</span>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

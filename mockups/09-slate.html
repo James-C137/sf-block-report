@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Report — Slate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root{
+    --ink:#33415c;
+    --ink-deep:#26324a;
+    --ink-soft:rgba(51,65,92,.55);
+    --bg:#f4f5f6;
+    --surface:#ffffff;
+    --hairline:#e4e6e9;
+    --text:#25282f;
+    --text-2:#6d727b;
+    --text-3:#9ba0a8;
+    --radius-sheet:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-feature-settings:"tnum" 1;
+    background:var(--bg);
+    color:var(--text);
+    font-size:14px;
+    line-height:1.5;
+  }
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+  /* ---------- map stage ---------- */
+  .stage{
+    position:relative;
+    height:100vh;
+    height:100dvh;
+    background:var(--surface);
+  }
+  #map{position:absolute;inset:0}
+  /* quiet the basemap's faint color cast; ink is dark + low-chroma so it survives */
+  #map .maplibregl-canvas-container{filter:saturate(.55) contrast(1.02)}
+  .maplibregl-ctrl-attrib{
+    font:10px/1.6 "Instrument Sans",sans-serif;
+    color:var(--text-3);
+    background:rgba(255,255,255,.72) !important;
+  }
+  .maplibregl-ctrl-attrib a{color:var(--text-3)}
+
+  /* ---------- bottom dock ---------- */
+  .dock{
+    position:absolute;
+    left:0;right:0;bottom:0;
+    z-index:10;
+    background:var(--surface);
+    border-top:1px solid var(--hairline);
+  }
+  .grab{display:none}
+  .dock-row{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto auto;
+    align-items:center;
+    gap:28px;
+    max-width:1280px;
+    margin:0 auto;
+    padding:12px 24px;
+  }
+  .wordmark{
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:-.01em;
+    white-space:nowrap;
+  }
+  .wordmark small{
+    display:block;
+    font-weight:400;
+    font-size:10.5px;
+    color:var(--text-3);
+    letter-spacing:.01em;
+  }
+  .center{min-width:0;max-width:680px}
+  .range-line{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:5px;
+    font-size:11px;
+    color:var(--text-2);
+  }
+  .range-line .caption{color:var(--text-3)}
+  .hist{
+    display:flex;
+    align-items:flex-end;
+    gap:3px;
+    height:22px;
+  }
+  .hist span{
+    flex:1 1 0;
+    min-width:2px;
+    background:var(--ink);
+    opacity:.72;
+    border-radius:1px 1px 0 0;
+  }
+  .count{
+    font-size:13px;
+    color:var(--text-2);
+    white-space:nowrap;
+  }
+  .count b{font-weight:600;color:var(--text)}
+  .seg{
+    display:flex;
+    border:1px solid var(--hairline);
+    border-radius:8px;
+    padding:2px;
+    background:var(--bg);
+  }
+  .seg button{
+    padding:5px 14px;
+    font-size:12.5px;
+    color:var(--text-2);
+    border-radius:6px;
+    transition:color .15s ease, background .15s ease;
+  }
+  .seg button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  .seg button.on{
+    background:var(--ink);
+    color:#fff;
+    font-weight:500;
+  }
+  .more-hint{display:none}
+
+  /* ---------- details below the fold ---------- */
+  .details{
+    background:var(--bg);
+    border-top:1px solid var(--hairline);
+    padding:56px 24px 72px;
+  }
+  .col{max-width:600px;margin:0 auto}
+  .sec-label{
+    font-size:11px;
+    color:var(--text-3);
+    letter-spacing:.02em;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--hairline);
+    margin-bottom:16px;
+  }
+  .chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:48px;
+  }
+  .chip{
+    padding:6px 14px;
+    border:1px solid var(--hairline);
+    border-radius:999px;
+    background:var(--surface);
+    font-size:12.5px;
+    color:var(--text-2);
+  }
+  .chip:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  .rank{list-style:none}
+  .rank li{
+    display:grid;
+    grid-template-columns:1.2em minmax(0,1fr) auto;
+    align-items:baseline;
+    gap:14px;
+    padding:11px 0;
+    border-bottom:1px solid var(--hairline);
+    font-size:13.5px;
+  }
+  .rank .n{font-size:11px;color:var(--text-3)}
+  .rank .v{color:var(--text-2)}
+  .foot{
+    margin-top:48px;
+    font-size:11px;
+    color:var(--text-3);
+  }
+
+  /* ---------- mobile: bottom sheet + scroll ---------- */
+  @media (max-width:768px){
+    .dock{
+      border-top:1px solid var(--hairline);
+      border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;
+      box-shadow:0 -1px 0 rgba(37,40,47,.02);
+    }
+    .grab{
+      display:block;
+      width:36px;height:4px;
+      border-radius:2px;
+      background:var(--hairline);
+      margin:8px auto 0;
+    }
+    .dock-row{
+      grid-template-columns:1fr auto;
+      grid-template-areas:
+        "brand seg"
+        "center center"
+        "count count";
+      gap:0;
+      padding:10px 18px 8px;
+    }
+    .wordmark{grid-area:brand}
+    .seg{grid-area:seg;align-self:center}
+    .center{grid-area:center;margin-top:12px}
+    .count{grid-area:count;margin-top:8px;font-size:12px}
+    .more-hint{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      width:100%;
+      padding:7px 0 10px;
+      font-size:11px;
+      color:var(--text-3);
+      border-top:1px solid var(--hairline);
+    }
+    .more-hint svg{display:block}
+    .details{padding:44px 20px 64px}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .more-hint svg{animation:nudge 2.4s ease-in-out infinite}
+    @keyframes nudge{
+      0%,100%{transform:translateY(0)}
+      50%{transform:translateY(3px)}
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="stage" aria-label="Map of reported incidents">
+  <div id="map"></div>
+
+  <div class="dock">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="dock-row">
+      <div class="wordmark">Block Report<small>San Francisco</small></div>
+
+      <div class="center">
+        <div class="range-line">
+          <span>Jul 22 – Aug 21, 2026</span>
+          <span class="caption">reports per day</span>
+        </div>
+        <div class="hist" id="hist" role="img" aria-label="Daily report volume, 30 days"></div>
+      </div>
+
+      <div class="count"><b>12,408</b> reports</div>
+
+      <div class="seg" role="group" aria-label="Map layer">
+        <button id="btn-heat" class="on" aria-pressed="true">Heat</button>
+        <button id="btn-points" aria-pressed="false">Points</button>
+      </div>
+    </div>
+    <button class="more-hint" id="more-hint" aria-label="Scroll to categories and neighborhoods">
+      Categories &amp; neighborhoods
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+        <path d="M2 3.5 L5 6.5 L8 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+</section>
+
+<section class="details" id="details">
+  <div class="col">
+    <div class="sec-label">Categories</div>
+    <div class="chips">
+      <button class="chip">Larceny / Theft</button>
+      <button class="chip">Assault</button>
+      <button class="chip">Motor Vehicle Theft</button>
+      <button class="chip">Burglary</button>
+      <button class="chip">Robbery</button>
+    </div>
+
+    <div class="sec-label">Neighborhoods, last 30 days</div>
+    <ol class="rank">
+      <li><span class="n">1</span><span>Tenderloin</span><span class="v">1,842</span></li>
+      <li><span class="n">2</span><span>Mission</span><span class="v">1,301</span></li>
+      <li><span class="n">3</span><span>SoMa</span><span class="v">1,240</span></li>
+      <li><span class="n">4</span><span>Bayview</span><span class="v">872</span></li>
+      <li><span class="n">5</span><span>North Beach</span><span class="v">511</span></li>
+    </ol>
+
+    <p class="foot">Counts reflect reports filed with SFPD and may lag by 48 hours. Locations are anonymized to the block level. Demonstration data.</p>
+  </div>
+</section>
+
+<script>
+  /* ---------- seeded RNG ---------- */
+  function mulberry32(a){
+    return function(){
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var rng = mulberry32(20260821);
+  function gauss(){ // Box–Muller
+    var u = 0, v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  /* ---------- fake incidents: ~2,000 points ---------- */
+  var clusters = [
+    { c: [-122.414, 37.783], sLng: 0.0080, sLat: 0.0058, n: 950 },  // Tenderloin / SoMa
+    { c: [-122.419, 37.760], sLng: 0.0062, sLat: 0.0052, n: 520 },  // Mission
+    { c: [-122.390, 37.732], sLng: 0.0075, sLat: 0.0060, n: 280 }   // Bayview
+  ];
+  var features = [];
+  clusters.forEach(function(cl){
+    for (var i = 0; i < cl.n; i++){
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [
+          cl.c[0] + gauss() * cl.sLng,
+          cl.c[1] + gauss() * cl.sLat
+        ]},
+        properties: { w: 0.6 + rng() * 0.4 }
+      });
+    }
+  });
+  function onLand(lng, lat){ // rough half-plane test: keep scatter off the bay and ocean edge
+    if (lat > 37.802) return false;
+    if (lng < -122.505) return false;                   // Ocean Beach edge
+    if (lat > 37.788 && lng < -122.486) return false;   // ocean off Lands End
+    if (lat > 37.790 && lng > -122.398) return false;   // NE of Embarcadero
+    if (lat > 37.755 && lng > -122.385) return false;   // Mission Bay shoreline
+    if (lng > -122.362) return false;                   // east of Hunters Point
+    return true;
+  }
+  var scatter = 0;
+  while (scatter < 250){ // thin citywide scatter
+    var lng = -122.512 + rng() * 0.150;
+    var lat = 37.709 + rng() * 0.100;
+    if (!onLand(lng, lat)) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [lng, lat] },
+      properties: { w: 0.35 }
+    });
+    scatter++;
+  }
+  var incidents = { type: "FeatureCollection", features: features };
+
+  /* ---------- map ---------- */
+  var map = new maplibregl.Map({
+    container: "map",
+    style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+    center: [-122.44, 37.77],
+    zoom: 11.5,
+    attributionControl: false
+  });
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
+  var dockH = document.querySelector(".dock").offsetHeight;
+  map.fitBounds([[-122.525, 37.703], [-122.353, 37.835]],
+    { padding: { top: 24, right: 24, left: 24, bottom: 24 + dockH } });
+
+  map.on("load", function(){
+    map.addSource("incidents", { type: "geojson", data: incidents });
+
+    // keep place labels above the data layers
+    var firstSymbol;
+    var styleLayers = map.getStyle().layers;
+    for (var li = 0; li < styleLayers.length; li++){
+      if (styleLayers[li].type === "symbol"){ firstSymbol = styleLayers[li].id; break; }
+    }
+
+    map.addLayer({
+      id: "incident-heat",
+      type: "heatmap",
+      source: "incidents",
+      paint: {
+        "heatmap-weight": ["get", "w"],
+        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 10, 0.18, 13, 0.52, 15, 1.05],
+        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 10, 12, 17, 14, 30, 16, 48],
+        "heatmap-opacity": 0.8,
+        /* single ink: transparent -> pale slate -> deep slate-indigo */
+        "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"],
+          0.00, "rgba(51,65,92,0)",
+          0.15, "rgba(51,65,92,0.05)",
+          0.35, "rgba(51,65,92,0.16)",
+          0.60, "rgba(51,65,92,0.34)",
+          0.85, "rgba(46,59,85,0.56)",
+          1.00, "rgba(38,50,74,0.80)"
+        ]
+      }
+    }, firstSymbol);
+
+    map.addLayer({
+      id: "incident-points",
+      type: "circle",
+      source: "incidents",
+      layout: { visibility: "none" },
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 13, 2.6, 16, 4.5],
+        "circle-color": "#33415c",
+        "circle-opacity": 0.5
+      }
+    }, firstSymbol);
+  });
+
+  /* ---------- Heat / Points toggle ---------- */
+  var btnHeat = document.getElementById("btn-heat");
+  var btnPoints = document.getElementById("btn-points");
+  function setMode(mode){
+    var heat = mode === "heat";
+    if (map.getLayer("incident-heat")){
+      map.setLayoutProperty("incident-heat", "visibility", heat ? "visible" : "none");
+      map.setLayoutProperty("incident-points", "visibility", heat ? "none" : "visible");
+    }
+    btnHeat.classList.toggle("on", heat);
+    btnPoints.classList.toggle("on", !heat);
+    btnHeat.setAttribute("aria-pressed", String(heat));
+    btnPoints.setAttribute("aria-pressed", String(!heat));
+  }
+  btnHeat.addEventListener("click", function(){ setMode("heat"); });
+  btnPoints.addEventListener("click", function(){ setMode("points"); });
+
+  /* ---------- 30-bar histogram (static prop, deterministic) ---------- */
+  var hrng = mulberry32(722);
+  var hist = document.getElementById("hist");
+  for (var d = 0; d < 30; d++){
+    var weekly = 0.72 + 0.28 * Math.sin((d % 7) / 7 * Math.PI * 2 + 1.1); // weekly rhythm
+    var h = Math.max(0.14, Math.min(1, weekly * (0.55 + hrng() * 0.6)));
+    var bar = document.createElement("span");
+    bar.style.height = Math.round(h * 100) + "%";
+    hist.appendChild(bar);
+  }
+
+  /* ---------- mobile scroll affordance ---------- */
+  document.getElementById("more-hint").addEventListener("click", function(){
+    document.getElementById("details").scrollIntoView({ behavior: "smooth" });
+  });
+</script>
+
+</body>
+</html>

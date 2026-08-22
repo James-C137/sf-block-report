@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Block Report — Heat 3D v2</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:      #1A1A1A;
+    --ink-60:   #5C5C5C;
+    --ink-40:   #8A8A8A;
+    --ink-25:   #ADADAD;
+    --hair:     #E5E5E5;
+    --hair-lt:  #EFEFEF;
+    --bar:      #D9D9D9;
+    --paper:    #FFFFFF;
+    --paper-2:  #FAFAFA;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html, body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size:13px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ---------- map ---------- */
+
+  .map-stage{
+    position:relative;
+    height:100dvh;
+    min-height:480px;
+    background:#F4F4F4;
+  }
+  #map{
+    position:absolute; inset:0;
+    /* pull any residual color cast out of the basemap */
+    filter:saturate(0) contrast(1.01);
+  }
+
+  /* maplibre chrome, quieted */
+  .maplibregl-ctrl-attrib{
+    font-family:'Inter', sans-serif;
+    font-size:9px;
+    letter-spacing:0.01em;
+    color:var(--ink-40);
+    background:rgba(255,255,255,0.85) !important;
+  }
+  .maplibregl-ctrl-attrib a{ color:var(--ink-40); text-decoration:none; }
+  .maplibregl-ctrl-attrib-button{ filter:grayscale(1); opacity:0.55; }
+
+  /* ---------- floating column / stacked sheet ---------- */
+
+  .panel{
+    background:var(--paper);
+    border-top:1px solid var(--hair);
+  }
+  .panel-inner{
+    padding:22px 20px 30px;
+    max-width:420px;
+    margin:0 auto;
+  }
+
+  .wordmark{
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .wordmark .mark{
+    width:8px; height:8px;
+    background:var(--ink);
+    align-self:center;
+    flex:none;
+  }
+  .wordmark h1{
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  .wordmark .city{
+    font-size:10px;
+    font-weight:450;
+    color:var(--ink-40);
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    margin-left:auto;
+  }
+
+  .rule{ border:0; border-top:1px solid var(--hair); margin:16px 0; }
+  .rule.lt{ border-top-color:var(--hair-lt); }
+
+  .microlabel{
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+  }
+
+  .num{ font-variant-numeric:tabular-nums; font-feature-settings:'tnum'; }
+
+  /* period + count */
+  .period{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-top:14px;
+  }
+  .period .range{
+    font-size:11px; font-weight:450; color:var(--ink-60);
+    letter-spacing:0.01em;
+  }
+  .count{
+    display:flex; align-items:baseline; gap:7px;
+    margin-top:6px;
+  }
+  .count .value{
+    font-size:26px;
+    font-weight:450;
+    letter-spacing:-0.02em;
+  }
+  .count .unit{
+    font-size:10px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+  }
+
+  /* histogram */
+  .histogram{
+    display:flex; align-items:flex-end; gap:2px;
+    height:34px;
+    margin-top:14px;
+  }
+  .histogram span{
+    flex:1 1 0;
+    background:var(--bar);
+    min-height:2px;
+  }
+  .histogram span.hi{ background:var(--ink); }
+  .hist-axis{
+    display:flex; justify-content:space-between;
+    margin-top:5px;
+    font-size:9px;
+    letter-spacing:0.06em;
+    color:var(--ink-25);
+  }
+
+  /* category chips */
+  .chips{
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-top:12px;
+  }
+  .chip{
+    font-size:10.5px;
+    font-weight:450;
+    letter-spacing:0.02em;
+    color:var(--ink-60);
+    border:1px solid var(--hair);
+    background:var(--paper);
+    padding:4px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+  .chip .n{ color:var(--ink-25); margin-left:5px; }
+  .chip.on{
+    color:var(--ink);
+    border-color:var(--ink);
+  }
+
+  /* segmented control */
+  .segment{
+    display:flex;
+    border:1px solid var(--hair);
+    margin-top:12px;
+  }
+  .segment button{
+    flex:1 1 0;
+    appearance:none;
+    border:0;
+    background:var(--paper);
+    font-family:inherit;
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+    padding:8px 0;
+    cursor:pointer;
+    transition:background 120ms ease, color 120ms ease;
+  }
+  .segment button + button{ border-left:1px solid var(--hair); }
+  .segment button.active{
+    background:var(--ink);
+    color:var(--paper);
+  }
+  .segment button:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:-3px;
+  }
+
+  /* opacity slider — minimal graphite range */
+  .opacity-head{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-top:12px;
+  }
+  .opacity-head .readout{
+    font-size:10px; font-weight:450;
+    color:var(--ink-60);
+    letter-spacing:0.04em;
+  }
+  input[type="range"].opacity{
+    -webkit-appearance:none;
+    appearance:none;
+    display:block;
+    width:100%;
+    height:22px;              /* generous hit area for touch */
+    margin-top:6px;
+    background:transparent;
+    cursor:pointer;
+  }
+  input[type="range"].opacity::-webkit-slider-runnable-track{
+    height:2px;
+    background:var(--hair);
+  }
+  input[type="range"].opacity::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    appearance:none;
+    width:12px; height:12px;
+    margin-top:-5px;          /* center on 2px track */
+    border-radius:0;
+    background:var(--ink);
+    border:0;
+  }
+  input[type="range"].opacity::-moz-range-track{
+    height:2px;
+    background:var(--hair);
+  }
+  input[type="range"].opacity::-moz-range-thumb{
+    width:12px; height:12px;
+    border-radius:0;
+    background:var(--ink);
+    border:0;
+  }
+  input[type="range"].opacity:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:2px;
+  }
+
+  /* ranking */
+  .ranking{ list-style:none; margin-top:12px; }
+  .ranking li{ padding:7px 0; }
+  .ranking li + li{ border-top:1px solid var(--hair-lt); }
+  .rank-row{
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .rank-row .idx{
+    font-size:9px; color:var(--ink-25);
+    width:12px; flex:none;
+  }
+  .rank-row .name{
+    font-size:11.5px; font-weight:450;
+  }
+  .rank-row .val{
+    margin-left:auto;
+    font-size:11px; font-weight:450;
+    color:var(--ink-60);
+  }
+  .rank-bar{
+    height:2px;
+    background:var(--hair-lt);
+    margin-top:6px; margin-left:20px;
+    position:relative;
+  }
+  .rank-bar i{
+    position:absolute; inset:0 auto 0 0;
+    background:var(--ink);
+    opacity:0.72;
+  }
+
+  .footnote{
+    margin-top:16px;
+    font-size:9.5px;
+    line-height:1.6;
+    color:var(--ink-25);
+    letter-spacing:0.02em;
+  }
+
+  /* scroll affordance (mobile) */
+  .scroll-hint{
+    position:absolute;
+    left:50%; bottom:46px;
+    transform:translateX(-50%);
+    display:flex; align-items:center; gap:7px;
+    background:var(--paper);
+    border:1px solid var(--hair);
+    border-radius:999px;
+    padding:6px 13px;
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-60);
+    pointer-events:none;
+    z-index:5;
+  }
+  .scroll-hint .arrow{
+    display:inline-block;
+    animation:nudge 2.4s ease-in-out infinite;
+  }
+  @keyframes nudge{
+    0%,100%{ transform:translateY(0); opacity:0.9; }
+    50%{ transform:translateY(2px); opacity:0.45; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .scroll-hint .arrow{ animation:none; }
+  }
+
+  /* ---------- desktop: single floating column ---------- */
+
+  @media (min-width: 900px){
+    body{ overflow:hidden; }
+    .map-stage{ height:100vh; }
+    .scroll-hint{ display:none; }
+
+    .panel{
+      position:fixed;
+      top:20px; left:20px;
+      width:296px;
+      max-height:calc(100vh - 40px);
+      overflow-y:auto;
+      border:1px solid var(--hair);
+      border-top:1px solid var(--hair);
+      background:var(--paper);
+      z-index:10;
+      scrollbar-width:thin;
+      scrollbar-color:var(--hair) transparent;
+    }
+    .panel-inner{
+      padding:18px 18px 22px;
+      max-width:none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="map-stage">
+  <div id="map" aria-label="Tilted 3D heat map of incident reports across San Francisco"></div>
+  <div class="scroll-hint" aria-hidden="true"><span>Details below</span><span class="arrow">&darr;</span></div>
+</div>
+
+<section class="panel" aria-label="Report summary and filters">
+  <div class="panel-inner">
+
+    <header class="wordmark">
+      <span class="mark" aria-hidden="true"></span>
+      <h1>Block Report</h1>
+      <span class="city">San Francisco</span>
+    </header>
+
+    <hr class="rule">
+
+    <div class="period">
+      <span class="microlabel">Period</span>
+      <span class="range num">Jul 22 &ndash; Aug 21, 2026</span>
+    </div>
+    <div class="count">
+      <span class="value num">12,408</span>
+      <span class="unit">reports</span>
+    </div>
+
+    <div class="histogram" id="histogram" aria-hidden="true"></div>
+    <div class="hist-axis num" aria-hidden="true"><span>Jul 22</span><span>Aug 21</span></div>
+
+    <hr class="rule">
+
+    <span class="microlabel">Category</span>
+    <div class="chips">
+      <span class="chip on">Larceny / Theft</span>
+      <span class="chip">Assault</span>
+      <span class="chip">Motor Vehicle Theft</span>
+      <span class="chip">Burglary</span>
+      <span class="chip">Robbery</span>
+    </div>
+
+    <hr class="rule">
+
+    <span class="microlabel">Layer</span>
+    <div class="segment" role="group" aria-label="Map layer">
+      <button type="button" id="btn-heat" class="active" aria-pressed="true">Heat</button>
+      <button type="button" id="btn-points" aria-pressed="false">Points</button>
+    </div>
+
+    <div class="opacity-head">
+      <label class="microlabel" for="opacity">Heat opacity</label>
+      <span class="readout num" id="opacity-val">85%</span>
+    </div>
+    <input type="range" class="opacity" id="opacity" min="10" max="100" step="1" value="85"
+           aria-label="Heat layer opacity">
+
+    <div class="opacity-head">
+      <label class="microlabel" for="bldg">Buildings</label>
+      <span class="readout num" id="bldg-val">25%</span>
+    </div>
+    <input type="range" class="opacity" id="bldg" min="0" max="100" step="1" value="25"
+           aria-label="Building opacity">
+
+    <hr class="rule">
+
+    <span class="microlabel">By neighborhood</span>
+    <ol class="ranking" id="ranking"></ol>
+
+    <hr class="rule lt">
+
+    <p class="footnote">Incident reports, SFPD open data (simulated for mockup). Counts reflect the selected 30-day period. Tilted 3D view &mdash; drag with two fingers or right mouse to rotate. Buildings appear as you zoom in. Updated Aug 21, 2026.</p>
+
+  </div>
+</section>
+
+<script>
+/* ---------- seeded RNG ---------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+var rand = mulberry32(20260821);
+function gauss(){
+  var u = rand() || 1e-9, v = rand() || 1e-9;
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ---------- fake incidents: gaussian clusters + thin scatter ---------- */
+var clusters = [
+  { c:[-122.414, 37.783], n:950, sx:0.0075, sy:0.0055, w:1.0  }, // Tenderloin / SoMa
+  { c:[-122.419, 37.760], n:520, sx:0.0060, sy:0.0075, w:0.85 }, // Mission
+  { c:[-122.390, 37.732], n:280, sx:0.0085, sy:0.0070, w:0.6  }  // Bayview
+];
+var features = [];
+clusters.forEach(function(k){
+  for (var i = 0; i < k.n; i++){
+    features.push({
+      type:'Feature',
+      properties:{ w: k.w * (0.6 + 0.4 * rand()) },
+      geometry:{ type:'Point', coordinates:[
+        k.c[0] + gauss() * k.sx,
+        k.c[1] + gauss() * k.sy
+      ]}
+    });
+  }
+});
+/* thin citywide scatter */
+for (var i = 0; i < 250; i++){
+  features.push({
+    type:'Feature',
+    properties:{ w: 0.3 },
+    geometry:{ type:'Point', coordinates:[
+      -122.515 + rand() * 0.150,
+       37.708  + rand() * 0.112
+    ]}
+  });
+}
+var incidents = { type:'FeatureCollection', features:features };
+
+/* ---------- map: dramatic tilt, rotation left interactive ---------- */
+var INK = '26,26,26';
+var TILT_PITCH = 60;
+var TILT_BEARING = -30;
+
+/* frame the city at the tilted angle for each width */
+var narrow = window.innerWidth < 900;
+
+var map = new maplibregl.Map({
+  container:'map',
+  style:'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json',
+  center: narrow ? [-122.414, 37.762] : [-122.418, 37.768],
+  zoom:   narrow ? 11.3 : 11.85,
+  pitch:TILT_PITCH,
+  bearing:TILT_BEARING,
+  maxPitch:70,
+  attributionControl:{ compact:true }
+  /* dragRotate / pitchWithRotate / touch rotation stay enabled:
+     the tilt is the default, not a lock */
+});
+
+/* Heat draws on the ground plane UNDER the ghosted buildings. Drawn
+   above the extrusions instead, the heatmap composites in screen space
+   and blankets the rooftops, erasing the 3D reading; under buildings at
+   low fill-extrusion-opacity the density field stays dominant while the
+   block volumes rise through it as pale glass. Flip to true to compare. */
+var HEAT_ABOVE_BUILDINGS = false;
+
+/* building fade-in (z13 -> z14.3) scaled by the Buildings slider */
+function bldgOpacityExpr(v){
+  return ['interpolate',['linear'],['zoom'], 13, 0, 14.3, v];
+}
+var BLDG_DEFAULT = document.getElementById('bldg').value / 100;
+
+map.on('load', function(){
+  map.addSource('incidents', { type:'geojson', data:incidents });
+
+  /* ---------- 3D buildings ----------
+     extruded from the CARTO style's own vector source
+     (OpenMapTiles schema, source-layer "building") */
+  var styleLayers = map.getStyle().layers;
+  var buildingSource = null;
+  for (var i = 0; i < styleLayers.length; i++){
+    if (styleLayers[i]['source-layer'] === 'building'){
+      buildingSource = styleLayers[i].source;
+      break;
+    }
+  }
+  if (buildingSource){
+    map.addLayer({
+      id:'buildings-3d',
+      type:'fill-extrusion',
+      source:buildingSource,
+      'source-layer':'building',
+      minzoom:13,
+      paint:{
+        'fill-extrusion-color':'#E4E4E4',
+        'fill-extrusion-height':['coalesce',['get','render_height'], 8],
+        'fill-extrusion-base':['coalesce',['get','render_min_height'], 0],
+        'fill-extrusion-vertical-gradient':true,
+        'fill-extrusion-opacity':bldgOpacityExpr(BLDG_DEFAULT)
+      }
+    });
+  }
+
+  var beforeId = (!HEAT_ABOVE_BUILDINGS && buildingSource) ? 'buildings-3d' : undefined;
+
+  /* heat — small radius at city zoom so hotspots keep a defined shape;
+     the ramp scales to black hard: mid densities are already solid
+     graphite, the peak sits near #111. Intensity dips at z14 so lone
+     points fade to faint gray instead of speckling mid-ramp. */
+  map.addLayer({
+    id:'heat',
+    type:'heatmap',
+    source:'incidents',
+    paint:{
+      'heatmap-weight':['get','w'],
+      'heatmap-intensity':['interpolate',['linear'],['zoom'],
+        10, 0.30, 12, 0.55, 14, 0.40, 16, 0.72],
+      'heatmap-radius':['interpolate',['exponential',1.7],['zoom'],
+        10, 6, 12, 12, 14, 46, 16, 100],
+      'heatmap-opacity':0.85,
+      'heatmap-color':['interpolate',['linear'],['heatmap-density'],
+        0.00, 'rgba(' + INK + ',0)',
+        0.06, 'rgba(' + INK + ',0.04)',
+        0.18, 'rgba(' + INK + ',0.30)',
+        0.35, 'rgba(' + INK + ',0.66)',
+        0.52, 'rgba(' + INK + ',0.90)',
+        0.72, 'rgba(22,22,22,0.96)',
+        1.00, 'rgba(17,17,17,1)'
+      ]
+    }
+  }, beforeId);
+
+  map.addLayer({
+    id:'points',
+    type:'circle',
+    source:'incidents',
+    layout:{ visibility:'none' },
+    paint:{
+      'circle-radius':['interpolate',['linear'],['zoom'], 10, 1.4, 13, 2.4, 16, 4],
+      'circle-color':'#1A1A1A',
+      'circle-opacity':0.45,
+      'circle-stroke-width':0
+    }
+  }, beforeId);
+});
+
+/* ---------- heat / points toggle ---------- */
+var btnHeat = document.getElementById('btn-heat');
+var btnPoints = document.getElementById('btn-points');
+function setMode(mode){
+  if (!map.getLayer('heat')) return;
+  map.setLayoutProperty('heat', 'visibility', mode === 'heat' ? 'visible' : 'none');
+  map.setLayoutProperty('points', 'visibility', mode === 'points' ? 'visible' : 'none');
+  btnHeat.classList.toggle('active', mode === 'heat');
+  btnPoints.classList.toggle('active', mode === 'points');
+  btnHeat.setAttribute('aria-pressed', mode === 'heat');
+  btnPoints.setAttribute('aria-pressed', mode === 'points');
+}
+btnHeat.addEventListener('click', function(){ setMode('heat'); });
+btnPoints.addEventListener('click', function(){ setMode('points'); });
+
+/* ---------- sliders -> live paint properties ---------- */
+var slider = document.getElementById('opacity');
+var readout = document.getElementById('opacity-val');
+slider.addEventListener('input', function(){
+  var v = slider.value / 100;
+  readout.textContent = slider.value + '%';
+  if (map.getLayer('heat')){
+    map.setPaintProperty('heat', 'heatmap-opacity', v);
+  }
+});
+
+var bldgSlider = document.getElementById('bldg');
+var bldgReadout = document.getElementById('bldg-val');
+bldgSlider.addEventListener('input', function(){
+  var v = bldgSlider.value / 100;
+  bldgReadout.textContent = bldgSlider.value + '%';
+  if (map.getLayer('buildings-3d')){
+    map.setLayoutProperty('buildings-3d', 'visibility', v === 0 ? 'none' : 'visible');
+    if (v > 0){
+      map.setPaintProperty('buildings-3d', 'fill-extrusion-opacity', bldgOpacityExpr(v));
+    }
+  }
+});
+
+/* ---------- 30-bar histogram (deterministic) ---------- */
+(function(){
+  var h = mulberry32(7);
+  var el = document.getElementById('histogram');
+  var vals = [], max = 0;
+  for (var d = 0; d < 30; d++){
+    var weekly = 1 + 0.28 * Math.sin(d * 2 * Math.PI / 7 + 0.9); /* weekend swell */
+    var v = weekly * (0.55 + 0.45 * h());
+    vals.push(v); if (v > max) max = v;
+  }
+  var peak = vals.indexOf(max);
+  vals.forEach(function(v, idx){
+    var bar = document.createElement('span');
+    bar.style.height = Math.round((v / max) * 100) + '%';
+    if (idx === peak) bar.className = 'hi';
+    el.appendChild(bar);
+  });
+})();
+
+/* ---------- neighborhood ranking ---------- */
+(function(){
+  var rows = [
+    ['Tenderloin', 1842],
+    ['Mission', 1301],
+    ['SoMa', 1240],
+    ['Bayview', 872],
+    ['North Beach', 511]
+  ];
+  var max = rows[0][1];
+  var ol = document.getElementById('ranking');
+  rows.forEach(function(r, idx){
+    var li = document.createElement('li');
+    li.innerHTML =
+      '<div class="rank-row">' +
+        '<span class="idx num">' + (idx + 1) + '</span>' +
+        '<span class="name">' + r[0] + '</span>' +
+        '<span class="val num">' + r[1].toLocaleString('en-US') + '</span>' +
+      '</div>' +
+      '<div class="rank-bar"><i style="width:' + Math.round(r[1] / max * 100) + '%"></i></div>';
+    ol.appendChild(li);
+  });
+})();
+</script>
+
+</body>
+</html>

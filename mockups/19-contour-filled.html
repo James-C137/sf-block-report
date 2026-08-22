@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Block Report — Contour Filled</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:      #1A1A1A;
+    --ink-60:   #5C5C5C;
+    --ink-40:   #8A8A8A;
+    --ink-25:   #ADADAD;
+    --hair:     #E5E5E5;
+    --hair-lt:  #EFEFEF;
+    --bar:      #D9D9D9;
+    --paper:    #FFFFFF;
+    --paper-2:  #FAFAFA;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html, body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size:13px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ---------- map ---------- */
+
+  .map-stage{
+    position:relative;
+    height:100dvh;
+    min-height:480px;
+    background:#F4F4F4;
+  }
+  #map{
+    position:absolute; inset:0;
+    /* pull any residual color cast out of the basemap */
+    filter:saturate(0) contrast(1.01);
+  }
+
+  /* maplibre chrome, quieted */
+  .maplibregl-ctrl-attrib{
+    font-family:'Inter', sans-serif;
+    font-size:9px;
+    letter-spacing:0.01em;
+    color:var(--ink-40);
+    background:rgba(255,255,255,0.85) !important;
+  }
+  .maplibregl-ctrl-attrib a{ color:var(--ink-40); text-decoration:none; }
+  .maplibregl-ctrl-attrib-button{ filter:grayscale(1); opacity:0.55; }
+
+  /* ---------- floating column / stacked sheet ---------- */
+
+  .panel{
+    background:var(--paper);
+    border-top:1px solid var(--hair);
+  }
+  .panel-inner{
+    padding:22px 20px 30px;
+    max-width:420px;
+    margin:0 auto;
+  }
+
+  .wordmark{
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .wordmark .mark{
+    width:8px; height:8px;
+    background:var(--ink);
+    align-self:center;
+    flex:none;
+  }
+  .wordmark h1{
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  .wordmark .city{
+    font-size:10px;
+    font-weight:450;
+    color:var(--ink-40);
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    margin-left:auto;
+  }
+
+  .rule{ border:0; border-top:1px solid var(--hair); margin:16px 0; }
+  .rule.lt{ border-top-color:var(--hair-lt); }
+
+  .microlabel{
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+  }
+
+  .num{ font-variant-numeric:tabular-nums; font-feature-settings:'tnum'; }
+
+  /* period + count */
+  .period{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-top:14px;
+  }
+  .period .range{
+    font-size:11px; font-weight:450; color:var(--ink-60);
+    letter-spacing:0.01em;
+  }
+  .count{
+    display:flex; align-items:baseline; gap:7px;
+    margin-top:6px;
+  }
+  .count .value{
+    font-size:26px;
+    font-weight:450;
+    letter-spacing:-0.02em;
+  }
+  .count .unit{
+    font-size:10px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+  }
+
+  /* histogram */
+  .histogram{
+    display:flex; align-items:flex-end; gap:2px;
+    height:34px;
+    margin-top:14px;
+  }
+  .histogram span{
+    flex:1 1 0;
+    background:var(--bar);
+    min-height:2px;
+  }
+  .histogram span.hi{ background:var(--ink); }
+  .hist-axis{
+    display:flex; justify-content:space-between;
+    margin-top:5px;
+    font-size:9px;
+    letter-spacing:0.06em;
+    color:var(--ink-25);
+  }
+
+  /* category chips */
+  .chips{
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-top:12px;
+  }
+  .chip{
+    font-size:10.5px;
+    font-weight:450;
+    letter-spacing:0.02em;
+    color:var(--ink-60);
+    border:1px solid var(--hair);
+    background:var(--paper);
+    padding:4px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+  .chip .n{ color:var(--ink-25); margin-left:5px; }
+  .chip.on{
+    color:var(--ink);
+    border-color:var(--ink);
+  }
+
+  /* segmented control */
+  .segment{
+    display:flex;
+    border:1px solid var(--hair);
+    margin-top:12px;
+  }
+  .segment button{
+    flex:1 1 0;
+    appearance:none;
+    border:0;
+    background:var(--paper);
+    font-family:inherit;
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+    padding:8px 0;
+    cursor:pointer;
+    transition:background 120ms ease, color 120ms ease;
+  }
+  .segment button + button{ border-left:1px solid var(--hair); }
+  .segment button.active{
+    background:var(--ink);
+    color:var(--paper);
+  }
+  .segment button:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:-3px;
+  }
+
+  /* band legend — nested filled steps */
+  .contour-key{
+    display:flex; align-items:center; gap:2px;
+    margin-top:12px;
+  }
+  .contour-key .step{
+    flex:1 1 0;
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .contour-key .step i{
+    display:block;
+    height:8px;
+  }
+  .contour-key .step em{
+    font-style:normal;
+    font-size:9px;
+    letter-spacing:0.06em;
+    color:var(--ink-25);
+    text-align:left;
+  }
+  .contour-caption{
+    margin-top:6px;
+    font-size:9px;
+    letter-spacing:0.06em;
+    color:var(--ink-25);
+  }
+
+  /* sliders — minimal graphite range */
+  .opacity-head{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-top:12px;
+  }
+  .opacity-head .readout{
+    font-size:10px; font-weight:450;
+    color:var(--ink-60);
+    letter-spacing:0.04em;
+  }
+  input[type="range"].opacity{
+    -webkit-appearance:none;
+    appearance:none;
+    display:block;
+    width:100%;
+    height:22px;              /* generous hit area for touch */
+    margin-top:6px;
+    background:transparent;
+    cursor:pointer;
+  }
+  input[type="range"].opacity::-webkit-slider-runnable-track{
+    height:2px;
+    background:var(--hair);
+  }
+  input[type="range"].opacity::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    appearance:none;
+    width:12px; height:12px;
+    margin-top:-5px;          /* center on 2px track */
+    border-radius:0;
+    background:var(--ink);
+    border:0;
+  }
+  input[type="range"].opacity::-moz-range-track{
+    height:2px;
+    background:var(--hair);
+  }
+  input[type="range"].opacity::-moz-range-thumb{
+    width:12px; height:12px;
+    border-radius:0;
+    background:var(--ink);
+    border:0;
+  }
+  input[type="range"].opacity:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:2px;
+  }
+
+  /* reset text-button */
+  .reset-row{
+    display:flex; justify-content:flex-end;
+    margin-top:10px;
+  }
+  .reset-btn{
+    appearance:none;
+    border:0;
+    background:none;
+    font-family:inherit;
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+    text-decoration:underline;
+    text-underline-offset:3px;
+    text-decoration-color:var(--hair);
+    cursor:pointer;
+    padding:2px 0;
+  }
+  .reset-btn:hover{ color:var(--ink); text-decoration-color:var(--ink); }
+  .reset-btn:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:2px;
+  }
+
+  /* ranking */
+  .ranking{ list-style:none; margin-top:12px; }
+  .ranking li{ padding:7px 0; }
+  .ranking li + li{ border-top:1px solid var(--hair-lt); }
+  .rank-row{
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .rank-row .idx{
+    font-size:9px; color:var(--ink-25);
+    width:12px; flex:none;
+  }
+  .rank-row .name{
+    font-size:11.5px; font-weight:450;
+  }
+  .rank-row .val{
+    margin-left:auto;
+    font-size:11px; font-weight:450;
+    color:var(--ink-60);
+  }
+  .rank-bar{
+    height:2px;
+    background:var(--hair-lt);
+    margin-top:6px; margin-left:20px;
+    position:relative;
+  }
+  .rank-bar i{
+    position:absolute; inset:0 auto 0 0;
+    background:var(--ink);
+    opacity:0.72;
+  }
+
+  .footnote{
+    margin-top:16px;
+    font-size:9.5px;
+    line-height:1.6;
+    color:var(--ink-25);
+    letter-spacing:0.02em;
+  }
+
+  /* scroll affordance (mobile) */
+  .scroll-hint{
+    position:absolute;
+    left:50%; bottom:46px;
+    transform:translateX(-50%);
+    display:flex; align-items:center; gap:7px;
+    background:var(--paper);
+    border:1px solid var(--hair);
+    border-radius:999px;
+    padding:6px 13px;
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-60);
+    pointer-events:none;
+    z-index:5;
+  }
+  .scroll-hint .arrow{
+    display:inline-block;
+    animation:nudge 2.4s ease-in-out infinite;
+  }
+  @keyframes nudge{
+    0%,100%{ transform:translateY(0); opacity:0.9; }
+    50%{ transform:translateY(2px); opacity:0.45; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .scroll-hint .arrow{ animation:none; }
+  }
+
+  /* ---------- desktop: single floating column ---------- */
+
+  @media (min-width: 900px){
+    body{ overflow:hidden; }
+    .map-stage{ height:100vh; }
+    .scroll-hint{ display:none; }
+
+    .panel{
+      position:fixed;
+      top:20px; left:20px;
+      width:296px;
+      max-height:calc(100vh - 40px);
+      overflow-y:auto;
+      border:1px solid var(--hair);
+      border-top:1px solid var(--hair);
+      background:var(--paper);
+      z-index:10;
+      scrollbar-width:thin;
+      scrollbar-color:var(--hair) transparent;
+    }
+    .panel-inner{
+      padding:18px 18px 22px;
+      max-width:none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="map-stage">
+  <div id="map" aria-label="Tilted 3D map with filled density contour bands painted on the ground beneath the buildings, San Francisco"></div>
+  <div class="scroll-hint" aria-hidden="true"><span>Details below</span><span class="arrow">&darr;</span></div>
+</div>
+
+<section class="panel" aria-label="Report summary and filters">
+  <div class="panel-inner">
+
+    <header class="wordmark">
+      <span class="mark" aria-hidden="true"></span>
+      <h1>Block Report</h1>
+      <span class="city">San Francisco</span>
+    </header>
+
+    <hr class="rule">
+
+    <div class="period">
+      <span class="microlabel">Period</span>
+      <span class="range num">Jul 22 &ndash; Aug 21, 2026</span>
+    </div>
+    <div class="count">
+      <span class="value num">12,408</span>
+      <span class="unit">reports</span>
+    </div>
+
+    <div class="histogram" id="histogram" aria-hidden="true"></div>
+    <div class="hist-axis num" aria-hidden="true"><span>Jul 22</span><span>Aug 21</span></div>
+
+    <hr class="rule">
+
+    <span class="microlabel">Category</span>
+    <div class="chips">
+      <span class="chip on">Larceny / Theft</span>
+      <span class="chip">Assault</span>
+      <span class="chip">Motor Vehicle Theft</span>
+      <span class="chip">Burglary</span>
+      <span class="chip">Robbery</span>
+    </div>
+
+    <hr class="rule">
+
+    <span class="microlabel">Layer</span>
+    <div class="segment" role="group" aria-label="Map layer">
+      <button type="button" id="btn-contours" class="active" aria-pressed="true">Contours</button>
+      <button type="button" id="btn-points" aria-pressed="false">Points</button>
+    </div>
+
+    <div class="contour-key" id="contour-key" aria-hidden="true"></div>
+    <p class="contour-caption num">Band lower bound &mdash; reports per 120 m cell</p>
+
+    <div class="opacity-head">
+      <label class="microlabel" for="fill-opacity">Fill</label>
+      <span class="readout num" id="fill-opacity-val">90%</span>
+    </div>
+    <input type="range" class="opacity" id="fill-opacity" min="10" max="100" step="1" value="90"
+           aria-label="Contour band fill opacity">
+
+    <div class="opacity-head">
+      <label class="microlabel" for="buildings-opacity">Buildings</label>
+      <span class="readout num" id="buildings-opacity-val">75%</span>
+    </div>
+    <input type="range" class="opacity" id="buildings-opacity" min="0" max="100" step="1" value="75"
+           aria-label="Building extrusion opacity">
+
+    <div class="opacity-head">
+      <label class="microlabel" for="bands-count">Bands</label>
+      <span class="readout num" id="bands-count-val">5</span>
+    </div>
+    <input type="range" class="opacity" id="bands-count" min="4" max="8" step="1" value="5"
+           aria-label="Number of nested contour bands">
+
+    <div class="reset-row">
+      <button type="button" class="reset-btn" id="reset-btn">Reset</button>
+    </div>
+
+    <hr class="rule">
+
+    <span class="microlabel">By neighborhood</span>
+    <ol class="ranking" id="ranking"></ol>
+
+    <hr class="rule lt">
+
+    <p class="footnote">Incident reports, SFPD open data (simulated for mockup). Counts reflect the selected 30-day period. Tilted 3D view &mdash; drag with two fingers or right mouse to rotate. Density bands are painted on the ground; buildings rise above and occlude them as you zoom in. Updated Aug 21, 2026.</p>
+
+  </div>
+</section>
+
+<script>
+/* ---------- seeded RNG ---------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+var rand = mulberry32(20260821);
+function gauss(){
+  var u = rand() || 1e-9, v = rand() || 1e-9;
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ---------- fake incidents: gaussian clusters + thin scatter ---------- */
+var clusters = [
+  { c:[-122.414, 37.783], n:950, sx:0.0075, sy:0.0055, w:1.0  }, // Tenderloin / SoMa
+  { c:[-122.419, 37.760], n:520, sx:0.0060, sy:0.0075, w:0.85 }, // Mission
+  { c:[-122.390, 37.732], n:280, sx:0.0085, sy:0.0070, w:0.6  }  // Bayview
+];
+var features = [];
+clusters.forEach(function(k){
+  for (var i = 0; i < k.n; i++){
+    features.push({
+      type:'Feature',
+      properties:{ w: k.w * (0.6 + 0.4 * rand()) },
+      geometry:{ type:'Point', coordinates:[
+        k.c[0] + gauss() * k.sx,
+        k.c[1] + gauss() * k.sy
+      ]}
+    });
+  }
+});
+/* thin citywide scatter */
+for (var i = 0; i < 250; i++){
+  features.push({
+    type:'Feature',
+    properties:{ w: 0.3 },
+    geometry:{ type:'Point', coordinates:[
+      -122.515 + rand() * 0.150,
+       37.708  + rand() * 0.112
+    ]}
+  });
+}
+var incidents = { type:'FeatureCollection', features:features };
+
+/* ---------- map ---------- */
+var TILT_PITCH = 60;
+var TILT_BEARING = -30;
+
+/* frame the city at the tilted angle for each width */
+var narrow = window.innerWidth < 900;
+
+var map = new maplibregl.Map({
+  container:'map',
+  style:'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json',
+  center: narrow ? [-122.414, 37.762] : [-122.418, 37.768],
+  zoom:   narrow ? 11.3 : 11.85,
+  pitch:TILT_PITCH,
+  bearing:TILT_BEARING,
+  maxPitch:70,
+  attributionControl:{ compact:true }
+  /* dragRotate / pitchWithRotate / touch rotation stay enabled:
+     the tilt is the default, not a lock */
+});
+
+/* ---------- density isobands, painted on the ground ----------
+   Same pre-smoothing recipe as the isoline variant: incident points are
+   binned onto a fine ~60 m grid and smoothed with a separable gaussian
+   kernel (~180 m) — a deterministic KDE. Values are read as "reports
+   per 120 m cell".
+
+   The nested FILLED bands are marching-squares region polygons from
+   the smoothed field, drawn as near-flat fill-extrusion slabs (~0.5 m)
+   slotted BENEATH the buildings layer. Because the slabs live in
+   maplibre's 3D pass, the building extrusions genuinely occlude them
+   at tilt, and translucent buildings blend over them. (A deck.gl
+   interleaved ContourLayer with beforeId, and plain raster / fill /
+   line layers below the extrusions, were all tried first — every 2D
+   layer below a rendering fill-extrusion drops out entirely with deck
+   9.0.36 / maplibre 4.7.1, so the bands are rendered as 3D slabs
+   through maplibre's own extrusion pass instead.) Hairline isolines on
+   the band edges sharpen the citywide view and hand off at zoom ~13 as
+   the buildings fade in. */
+var CELL_REF = 120;              /* reference cell for the value scale */
+var T_MIN = 0.25, T_MAX = 3.6;   /* same field range the isoline variant used */
+
+var field = (function(){
+  var LON0 = -122.545, LON1 = -122.333;
+  var LAT0 = 37.688,   LAT1 = 37.850;
+  var D_LON = 0.00069, D_LAT = 0.00054;        /* ~60 m fine grid */
+  var NX = Math.ceil((LON1 - LON0) / D_LON);
+  var NY = Math.ceil((LAT1 - LAT0) / D_LAT);
+
+  /* bin weighted points */
+  var grid = new Float32Array(NX * NY);
+  incidents.features.forEach(function(f){
+    var xy = f.geometry.coordinates;
+    var ix = Math.floor((xy[0] - LON0) / D_LON);
+    var iy = Math.floor((xy[1] - LAT0) / D_LAT);
+    if (ix >= 0 && ix < NX && iy >= 0 && iy < NY) grid[iy * NX + ix] += f.properties.w;
+  });
+
+  /* separable gaussian blur, sigma = 3 cells (~180 m), radius 3*sigma */
+  var SIGMA = 3, R = 9;
+  var kern = [], ksum = 0;
+  for (var k = -R; k <= R; k++){
+    var g = Math.exp(-0.5 * k * k / (SIGMA * SIGMA));
+    kern.push(g); ksum += g;
+  }
+  kern = kern.map(function(g){ return g / ksum; });
+
+  var tmp = new Float32Array(NX * NY);
+  var x, y, acc, j;
+  for (y = 0; y < NY; y++){
+    for (x = 0; x < NX; x++){
+      acc = 0;
+      for (k = -R; k <= R; k++){
+        j = x + k;
+        if (j >= 0 && j < NX) acc += grid[y * NX + j] * kern[k + R];
+      }
+      tmp[y * NX + x] = acc;
+    }
+  }
+  var sm = new Float32Array(NX * NY);
+  for (y = 0; y < NY; y++){
+    for (x = 0; x < NX; x++){
+      acc = 0;
+      for (k = -R; k <= R; k++){
+        j = y + k;
+        if (j >= 0 && j < NY) acc += tmp[j * NX + x] * kern[k + R];
+      }
+      sm[y * NX + x] = acc;
+    }
+  }
+
+  /* scale smoothed per-fine-bin values to "reports per 120 m cell" */
+  var SCALE = (CELL_REF * CELL_REF) / (60 * 60);
+  return { sm:sm, NX:NX, NY:NY, LON0:LON0, LON1:LON1, LAT0:LAT0, LAT1:LAT1,
+           D_LON:D_LON, D_LAT:D_LAT, SCALE:SCALE };
+})();
+
+/* ---------- band construction ----------
+   n nested bands, thresholds spaced geometrically across [T_MIN, T_MAX];
+   graphite fill steps from ~8% alpha at the outer band to ~55% at the
+   core (26,26,26 -> 17,17,17). */
+var DEFAULTS = { fill:0.9, buildings:0.75, bands:5 };
+var state = {
+  mode:'contours',
+  fill:DEFAULTS.fill,
+  buildings:DEFAULTS.buildings,
+  bands:DEFAULTS.bands
+};
+
+function bandThresholds(n){
+  var t = [];
+  for (var i = 0; i < n; i++){
+    t.push(T_MIN * Math.pow(T_MAX / T_MIN, i / (n - 1)));
+  }
+  return t;
+}
+function bandInk(i, n){
+  var f = n > 1 ? i / (n - 1) : 1;
+  return {
+    ink:Math.round(26 + (17 - 26) * f),
+    alpha:0.08 + (0.55 - 0.08) * f
+  };
+}
+function bandInkHex(i, n){
+  var ink = bandInk(i, n).ink;
+  var h = ink.toString(16);
+  if (h.length < 2) h = '0' + h;
+  return '#' + h + h + h;
+}
+/* the nested band slabs stack: layer i's own opacity is the delta that
+   brings the cumulative stacked alpha up to band i's target */
+function bandDeltaOpacities(n, fillMult){
+  var out = [], prev = 0;
+  for (var i = 0; i < n; i++){
+    var A = Math.min(0.98, bandInk(i, n).alpha * fillMult);
+    out.push(Math.max(0, 1 - (1 - A) / (1 - prev)));
+    prev = A;
+  }
+  return out;
+}
+
+/* ---------- hairline isolines on the band edges: marching squares ----------
+   crisp vector lines from the same smoothed grid, one contour per
+   interior band threshold */
+var MS_CASES = [
+  null,          [[3,0]],       [[0,1]],       [[3,1]],
+  [[1,2]],       [[3,0],[1,2]], [[0,2]],       [[3,2]],
+  [[2,3]],       [[0,2]],       [[0,1],[2,3]], [[1,2]],
+  [[1,3]],       [[0,1]],       [[3,0]],       null
+];
+function edgePoint(edge, x, y, v00, v10, v11, v01, t){
+  var s;
+  switch (edge){
+    case 0: s = (t - v00) / (v10 - v00); return [x + s, y];       /* bottom */
+    case 1: s = (t - v10) / (v11 - v10); return [x + 1, y + s];   /* right  */
+    case 2: s = (t - v01) / (v11 - v01); return [x + s, y + 1];   /* top    */
+    default:s = (t - v00) / (v01 - v00); return [x, y + s];       /* left   */
+  }
+}
+function isolineSegments(tRaw){
+  var NX = field.NX, NY = field.NY, sm = field.sm;
+  var lines = [];
+  for (var y = 0; y < NY - 1; y++){
+    for (var x = 0; x < NX - 1; x++){
+      var v00 = sm[y * NX + x],       v10 = sm[y * NX + x + 1];
+      var v01 = sm[(y + 1) * NX + x], v11 = sm[(y + 1) * NX + x + 1];
+      var idx = (v00 >= tRaw ? 1 : 0) | (v10 >= tRaw ? 2 : 0) |
+                (v11 >= tRaw ? 4 : 0) | (v01 >= tRaw ? 8 : 0);
+      var segs = MS_CASES[idx];
+      if (!segs) continue;
+      for (var s = 0; s < segs.length; s++){
+        var a = edgePoint(segs[s][0], x, y, v00, v10, v11, v01, tRaw);
+        var b = edgePoint(segs[s][1], x, y, v00, v10, v11, v01, tRaw);
+        lines.push([
+          [ field.LON0 + (a[0] + 0.5) * field.D_LON, field.LAT0 + (a[1] + 0.5) * field.D_LAT ],
+          [ field.LON0 + (b[0] + 0.5) * field.D_LON, field.LAT0 + (b[1] + 0.5) * field.D_LAT ]
+        ]);
+      }
+    }
+  }
+  return lines;
+}
+function bandLinesGeoJSON(n){
+  var t = bandThresholds(n);
+  var lines = [];
+  for (var i = 1; i < n; i++){                 /* interior edges only */
+    lines = lines.concat(isolineSegments(t[i] / field.SCALE));
+  }
+  return {
+    type:'Feature',
+    properties:{},
+    geometry:{ type:'MultiLineString', coordinates:lines }
+  };
+}
+
+/* chain marching-squares segments into closed rings — superlevel-set
+   boundaries of the smoothed field always close inside the grid */
+function ringsForThreshold(tRaw){
+  var segs = isolineSegments(tRaw);
+  function key(pt){ return pt[0].toFixed(8) + ',' + pt[1].toFixed(8); }
+  var adj = {};
+  segs.forEach(function(s, si){
+    [0, 1].forEach(function(e){
+      var k = key(s[e]);
+      (adj[k] = adj[k] || []).push({ seg:si, end:e });
+    });
+  });
+  var used = new Array(segs.length);
+  var rings = [];
+  for (var i = 0; i < segs.length; i++){
+    if (used[i]) continue;
+    used[i] = true;
+    var ring = [ segs[i][0], segs[i][1] ];
+    var guard = segs.length + 2;
+    while (guard-- > 0){
+      var k = key(ring[ring.length - 1]);
+      var cands = adj[k] || [];
+      var next = null;
+      for (var c = 0; c < cands.length; c++){
+        if (!used[cands[c].seg]){ next = cands[c]; break; }
+      }
+      if (!next) break;
+      used[next.seg] = true;
+      var s2 = segs[next.seg];
+      ring.push(next.end === 0 ? s2[1] : s2[0]);
+      if (key(ring[ring.length - 1]) === key(ring[0])) break;
+    }
+    /* keep only closed rings with real area, wound CCW (GeoJSON exterior)
+       so tiles fully inside the ring aren't dropped at high zoom */
+    if (ring.length >= 4 && key(ring[ring.length - 1]) === key(ring[0])){
+      var area = 0;
+      for (var a = 0; a < ring.length - 1; a++){
+        area += ring[a][0] * ring[a + 1][1] - ring[a + 1][0] * ring[a][1];
+      }
+      if (area < 0) ring.reverse();
+      rings.push(ring);
+    }
+  }
+  return rings;
+}
+function bandRegionGeoJSON(tRaw){
+  var rings = ringsForThreshold(tRaw);
+  return {
+    type:'Feature',
+    properties:{},
+    geometry:{ type:'MultiPolygon', coordinates:rings.map(function(r){ return [r]; }) }
+  };
+}
+
+/* ---------- layers ---------- */
+var BUILDINGS_ID = 'buildings-3d';
+var MAX_BANDS = 8;
+
+/* buildings fade in with zoom; the slider scales the plateau */
+function buildingOpacityExpr(peak){
+  if (peak <= 0) return 0;
+  return ['interpolate',['linear'],['zoom'], 13, 0, 14.3, peak];
+}
+
+/* the filled bands: one near-flat extrusion slab layer per band,
+   nested, stacked with delta opacities */
+function addBandLayers(beforeId){
+  var t = bandThresholds(state.bands);
+  var deltas = bandDeltaOpacities(state.bands, state.fill);
+  for (var i = 0; i < state.bands; i++){
+    map.addSource('band-src-' + i, { type:'geojson', data:bandRegionGeoJSON(t[i] / field.SCALE) });
+    map.addLayer({
+      id:'band-' + i,
+      type:'fill-extrusion',
+      source:'band-src-' + i,
+      layout:{ visibility: state.mode === 'contours' ? 'visible' : 'none' },
+      paint:{
+        'fill-extrusion-color':bandInkHex(i, state.bands),
+        'fill-extrusion-height':0.4 + 0.35 * i,   /* staggered, sub-metre slabs */
+        'fill-extrusion-base':0,
+        'fill-extrusion-opacity':deltas[i],
+        'fill-extrusion-vertical-gradient':false
+      }
+    }, beforeId);
+  }
+}
+function removeBandLayers(){
+  for (var i = 0; i < MAX_BANDS; i++){
+    if (map.getLayer('band-' + i)) map.removeLayer('band-' + i);
+    if (map.getSource('band-src-' + i)) map.removeSource('band-src-' + i);
+  }
+}
+
+map.on('load', function(){
+  /* hairline isolines on the band edges — carry the citywide read,
+     hand off below building zoom */
+  map.addSource('band-lines', { type:'geojson', data:bandLinesGeoJSON(state.bands) });
+  map.addLayer({
+    id:'band-lines',
+    type:'line',
+    source:'band-lines',
+    maxzoom:13.2,
+    paint:{
+      'line-color':'#1A1A1A',
+      'line-width':1,
+      'line-opacity':0.34 * state.fill
+    }
+  });
+
+  /* points layer — shown via the toggle */
+  map.addSource('incidents', { type:'geojson', data:incidents });
+  map.addLayer({
+    id:'points',
+    type:'circle',
+    source:'incidents',
+    layout:{ visibility:'none' },
+    paint:{
+      'circle-radius':['interpolate',['linear'],['zoom'], 10, 1.4, 13, 2.4, 16, 4],
+      'circle-color':'#1A1A1A',
+      'circle-opacity':0.45,
+      'circle-stroke-width':0
+    }
+  });
+
+  /* filled band slabs on the ground — the 3D layers (band slabs +
+     buildings) must sit consecutively at the top of the style: a 2D
+     layer slotted between rendering fill-extrusion layers stops
+     drawing at building zooms in maplibre 4.7.1 */
+  addBandLayers(undefined);
+
+  /* ---------- 3D buildings, added last: they sit ABOVE the bands ----------
+     extruded from the CARTO style's own vector source
+     (OpenMapTiles schema, source-layer "building") */
+  var styleLayers = map.getStyle().layers;
+  var buildingSource = null;
+  for (var i = 0; i < styleLayers.length; i++){
+    if (styleLayers[i]['source-layer'] === 'building'){
+      buildingSource = styleLayers[i].source;
+      break;
+    }
+  }
+  if (buildingSource){
+    map.addLayer({
+      id:BUILDINGS_ID,
+      type:'fill-extrusion',
+      source:buildingSource,
+      'source-layer':'building',
+      minzoom:13,
+      paint:{
+        'fill-extrusion-color':'#E0E0E0',
+        'fill-extrusion-height':['coalesce',['get','render_height'], 8],
+        'fill-extrusion-base':['coalesce',['get','render_min_height'], 0],
+        'fill-extrusion-opacity':buildingOpacityExpr(state.buildings)
+      }
+    });
+  }
+});
+
+/* ---------- contours / points toggle ---------- */
+var btnContours = document.getElementById('btn-contours');
+var btnPoints = document.getElementById('btn-points');
+function setMode(mode){
+  var onContours = mode === 'contours';
+  state.mode = mode;
+  var ids = ['band-lines'];
+  for (var i = 0; i < MAX_BANDS; i++) ids.push('band-' + i);
+  ids.forEach(function(id){
+    if (map.getLayer(id)){
+      map.setLayoutProperty(id, 'visibility', onContours ? 'visible' : 'none');
+    }
+  });
+  if (map.getLayer('points')){
+    map.setLayoutProperty('points', 'visibility', onContours ? 'none' : 'visible');
+  }
+  btnContours.classList.toggle('active', onContours);
+  btnPoints.classList.toggle('active', !onContours);
+  btnContours.setAttribute('aria-pressed', onContours);
+  btnPoints.setAttribute('aria-pressed', !onContours);
+}
+btnContours.addEventListener('click', function(){ setMode('contours'); });
+btnPoints.addEventListener('click', function(){ setMode('points'); });
+
+/* ---------- fill slider -> band opacity multiplier, live ---------- */
+var fSlider = document.getElementById('fill-opacity');
+var fReadout = document.getElementById('fill-opacity-val');
+function applyFill(){
+  var deltas = bandDeltaOpacities(state.bands, state.fill);
+  for (var i = 0; i < state.bands; i++){
+    if (map.getLayer('band-' + i)){
+      map.setPaintProperty('band-' + i, 'fill-extrusion-opacity', deltas[i]);
+    }
+  }
+  if (map.getLayer('band-lines')){
+    map.setPaintProperty('band-lines', 'line-opacity', 0.34 * state.fill);
+  }
+  renderKey();
+}
+fSlider.addEventListener('input', function(){
+  state.fill = fSlider.value / 100;
+  fReadout.textContent = fSlider.value + '%';
+  applyFill();
+});
+
+/* ---------- buildings slider -> fill-extrusion-opacity, live ---------- */
+var bSlider = document.getElementById('buildings-opacity');
+var bReadout = document.getElementById('buildings-opacity-val');
+function applyBuildings(){
+  if (map.getLayer(BUILDINGS_ID)){
+    map.setPaintProperty(BUILDINGS_ID, 'fill-extrusion-opacity', buildingOpacityExpr(state.buildings));
+  }
+}
+bSlider.addEventListener('input', function(){
+  state.buildings = bSlider.value / 100;
+  bReadout.textContent = bSlider.value + '%';
+  applyBuildings();
+});
+
+/* ---------- bands stepper -> number of nested bands, live ---------- */
+var nSlider = document.getElementById('bands-count');
+var nReadout = document.getElementById('bands-count-val');
+function applyBands(){
+  if (map.getLayer('band-lines')){
+    removeBandLayers();
+    /* re-slot directly beneath the buildings, keeping the 3D layers
+       adjacent */
+    addBandLayers(map.getLayer(BUILDINGS_ID) ? BUILDINGS_ID : undefined);
+    map.getSource('band-lines').setData(bandLinesGeoJSON(state.bands));
+  }
+  renderKey();
+}
+nSlider.addEventListener('input', function(){
+  state.bands = parseInt(nSlider.value, 10);
+  nReadout.textContent = nSlider.value;
+  applyBands();
+});
+
+/* ---------- reset ---------- */
+document.getElementById('reset-btn').addEventListener('click', function(){
+  state.fill = DEFAULTS.fill;
+  state.buildings = DEFAULTS.buildings;
+  state.bands = DEFAULTS.bands;
+  fSlider.value = Math.round(DEFAULTS.fill * 100);
+  fReadout.textContent = fSlider.value + '%';
+  bSlider.value = Math.round(DEFAULTS.buildings * 100);
+  bReadout.textContent = bSlider.value + '%';
+  nSlider.value = DEFAULTS.bands;
+  nReadout.textContent = nSlider.value;
+  applyFill();
+  applyBuildings();
+  applyBands();
+});
+
+/* ---------- band legend: nested filled steps ---------- */
+function renderKey(){
+  var key = document.getElementById('contour-key');
+  key.innerHTML = '';
+  var n = state.bands;
+  var t = bandThresholds(n);
+  for (var i = 0; i < n; i++){
+    var bi = bandInk(i, n);
+    var step = document.createElement('span');
+    step.className = 'step';
+    var swatch = document.createElement('i');
+    swatch.style.background = 'rgba(' + bi.ink + ',' + bi.ink + ',' + bi.ink + ',' +
+                              (bi.alpha * state.fill).toFixed(2) + ')';
+    var label = document.createElement('em');
+    label.className = 'num';
+    label.textContent = t[i] < 1 ? t[i].toFixed(2).replace(/0$/, '') : t[i].toFixed(1);
+    step.appendChild(swatch);
+    step.appendChild(label);
+    key.appendChild(step);
+  }
+}
+renderKey();
+
+/* ---------- 30-bar histogram (deterministic) ---------- */
+(function(){
+  var h = mulberry32(7);
+  var el = document.getElementById('histogram');
+  var vals = [], max = 0;
+  for (var d = 0; d < 30; d++){
+    var weekly = 1 + 0.28 * Math.sin(d * 2 * Math.PI / 7 + 0.9); /* weekend swell */
+    var v = weekly * (0.55 + 0.45 * h());
+    vals.push(v); if (v > max) max = v;
+  }
+  var peak = vals.indexOf(max);
+  vals.forEach(function(v, idx){
+    var bar = document.createElement('span');
+    bar.style.height = Math.round((v / max) * 100) + '%';
+    if (idx === peak) bar.className = 'hi';
+    el.appendChild(bar);
+  });
+})();
+
+/* ---------- neighborhood ranking ---------- */
+(function(){
+  var rows = [
+    ['Tenderloin', 1842],
+    ['Mission', 1301],
+    ['SoMa', 1240],
+    ['Bayview', 872],
+    ['North Beach', 511]
+  ];
+  var max = rows[0][1];
+  var ol = document.getElementById('ranking');
+  rows.forEach(function(r, idx){
+    var li = document.createElement('li');
+    li.innerHTML =
+      '<div class="rank-row">' +
+        '<span class="idx num">' + (idx + 1) + '</span>' +
+        '<span class="name">' + r[0] + '</span>' +
+        '<span class="val num">' + r[1].toLocaleString('en-US') + '</span>' +
+      '</div>' +
+      '<div class="rank-bar"><i style="width:' + Math.round(r[1] / max * 100) + '%"></i></div>';
+    ol.appendChild(li);
+  });
+})();
+</script>
+
+</body>
+</html>

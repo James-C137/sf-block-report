@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Report — Fog City</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --fog-0:#DDE3E8;   /* lightest fog — vignette */
+    --fog-1:#CDD4DA;   /* land */
+    --fog-2:#C0C8CF;   /* mid fog */
+    --fog-3:#AAB4BD;   /* water */
+    --fog-4:#9AA4AE;   /* deep water */
+    --ink-1:#2B3A67;   /* ink bloom outer */
+    --ink-2:#1B2440;   /* ink bloom core */
+    --slate:#3F4A59;   /* primary text */
+    --slate-soft:#6C7684; /* secondary text */
+    --hairline:rgba(63,74,89,.13);
+    --glass:rgba(233,237,241,.58);
+    --glass-edge:rgba(244,247,249,.65);
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    font-family:'Hanken Grotesk',-apple-system,'Helvetica Neue',Arial,sans-serif;
+    color:var(--slate);
+    background:linear-gradient(160deg,#C9CFD6 0%,#AEB7C0 60%,#9AA4AE 100%);
+    overflow:hidden;
+    font-weight:400;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ============ MAP LAYER ============ */
+  .map{
+    position:fixed;inset:0;
+    width:100vw;height:100vh;
+  }
+  .map svg{width:100%;height:100%;display:block;}
+
+  /* ============ FOG VIGNETTE ============ */
+  .fog{position:fixed;inset:0;pointer-events:none;}
+  .fog::before{
+    content:"";position:absolute;inset:0;
+    background:
+      radial-gradient(60vw 46vh at -6% -8%,  rgba(221,227,232,.85) 0%, rgba(221,227,232,0) 62%),
+      radial-gradient(55vw 42vh at 106% -4%, rgba(214,221,227,.75) 0%, rgba(214,221,227,0) 60%),
+      radial-gradient(64vw 46vh at 108% 106%,rgba(206,214,221,.78) 0%, rgba(206,214,221,0) 60%),
+      radial-gradient(58vw 44vh at -4% 108%, rgba(214,221,227,.8)  0%, rgba(214,221,227,0) 58%),
+      linear-gradient(180deg, rgba(221,227,232,.5) 0%, rgba(221,227,232,0) 12%),
+      linear-gradient(0deg,   rgba(206,214,221,.45) 0%, rgba(206,214,221,0) 10%);
+  }
+
+  /* ============ GLASS CARD ============ */
+  .card{
+    position:fixed;top:34px;left:34px;
+    width:312px;
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(22px) saturate(1.15);
+    backdrop-filter:blur(22px) saturate(1.15);
+    border:1px solid var(--glass-edge);
+    border-radius:26px;
+    box-shadow:
+      0 28px 70px rgba(27,36,64,.16),
+      0 4px 16px rgba(27,36,64,.07),
+      inset 0 1px 0 rgba(250,252,253,.5);
+    padding:26px 24px 20px;
+  }
+
+  .wordmark{
+    font-size:13px;font-weight:500;letter-spacing:.34em;
+    text-transform:lowercase;color:var(--slate);
+  }
+  .wordmark span{color:var(--ink-1);}
+  .tagline{
+    margin-top:5px;
+    font-size:10px;font-weight:400;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--slate-soft);
+  }
+
+  .divider{height:1px;background:var(--hairline);margin:18px -2px;}
+
+  .label{
+    font-size:9.5px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--slate-soft);
+  }
+
+  /* date range + histogram */
+  .daterange{
+    display:flex;align-items:baseline;justify-content:space-between;
+    margin-top:8px;cursor:default;
+  }
+  .daterange .dates{font-size:16px;font-weight:300;letter-spacing:.02em;color:var(--slate);}
+  .daterange .dates em{font-style:normal;color:var(--slate-soft);padding:0 2px;font-weight:300;}
+  .daterange .year{font-size:10.5px;letter-spacing:.12em;color:var(--slate-soft);}
+
+  .histo{
+    display:flex;align-items:flex-end;gap:2px;
+    height:34px;margin-top:12px;
+  }
+  .histo i{
+    flex:1;min-width:2px;border-radius:1.5px 1.5px 0 0;
+    background:rgba(43,58,103,.32);
+    transition:background .25s ease;
+  }
+  .histo i.pk{background:rgba(27,36,64,.62);}
+  .histo:hover i{background:rgba(43,58,103,.44);}
+  .histo:hover i.pk{background:rgba(27,36,64,.7);}
+
+  .count{
+    margin-top:12px;display:flex;align-items:baseline;gap:8px;
+  }
+  .count b{font-size:22px;font-weight:300;letter-spacing:.01em;color:var(--ink-2);}
+  .count s{text-decoration:none;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--slate-soft);}
+
+  /* category chips */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .chip{
+    font-family:inherit;font-size:10.5px;font-weight:400;letter-spacing:.05em;
+    color:var(--slate);
+    padding:5px 11px;border-radius:999px;
+    background:rgba(244,247,249,.42);
+    border:1px solid rgba(63,74,89,.14);
+    cursor:pointer;white-space:nowrap;
+    transition:background .2s ease,border-color .2s ease;
+  }
+  .chip:hover{background:rgba(250,252,253,.62);border-color:rgba(63,74,89,.24);}
+  .chip.on{
+    background:rgba(43,58,103,.82);color:#DCE2EA;border-color:rgba(43,58,103,.82);
+  }
+  .chip.on:hover{background:rgba(35,48,88,.88);}
+  .chip:focus-visible{outline:2px solid var(--ink-1);outline-offset:2px;}
+
+  /* segmented toggle */
+  .seg{
+    margin-top:10px;
+    display:flex;padding:3px;border-radius:12px;
+    background:rgba(63,74,89,.08);
+    border:1px solid rgba(63,74,89,.1);
+  }
+  .seg button{
+    flex:1;font-family:inherit;font-size:11px;font-weight:500;
+    letter-spacing:.14em;text-transform:uppercase;
+    padding:7px 0;border:0;border-radius:9px;cursor:pointer;
+    background:transparent;color:var(--slate-soft);
+    transition:color .2s ease;
+  }
+  .seg button.on{
+    background:rgba(43,58,103,.88);color:#D9DFE8;
+    box-shadow:0 2px 8px rgba(27,36,64,.28);
+  }
+  .seg button:not(.on):hover{color:var(--slate);}
+  .seg button:focus-visible{outline:2px solid var(--ink-1);outline-offset:2px;}
+
+  /* neighborhood ranking */
+  .rank{margin-top:10px;display:flex;flex-direction:column;gap:11px;}
+  .rank .row{cursor:default;}
+  .rank .line{
+    display:flex;justify-content:space-between;align-items:baseline;
+  }
+  .rank .name{font-size:12.5px;font-weight:400;letter-spacing:.03em;color:var(--slate);}
+  .rank .num{
+    font-size:11.5px;font-weight:400;color:var(--slate-soft);
+    font-variant-numeric:tabular-nums;letter-spacing:.04em;
+  }
+  .rank .bar{
+    height:2px;margin-top:5px;border-radius:2px;
+    background:linear-gradient(90deg,rgba(27,36,64,.7),rgba(43,58,103,.35));
+    transition:filter .2s ease;
+  }
+  .rank .row:hover .bar{filter:brightness(.8);}
+  .rank .row:hover .name{color:var(--ink-2);}
+
+  .card-foot{
+    margin-top:18px;
+    font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+    color:rgba(108,118,132,.75);
+  }
+
+  /* ============ QUIET CHROME ON MAP ============ */
+  .zoom{
+    position:fixed;right:30px;bottom:88px;
+    display:flex;flex-direction:column;
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border:1px solid var(--glass-edge);
+    border-radius:14px;overflow:hidden;
+    box-shadow:0 12px 32px rgba(27,36,64,.14);
+  }
+  .zoom button{
+    width:38px;height:36px;border:0;cursor:pointer;
+    background:transparent;color:var(--slate);
+    font-family:inherit;font-size:16px;font-weight:300;line-height:1;
+    transition:background .2s ease;
+  }
+  .zoom button:first-child{border-bottom:1px solid var(--hairline);}
+  .zoom button:hover{background:rgba(250,252,253,.5);}
+  .zoom button:focus-visible{outline:2px solid var(--ink-1);outline-offset:-3px;}
+
+  .attribution{
+    position:fixed;right:32px;bottom:30px;
+    font-size:9px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;
+    color:rgba(63,74,89,.52);
+    text-align:right;
+  }
+  .attribution a{color:rgba(63,74,89,.66);text-decoration:none;border-bottom:1px solid rgba(63,74,89,.2);}
+
+  .legend{
+    position:fixed;left:36px;bottom:30px;
+    display:flex;align-items:center;gap:10px;
+    font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+    color:rgba(63,74,89,.55);
+  }
+  .legend .ramp{
+    width:110px;height:4px;border-radius:4px;
+    background:linear-gradient(90deg,rgba(43,58,103,0),rgba(43,58,103,.45),rgba(27,36,64,.85));
+  }
+
+  @media (max-width:900px){
+    .card{left:16px;top:16px;width:calc(100vw - 32px);max-width:340px;}
+    .legend{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;}
+  }
+</style>
+</head>
+<body>
+
+<!-- =============== MAP =============== -->
+<div class="map" aria-hidden="true">
+<svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Stylized map of San Francisco under fog with ink-blue crime density blooms">
+  <defs>
+    <linearGradient id="water" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#B3BCC5"/>
+      <stop offset="0.55" stop-color="#A4AEB8"/>
+      <stop offset="1" stop-color="#98A2AC"/>
+    </linearGradient>
+    <linearGradient id="land" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#CFD6DC"/>
+      <stop offset="1" stop-color="#C2CAD1"/>
+    </linearGradient>
+
+    <!-- orthogonal grid, north of Market + west side -->
+    <pattern id="gridN" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M30 0H0V30" fill="none" stroke="rgba(63,74,89,.11)" stroke-width="0.7"/>
+    </pattern>
+    <!-- SoMa / Mission grid, rotated to run parallel with Market -->
+    <pattern id="gridS" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45 720 450)">
+      <path d="M34 0H0V34" fill="none" stroke="rgba(63,74,89,.11)" stroke-width="0.7"/>
+    </pattern>
+
+    <radialGradient id="bloomStrong" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"    stop-color="#1B2440" stop-opacity="0.88"/>
+      <stop offset="0.42" stop-color="#2B3A67" stop-opacity="0.5"/>
+      <stop offset="1"    stop-color="#2B3A67" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bloomMid" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"    stop-color="#22305A" stop-opacity="0.62"/>
+      <stop offset="0.45" stop-color="#2B3A67" stop-opacity="0.34"/>
+      <stop offset="1"    stop-color="#2B3A67" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bloomSoft" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"    stop-color="#2B3A67" stop-opacity="0.4"/>
+      <stop offset="0.5"  stop-color="#2B3A67" stop-opacity="0.2"/>
+      <stop offset="1"    stop-color="#2B3A67" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="inkBlur" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="fogBlur" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="34"/>
+    </filter>
+
+    <clipPath id="landClip">
+      <path d="M282,178
+               C 330,158 400,166 470,158
+               C 520,152 552,146 588,152
+               C 616,157 640,150 668,152
+               C 706,155 736,148 768,158
+               C 812,172 848,176 864,196
+               C 884,220 898,238 902,262
+               C 908,300 918,326 916,352
+               C 914,384 900,402 888,424
+               C 880,440 906,452 926,470
+               C 944,486 952,528 958,562
+               C 964,598 986,616 1010,640
+               C 1030,660 1002,682 972,700
+               C 986,736 1000,758 984,786
+               C 972,808 962,850 958,900
+               L 236,900
+               C 240,820 244,760 250,700
+               C 256,640 242,580 244,520
+               C 246,440 250,370 254,300
+               C 257,252 262,208 282,178 Z"/>
+    </clipPath>
+    <clipPath id="northOfMarket">
+      <polygon points="1240,-80 260,900 -40,900 -40,-80"/>
+    </clipPath>
+    <clipPath id="southOfMarket">
+      <polygon points="1240,-80 260,900 1480,900 1480,-80"/>
+    </clipPath>
+  </defs>
+
+  <!-- water -->
+  <rect width="1440" height="900" fill="url(#water)"/>
+
+  <!-- land -->
+  <g clip-path="url(#landClip)">
+    <rect width="1440" height="900" fill="url(#land)"/>
+
+    <!-- split street grids along Market -->
+    <g clip-path="url(#northOfMarket)"><rect width="1440" height="900" fill="url(#gridN)"/></g>
+    <g clip-path="url(#southOfMarket)"><rect width="1440" height="900" fill="url(#gridS)"/></g>
+
+    <!-- arterials, whisper weight -->
+    <path d="M690,168 L690,650" stroke="rgba(63,74,89,.17)" stroke-width="1.4" fill="none"/>
+    <path d="M258,332 L706,332" stroke="rgba(63,74,89,.15)" stroke-width="1.2" fill="none"/>
+    <path d="M382,430 L382,880" stroke="rgba(63,74,89,.15)" stroke-width="1.2" fill="none"/>
+    <path d="M540,660 L940,660" stroke="rgba(63,74,89,.13)" stroke-width="1.1" fill="none"/>
+
+    <!-- Golden Gate Park -->
+    <rect x="252" y="428" width="272" height="56" rx="8" fill="#B9C4BE" opacity="0.85"/>
+    <rect x="252" y="428" width="272" height="56" rx="8" fill="none" stroke="rgba(63,74,89,.12)" stroke-width="0.8"/>
+
+    <!-- Market Street slash -->
+    <path d="M902,260 L516,644" stroke="rgba(63,74,89,.3)" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M902,260 L516,644" stroke="rgba(250,252,253,.35)" stroke-width="1" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- coastline -->
+  <path d="M282,178
+           C 330,158 400,166 470,158
+           C 520,152 552,146 588,152
+           C 616,157 640,150 668,152
+           C 706,155 736,148 768,158
+           C 812,172 848,176 864,196
+           C 884,220 898,238 902,262
+           C 908,300 918,326 916,352
+           C 914,384 900,402 888,424
+           C 880,440 906,452 926,470
+           C 944,486 952,528 958,562
+           C 964,598 986,616 1010,640
+           C 1030,660 1002,682 972,700
+           C 986,736 1000,758 984,786
+           C 972,808 962,850 958,900
+           M236,900
+           C 240,820 244,760 250,700
+           C 256,640 242,580 244,520
+           C 246,440 250,370 254,300
+           C 257,252 262,208 282,178"
+        fill="none" stroke="rgba(244,247,249,.55)" stroke-width="1.6"/>
+
+  <!-- bridges, barely there -->
+  <g stroke="rgba(63,74,89,.28)" stroke-width="1.6" fill="none" stroke-linecap="round">
+    <path d="M318,176 L232,52"/>
+    <path d="M906,300 C 1000,308 1090,318 1196,326"/>
+  </g>
+  <g fill="rgba(63,74,89,.3)">
+    <rect x="288" y="128" width="2.4" height="14" rx="1"/>
+    <rect x="258" y="86"  width="2.4" height="14" rx="1"/>
+    <rect x="1032" y="306" width="2.2" height="11" rx="1"/>
+  </g>
+
+  <!-- ink blooms : the data emerging from fog -->
+  <g filter="url(#inkBlur)">
+    <circle cx="756" cy="352" r="112" fill="url(#bloomStrong)"/>
+    <circle cx="806" cy="406" r="94"  fill="url(#bloomStrong)" opacity="0.85"/>
+    <circle cx="700" cy="560" r="88"  fill="url(#bloomMid)"/>
+    <circle cx="898" cy="678" r="74"  fill="url(#bloomSoft)"/>
+    <circle cx="788" cy="212" r="52"  fill="url(#bloomSoft)" opacity="0.6"/>
+  </g>
+
+  <!-- fog gauze drifting back over the ink -->
+  <g filter="url(#fogBlur)">
+    <ellipse cx="640" cy="300" rx="300" ry="120" fill="rgba(210,217,223,.34)"/>
+    <ellipse cx="880" cy="520" rx="260" ry="110" fill="rgba(203,211,218,.28)"/>
+    <ellipse cx="420" cy="640" rx="300" ry="140" fill="rgba(210,217,223,.3)"/>
+    <ellipse cx="1180" cy="180" rx="280" ry="150" fill="rgba(214,221,227,.32)"/>
+  </g>
+
+  <!-- labels -->
+  <g font-family="'Hanken Grotesk',sans-serif" font-weight="500" style="text-transform:uppercase">
+    <text x="742" y="322" font-size="10" letter-spacing="3" fill="rgba(222,228,235,.85)">Tenderloin</text>
+    <text x="812" y="446" font-size="10" letter-spacing="3" fill="rgba(216,223,231,.8)">SoMa</text>
+    <text x="672" y="572" font-size="10" letter-spacing="3" fill="rgba(216,223,231,.78)">Mission</text>
+    <text x="874" y="688" font-size="10" letter-spacing="3" fill="rgba(63,74,89,.52)">Bayview</text>
+    <text x="722" y="200" font-size="10" letter-spacing="3" fill="rgba(63,74,89,.5)">North Beach</text>
+    <text x="540" y="204" font-size="10" letter-spacing="3" fill="rgba(63,74,89,.42)">Marina</text>
+    <text x="316" y="352" font-size="10" letter-spacing="3" fill="rgba(63,74,89,.4)">Richmond</text>
+    <text x="330" y="562" font-size="10" letter-spacing="3" fill="rgba(63,74,89,.4)">Sunset</text>
+    <text x="318" y="461" font-size="8.5" letter-spacing="2.4" fill="rgba(63,74,89,.45)">Golden Gate Park</text>
+    <text x="112" y="560" font-size="10" letter-spacing="4" fill="rgba(63,74,89,.34)" transform="rotate(-90 112 560)">Pacific Ocean</text>
+    <text x="1150" y="480" font-size="10" letter-spacing="4" fill="rgba(63,74,89,.34)" transform="rotate(-90 1150 480)">San Francisco Bay</text>
+  </g>
+</svg>
+</div>
+
+<!-- fog vignette over map edges -->
+<div class="fog" aria-hidden="true"></div>
+
+<!-- =============== GLASS CARD =============== -->
+<aside class="card">
+  <div class="wordmark">block <span>report</span></div>
+  <div class="tagline">San Francisco · incident density</div>
+
+  <div class="divider"></div>
+
+  <div class="label">Date range</div>
+  <div class="daterange">
+    <span class="dates">Jul 22 <em>—</em> Aug 21</span>
+    <span class="year">2026</span>
+  </div>
+  <div class="histo">
+    <i style="height:38%"></i><i style="height:46%"></i><i style="height:42%"></i><i style="height:55%"></i>
+    <i style="height:48%"></i><i style="height:60%"></i><i style="height:52%"></i><i style="height:44%"></i>
+    <i style="height:58%"></i><i style="height:66%"></i><i style="height:72%"></i><i style="height:64%"></i>
+    <i style="height:58%"></i><i style="height:70%"></i><i style="height:78%"></i><i style="height:84%"></i>
+    <i style="height:68%"></i><i style="height:62%"></i><i style="height:55%"></i><i style="height:60%"></i>
+    <i style="height:74%"></i><i style="height:88%"></i><i class="pk" style="height:100%"></i><i style="height:82%"></i>
+    <i style="height:70%"></i><i style="height:64%"></i><i style="height:58%"></i><i style="height:52%"></i>
+    <i style="height:60%"></i><i style="height:66%"></i>
+  </div>
+  <div class="count"><b>12,408</b><s>reports</s></div>
+
+  <div class="divider"></div>
+
+  <div class="label">Category</div>
+  <div class="chips">
+    <button class="chip on" type="button">Larceny / Theft</button>
+    <button class="chip" type="button">Assault</button>
+    <button class="chip" type="button">Motor Vehicle Theft</button>
+    <button class="chip" type="button">Burglary</button>
+    <button class="chip" type="button">Robbery</button>
+  </div>
+
+  <div class="seg" role="group" aria-label="Map mode">
+    <button class="on" type="button">Heat</button>
+    <button type="button">Points</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="label">By neighborhood</div>
+  <div class="rank">
+    <div class="row">
+      <div class="line"><span class="name">Tenderloin</span><span class="num">1,842</span></div>
+      <div class="bar" style="width:100%"></div>
+    </div>
+    <div class="row">
+      <div class="line"><span class="name">Mission</span><span class="num">1,301</span></div>
+      <div class="bar" style="width:71%"></div>
+    </div>
+    <div class="row">
+      <div class="line"><span class="name">SoMa</span><span class="num">1,240</span></div>
+      <div class="bar" style="width:67%"></div>
+    </div>
+    <div class="row">
+      <div class="line"><span class="name">Bayview</span><span class="num">872</span></div>
+      <div class="bar" style="width:47%"></div>
+    </div>
+    <div class="row">
+      <div class="line"><span class="name">North Beach</span><span class="num">511</span></div>
+      <div class="bar" style="width:28%"></div>
+    </div>
+  </div>
+
+  <div class="card-foot">Source · DataSF / SFPD</div>
+</aside>
+
+<!-- quiet chrome -->
+<div class="zoom" aria-hidden="true">
+  <button type="button">+</button>
+  <button type="button">−</button>
+</div>
+
+<div class="legend" aria-hidden="true">
+  <span>fewer</span><span class="ramp"></span><span>more</span>
+</div>
+
+<div class="attribution">SFPD incident reports · updated 6:00&nbsp;AM</div>
+
+</body>
+</html>

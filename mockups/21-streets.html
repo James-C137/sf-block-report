@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Block Report — Streets</title>
+<link rel="icon" href="data:,">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:      #1A1A1A;
+    --ink-60:   #5C5C5C;
+    --ink-40:   #8A8A8A;
+    --ink-25:   #ADADAD;
+    --hair:     #E5E5E5;
+    --hair-lt:  #EFEFEF;
+    --bar:      #D9D9D9;
+    --paper:    #FFFFFF;
+    --paper-2:  #FAFAFA;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html, body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size:13px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ---------- map ---------- */
+
+  .map-stage{
+    position:relative;
+    height:100dvh;
+    min-height:480px;
+    background:#F4F4F4;
+  }
+  #map{
+    position:absolute; inset:0;
+    /* pull any residual color cast out of the basemap */
+    filter:saturate(0) contrast(1.01);
+  }
+
+  /* maplibre chrome, quieted */
+  .maplibregl-ctrl-attrib{
+    font-family:'Inter', sans-serif;
+    font-size:9px;
+    letter-spacing:0.01em;
+    color:var(--ink-40);
+    background:rgba(255,255,255,0.85) !important;
+  }
+  .maplibregl-ctrl-attrib a{ color:var(--ink-40); text-decoration:none; }
+  .maplibregl-ctrl-attrib-button{ filter:grayscale(1); opacity:0.55; }
+
+  /* loading pill (map corner) */
+  .loadpill{
+    position:absolute;
+    top:14px; right:14px;
+    z-index:6;
+    display:flex; align-items:center; gap:8px;
+    background:var(--paper);
+    border:1px solid var(--hair);
+    padding:6px 12px;
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-60);
+    pointer-events:none;
+    transition:opacity 400ms ease;
+  }
+  .loadpill.gone{ opacity:0; }
+  .loadpill .dot{
+    width:6px; height:6px;
+    background:var(--ink);
+    animation:pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.25; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .loadpill .dot{ animation:none; }
+  }
+
+  /* ---------- floating column / stacked sheet ---------- */
+
+  .panel{
+    background:var(--paper);
+    border-top:1px solid var(--hair);
+  }
+  .panel-inner{
+    padding:22px 20px 30px;
+    max-width:420px;
+    margin:0 auto;
+  }
+
+  .wordmark{
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .wordmark .mark{
+    width:8px; height:8px;
+    background:var(--ink);
+    align-self:center;
+    flex:none;
+  }
+  .wordmark h1{
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  .wordmark .city{
+    font-size:10px;
+    font-weight:450;
+    color:var(--ink-40);
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    margin-left:auto;
+  }
+
+  .rule{ border:0; border-top:1px solid var(--hair); margin:16px 0; }
+  .rule.lt{ border-top-color:var(--hair-lt); }
+
+  .microlabel{
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+  }
+
+  .num{ font-variant-numeric:tabular-nums; font-feature-settings:'tnum'; }
+
+  /* period + count */
+  .period{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-top:14px;
+  }
+  .period .range{
+    font-size:11px; font-weight:450; color:var(--ink-60);
+    letter-spacing:0.01em;
+  }
+  .count{
+    display:flex; align-items:baseline; gap:7px;
+    margin-top:6px;
+  }
+  .count .value{
+    font-size:26px;
+    font-weight:450;
+    letter-spacing:-0.02em;
+  }
+  .count .unit{
+    font-size:10px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+  }
+
+  /* histogram */
+  .histogram{
+    display:flex; align-items:flex-end; gap:2px;
+    height:34px;
+    margin-top:14px;
+  }
+  .histogram span{
+    flex:1 1 0;
+    background:var(--bar);
+    min-height:2px;
+  }
+  .histogram span.hi{ background:var(--ink); }
+  .hist-axis{
+    display:flex; justify-content:space-between;
+    margin-top:5px;
+    font-size:9px;
+    letter-spacing:0.06em;
+    color:var(--ink-25);
+  }
+
+  /* category chips */
+  .chips{
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-top:12px;
+  }
+  .chip{
+    font-size:10.5px;
+    font-weight:450;
+    letter-spacing:0.02em;
+    color:var(--ink-60);
+    border:1px solid var(--hair);
+    background:var(--paper);
+    padding:4px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+  .chip .n{ color:var(--ink-25); margin-left:5px; }
+  .chip.on{
+    color:var(--ink);
+    border-color:var(--ink);
+  }
+
+  /* segmented control */
+  .segment{
+    display:flex;
+    border:1px solid var(--hair);
+    margin-top:12px;
+  }
+  .segment button{
+    flex:1 1 0;
+    appearance:none;
+    border:0;
+    background:var(--paper);
+    font-family:inherit;
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+    padding:8px 0;
+    cursor:pointer;
+    transition:background 120ms ease, color 120ms ease;
+  }
+  .segment button + button{ border-left:1px solid var(--hair); }
+  .segment button.active{
+    background:var(--ink);
+    color:var(--paper);
+  }
+  .segment button:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:-3px;
+  }
+  .layer-status{
+    margin-top:8px;
+    font-size:9.5px;
+    letter-spacing:0.03em;
+    color:var(--ink-40);
+    min-height:14px;
+  }
+
+  /* ---------- render controls: sliders + reset ---------- */
+
+  .ctl{ margin-top:14px; }
+  .ctl:first-of-type{ margin-top:12px; }
+  .ctl-head{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-bottom:6px;
+  }
+  .ctl-head .readout{
+    font-size:10.5px;
+    font-weight:450;
+    color:var(--ink-60);
+  }
+
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    display:block;
+    width:100%;
+    height:16px;
+    background:transparent;
+    cursor:pointer;
+  }
+  input[type=range]:focus{ outline:none; }
+  input[type=range]:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:2px;
+    background:var(--hair);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:10px; height:10px;
+    background:var(--ink);
+    border-radius:0;
+    margin-top:-4px;
+  }
+  input[type=range]::-moz-range-track{
+    height:2px;
+    background:var(--hair);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:10px; height:10px;
+    background:var(--ink);
+    border:0;
+    border-radius:0;
+  }
+
+  .reset{
+    appearance:none;
+    margin-top:14px;
+    border:1px solid var(--hair);
+    background:var(--paper);
+    font-family:inherit;
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-60);
+    padding:6px 14px;
+    cursor:pointer;
+    transition:border-color 120ms ease, color 120ms ease;
+  }
+  .reset:hover{ border-color:var(--ink); color:var(--ink); }
+  .reset:focus-visible{ outline:1px solid var(--ink); outline-offset:-3px; }
+
+  /* ranking */
+  .ranking{ list-style:none; margin-top:12px; }
+  .ranking li{ padding:7px 0; }
+  .ranking li + li{ border-top:1px solid var(--hair-lt); }
+  .rank-row{
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .rank-row .idx{
+    font-size:9px; color:var(--ink-25);
+    width:12px; flex:none;
+  }
+  .rank-row .name{
+    font-size:11.5px; font-weight:450;
+  }
+  .rank-row .val{
+    margin-left:auto;
+    font-size:11px; font-weight:450;
+    color:var(--ink-60);
+  }
+  .rank-bar{
+    height:2px;
+    background:var(--hair-lt);
+    margin-top:6px; margin-left:20px;
+    position:relative;
+  }
+  .rank-bar i{
+    position:absolute; inset:0 auto 0 0;
+    background:var(--ink);
+    opacity:0.72;
+  }
+
+  .footnote{
+    margin-top:16px;
+    font-size:9.5px;
+    line-height:1.6;
+    color:var(--ink-25);
+    letter-spacing:0.02em;
+  }
+
+  /* scroll affordance (mobile) */
+  .scroll-hint{
+    position:absolute;
+    left:50%; bottom:46px;
+    transform:translateX(-50%);
+    display:flex; align-items:center; gap:7px;
+    background:var(--paper);
+    border:1px solid var(--hair);
+    border-radius:999px;
+    padding:6px 13px;
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-60);
+    pointer-events:none;
+    z-index:5;
+  }
+  .scroll-hint .arrow{
+    display:inline-block;
+    animation:nudge 2.4s ease-in-out infinite;
+  }
+  @keyframes nudge{
+    0%,100%{ transform:translateY(0); opacity:0.9; }
+    50%{ transform:translateY(2px); opacity:0.45; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .scroll-hint .arrow{ animation:none; }
+  }
+
+  /* ---------- desktop: single floating column ---------- */
+
+  @media (min-width: 900px){
+    body{ overflow:hidden; }
+    .map-stage{ height:100vh; }
+    .scroll-hint{ display:none; }
+
+    .panel{
+      position:fixed;
+      top:20px; left:20px;
+      width:296px;
+      max-height:calc(100vh - 40px);
+      overflow-y:auto;
+      border:1px solid var(--hair);
+      border-top:1px solid var(--hair);
+      background:var(--paper);
+      z-index:10;
+      scrollbar-width:thin;
+      scrollbar-color:var(--hair) transparent;
+    }
+    .panel-inner{
+      padding:18px 18px 22px;
+      max-width:none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="map-stage">
+  <div id="map" aria-label="Street-segment density map of incident reports across San Francisco"></div>
+  <div class="loadpill" id="loadpill" role="status"><span class="dot" aria-hidden="true"></span><span id="loadpill-text">Loading street network</span></div>
+  <div class="scroll-hint" aria-hidden="true"><span>Details below</span><span class="arrow">&darr;</span></div>
+</div>
+
+<section class="panel" aria-label="Report summary and filters">
+  <div class="panel-inner">
+
+    <header class="wordmark">
+      <span class="mark" aria-hidden="true"></span>
+      <h1>Block Report</h1>
+      <span class="city">San Francisco</span>
+    </header>
+
+    <hr class="rule">
+
+    <div class="period">
+      <span class="microlabel">Period</span>
+      <span class="range num">Jul 22 &ndash; Aug 21, 2026</span>
+    </div>
+    <div class="count">
+      <span class="value num">12,408</span>
+      <span class="unit">reports</span>
+    </div>
+
+    <div class="histogram" id="histogram" aria-hidden="true"></div>
+    <div class="hist-axis num" aria-hidden="true"><span>Jul 22</span><span>Aug 21</span></div>
+
+    <hr class="rule">
+
+    <span class="microlabel">Category</span>
+    <div class="chips">
+      <span class="chip on">Larceny / Theft</span>
+      <span class="chip">Assault</span>
+      <span class="chip">Motor Vehicle Theft</span>
+      <span class="chip">Burglary</span>
+      <span class="chip">Robbery</span>
+    </div>
+
+    <hr class="rule">
+
+    <span class="microlabel">Layer</span>
+    <div class="segment" role="group" aria-label="Map layer">
+      <button type="button" id="btn-streets" class="active" aria-pressed="true">Streets</button>
+      <button type="button" id="btn-points" aria-pressed="false">Points</button>
+    </div>
+    <div class="layer-status num" id="layer-status" aria-live="polite"></div>
+
+    <hr class="rule">
+
+    <span class="microlabel">Render</span>
+    <div class="ctl">
+      <div class="ctl-head">
+        <label class="microlabel" for="ink">Ink</label>
+        <span class="readout num" id="ink-val">90%</span>
+      </div>
+      <input type="range" id="ink" min="20" max="100" step="1" value="90">
+    </div>
+    <div class="ctl">
+      <div class="ctl-head">
+        <label class="microlabel" for="contrast">Contrast</label>
+        <span class="readout num" id="contrast-val">1.00</span>
+      </div>
+      <input type="range" id="contrast" min="0.5" max="2.5" step="0.05" value="1.0">
+    </div>
+    <div class="ctl">
+      <div class="ctl-head">
+        <label class="microlabel" for="buildings">Buildings</label>
+        <span class="readout num" id="buildings-val">35%</span>
+      </div>
+      <input type="range" id="buildings" min="0" max="100" step="1" value="35">
+    </div>
+    <div class="ctl">
+      <div class="ctl-head">
+        <label class="microlabel" for="width">Width</label>
+        <span class="readout num" id="width-val">1.00&times;</span>
+      </div>
+      <input type="range" id="width" min="0.5" max="3" step="0.05" value="1.0">
+    </div>
+    <div class="ctl">
+      <div class="ctl-head">
+        <label class="microlabel" for="roads">Roads</label>
+        <span class="readout num" id="roads-val">16%</span>
+      </div>
+      <input type="range" id="roads" min="0" max="100" step="1" value="16">
+    </div>
+    <button type="button" class="reset" id="reset">Reset</button>
+
+    <hr class="rule">
+
+    <span class="microlabel">By neighborhood</span>
+    <ol class="ranking" id="ranking"></ol>
+
+    <hr class="rule lt">
+
+    <p class="footnote">Density painted per street segment. Street centerlines: DataSF / DPW basemap. Incident reports, SFPD open data (simulated for mockup). Counts reflect the selected 30-day period. Updated Aug 21, 2026.</p>
+
+  </div>
+</section>
+
+<script>
+/* ---------- seeded RNG ---------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+var rand = mulberry32(20260821);
+function gauss(){
+  var u = rand() || 1e-9, v = rand() || 1e-9;
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ---------- fake incidents: gaussian clusters + thin scatter ---------- */
+var clusters = [
+  { c:[-122.414, 37.783], n:950, sx:0.0075, sy:0.0055, w:1.0  }, // Tenderloin / SoMa
+  { c:[-122.419, 37.760], n:520, sx:0.0060, sy:0.0075, w:0.85 }, // Mission
+  { c:[-122.390, 37.732], n:280, sx:0.0085, sy:0.0070, w:0.6  }  // Bayview
+];
+var features = [];
+clusters.forEach(function(k){
+  for (var i = 0; i < k.n; i++){
+    features.push({
+      type:'Feature',
+      properties:{ w: k.w * (0.6 + 0.4 * rand()) },
+      geometry:{ type:'Point', coordinates:[
+        k.c[0] + gauss() * k.sx,
+        k.c[1] + gauss() * k.sy
+      ]}
+    });
+  }
+});
+/* thin citywide scatter */
+for (var i = 0; i < 250; i++){
+  features.push({
+    type:'Feature',
+    properties:{ w: 0.3 },
+    geometry:{ type:'Point', coordinates:[
+      -122.515 + rand() * 0.150,
+       37.708  + rand() * 0.112
+    ]}
+  });
+}
+var incidents = { type:'FeatureCollection', features:features };
+
+/* ---------- analytic density field (same clusters, evaluated exactly) ---------- */
+/* kernel bandwidth is the generation sigma, slightly widened so streets a
+   half-block off a cluster spine still pick up ink */
+var KERNEL_WIDEN = 1.35;
+function fieldAt(lng, lat){
+  var s = 0;
+  for (var i = 0; i < clusters.length; i++){
+    var k = clusters[i];
+    var sx = k.sx * KERNEL_WIDEN, sy = k.sy * KERNEL_WIDEN;
+    var dx = (lng - k.c[0]) / sx;
+    var dy = (lat - k.c[1]) / sy;
+    s += k.n * k.w * Math.exp(-0.5 * (dx * dx + dy * dy));
+  }
+  return s;
+}
+var FIELD_MAX = Math.max(
+  fieldAt(clusters[0].c[0], clusters[0].c[1]),
+  fieldAt(clusters[1].c[0], clusters[1].c[1]),
+  fieldAt(clusters[2].c[0], clusters[2].c[1])
+);
+
+/* midpoint at half the polyline's arc length (planar approx is fine here) */
+function midpointOf(coords){
+  if (coords.length === 2){
+    return [(coords[0][0] + coords[1][0]) / 2, (coords[0][1] + coords[1][1]) / 2];
+  }
+  var total = 0, lens = [];
+  for (var i = 1; i < coords.length; i++){
+    var dx = coords[i][0] - coords[i-1][0];
+    var dy = coords[i][1] - coords[i-1][1];
+    var L = Math.sqrt(dx * dx + dy * dy);
+    lens.push(L); total += L;
+  }
+  if (total === 0) return coords[0];
+  var half = total / 2, acc = 0;
+  for (var j = 0; j < lens.length; j++){
+    if (acc + lens[j] >= half){
+      var t = lens[j] === 0 ? 0 : (half - acc) / lens[j];
+      return [
+        coords[j][0] + t * (coords[j+1][0] - coords[j][0]),
+        coords[j][1] + t * (coords[j+1][1] - coords[j][1])
+      ];
+    }
+    acc += lens[j];
+  }
+  return coords[coords.length - 1];
+}
+
+/* ---------- map ---------- */
+var INK = '26,26,26';
+var TILT_PITCH = 57;
+var TILT_BEARING = -30;
+var narrow = window.innerWidth < 900;
+var map = new maplibregl.Map({
+  container:'map',
+  style:'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json',
+  center: narrow ? [-122.414, 37.762] : [-122.418, 37.768],
+  zoom:   narrow ? 11.3 : 11.85,
+  pitch:TILT_PITCH,
+  bearing:TILT_BEARING,
+  maxPitch:70,
+  attributionControl:{ compact:true }
+  /* dragRotate / pitchWithRotate / touch rotation stay enabled:
+     the tilt is the default, not a lock */
+});
+
+/* ---------- render state ---------- */
+var DEFAULTS = {
+  ink: 0.9,        /* street layer opacity */
+  contrast: 1.0,   /* density -> darkness/width steepness */
+  buildings: 0.35, /* ghosted extrusion peak opacity */
+  widthMul: 1.0,   /* stroke-width multiplier on the width curve */
+  roads: 0.16      /* basemap's own road-line opacity */
+};
+var ink = DEFAULTS.ink;
+var contrast = DEFAULTS.contrast;
+var buildings = DEFAULTS.buildings;
+var widthMul = DEFAULTS.widthMul;
+var roads = DEFAULTS.roads;
+var streetsReady = false;
+var mode = 'streets';
+
+/* T = d^contrast (d in [0,1]); higher contrast starves the mid-range,
+   so quiet streets sink into the paper and hot corridors go full ink */
+function tExpr(){
+  return ['^', ['get', 'd'], contrast];
+}
+function streetColorExpr(){
+  return ['interpolate', ['linear'], tExpr(),
+    0.00, 'rgba(199,193,185,0.14)',   /* pale warm gray, nearly gone */
+    0.18, 'rgba(168,162,154,0.30)',
+    0.40, 'rgba(122,117,111,0.52)',
+    0.65, 'rgba(74,71,68,0.76)',
+    0.85, 'rgba(' + INK + ',0.92)',
+    1.00, 'rgba(' + INK + ',1)'
+  ];
+}
+function streetWidthExpr(){
+  /* hairline 0.8px -> 3.5px at peak, scaled gently with zoom.
+     ['zoom'] must feed a top-level interpolate, so the zoom curve wraps
+     the per-feature width expression — the user width multiplier is baked
+     into each stop's output as a plain number (never wrap ['zoom'] in ['*']) */
+  function w(scale){
+    return ['*', scale * widthMul, ['+', 0.8, ['*', 2.7, tExpr()]]];
+  }
+  return ['interpolate', ['linear'], ['zoom'],
+    10, w(0.8),
+    12, w(1.0),
+    14, w(1.35),
+    16, w(2.1)
+  ];
+}
+function applyStreetPaint(){
+  if (!map.getLayer('streets')) return;
+  map.setPaintProperty('streets', 'line-color', streetColorExpr());
+  map.setPaintProperty('streets', 'line-width', streetWidthExpr());
+  map.setPaintProperty('streets', 'line-opacity', ink);
+}
+
+/* fade the basemap's own road strokes so the data-driven network
+   replaces them instead of doubling them; the matched layer ids are
+   remembered so the Roads dial can drive them all */
+var basemapRoadLayers = [];
+function fadeBasemapRoads(){
+  basemapRoadLayers = [];
+  var layers = map.getStyle().layers || [];
+  layers.forEach(function(l){
+    if (l.type === 'line' && /road|street|highway|bridge|tunnel|pedestrian|path|track|minor|major|motorway|trunk/i.test(l.id)){
+      basemapRoadLayers.push(l.id);
+    }
+  });
+  applyRoads();
+}
+function applyRoads(){
+  basemapRoadLayers.forEach(function(id){
+    try { map.setPaintProperty(id, 'line-opacity', roads); } catch(e){}
+  });
+}
+
+/* ghosted extrusions: the dial scales the zoom fade-in's peak opacity;
+   0% hides the layer outright */
+function buildingOpacityExpr(){
+  return ['interpolate', ['linear'], ['zoom'], 13, 0, 14.3, buildings];
+}
+function applyBuildings(){
+  if (!map.getLayer('buildings-3d')) return;
+  if (buildings <= 0){
+    map.setLayoutProperty('buildings-3d', 'visibility', 'none');
+  } else {
+    map.setLayoutProperty('buildings-3d', 'visibility', 'visible');
+    map.setPaintProperty('buildings-3d', 'fill-extrusion-opacity', buildingOpacityExpr());
+  }
+}
+
+/* ---------- street centerlines: DataSF ---------- */
+/* snapshot of DataSF street centerlines (Socrata 3psu-pn9h, active street layers only) — fetch fails from file://, serve over http */
+var STREETS_URL = 'data/streets.geojson';
+
+var loadpill = document.getElementById('loadpill');
+var loadpillText = document.getElementById('loadpill-text');
+var layerStatus = document.getElementById('layer-status');
+
+function hidePill(){
+  loadpill.classList.add('gone');
+  setTimeout(function(){ loadpill.remove(); }, 500);
+}
+
+var streetsPromise = fetch(STREETS_URL).then(function(res){
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}).then(function(geo){
+  /* score every segment at its midpoint against the analytic field */
+  var feats = geo.features || [];
+  for (var i = 0; i < feats.length; i++){
+    var g = feats[i].geometry;
+    if (!g || g.type !== 'LineString' || g.coordinates.length < 2){ feats[i].properties = { d:0 }; continue; }
+    var m = midpointOf(g.coordinates);
+    var d = fieldAt(m[0], m[1]) / FIELD_MAX;
+    feats[i].properties = { d: Math.min(1, Math.round(d * 1000) / 1000) };
+  }
+  return geo;
+});
+
+map.on('load', function(){
+  fadeBasemapRoads();
+
+  map.addSource('incidents', { type:'geojson', data:incidents });
+  map.addLayer({
+    id:'points',
+    type:'circle',
+    source:'incidents',
+    layout:{ visibility: mode === 'points' ? 'visible' : 'none' },
+    paint:{
+      'circle-radius':['interpolate',['linear'],['zoom'], 10, 1.4, 13, 2.4, 16, 4],
+      'circle-color':'#1A1A1A',
+      'circle-opacity':0.45,
+      'circle-stroke-width':0
+    }
+  });
+
+  /* ---------- pale ghosted 3D buildings ----------
+     extruded from the CARTO style's own vector source
+     (OpenMapTiles schema, source-layer "building");
+     added last so they rise above the inked streets,
+     which stay painted on the ground beneath them */
+  var styleLayers = map.getStyle().layers;
+  var buildingSource = null;
+  for (var i = 0; i < styleLayers.length; i++){
+    if (styleLayers[i]['source-layer'] === 'building'){
+      buildingSource = styleLayers[i].source;
+      break;
+    }
+  }
+  if (buildingSource){
+    map.addLayer({
+      id:'buildings-3d',
+      type:'fill-extrusion',
+      source:buildingSource,
+      'source-layer':'building',
+      minzoom:13,
+      layout:{ visibility: buildings > 0 ? 'visible' : 'none' },
+      paint:{
+        'fill-extrusion-color':'#E0E0E0',
+        'fill-extrusion-height':['coalesce',['get','render_height'], 8],
+        'fill-extrusion-base':['coalesce',['get','render_min_height'], 0],
+        'fill-extrusion-opacity': buildingOpacityExpr()
+      }
+    });
+  }
+
+  streetsPromise.then(function(geo){
+    map.addSource('streets', { type:'geojson', data:geo });
+    map.addLayer({
+      id:'streets',
+      type:'line',
+      source:'streets',
+      layout:{
+        'line-cap':'round',
+        'line-join':'round',
+        visibility: mode === 'streets' ? 'visible' : 'none'
+      },
+      paint:{
+        'line-color': streetColorExpr(),
+        'line-width': streetWidthExpr(),
+        'line-opacity': ink
+      }
+    }, 'points'); /* keep points above the street ink */
+    streetsReady = true;
+    layerStatus.textContent = geo.features.length.toLocaleString('en-US') + ' street segments';
+    hidePill();
+  }).catch(function(err){
+    console.warn('Street centerlines unavailable:', err);
+    loadpillText.textContent = 'Street data unavailable';
+    loadpill.querySelector('.dot').style.animation = 'none';
+    setTimeout(hidePill, 2600);
+    layerStatus.textContent = 'Street data unavailable — showing points';
+    setMode('points');
+  });
+});
+
+/* ---------- streets / points toggle ---------- */
+var btnStreets = document.getElementById('btn-streets');
+var btnPoints = document.getElementById('btn-points');
+function setMode(m){
+  mode = m;
+  if (map.getLayer('streets')) map.setLayoutProperty('streets', 'visibility', m === 'streets' ? 'visible' : 'none');
+  if (map.getLayer('points'))  map.setLayoutProperty('points',  'visibility', m === 'points'  ? 'visible' : 'none');
+  btnStreets.classList.toggle('active', m === 'streets');
+  btnPoints.classList.toggle('active', m === 'points');
+  btnStreets.setAttribute('aria-pressed', m === 'streets');
+  btnPoints.setAttribute('aria-pressed', m === 'points');
+}
+btnStreets.addEventListener('click', function(){ setMode('streets'); });
+btnPoints.addEventListener('click', function(){ setMode('points'); });
+
+/* ---------- sliders + reset ---------- */
+var inkInput = document.getElementById('ink');
+var inkVal = document.getElementById('ink-val');
+var contrastInput = document.getElementById('contrast');
+var contrastVal = document.getElementById('contrast-val');
+var buildingsInput = document.getElementById('buildings');
+var buildingsVal = document.getElementById('buildings-val');
+var widthInput = document.getElementById('width');
+var widthVal = document.getElementById('width-val');
+var roadsInput = document.getElementById('roads');
+var roadsVal = document.getElementById('roads-val');
+
+function syncReadouts(){
+  inkVal.textContent = Math.round(ink * 100) + '%';
+  contrastVal.textContent = contrast.toFixed(2);
+  buildingsVal.textContent = Math.round(buildings * 100) + '%';
+  widthVal.textContent = widthMul.toFixed(2) + '×';
+  roadsVal.textContent = Math.round(roads * 100) + '%';
+}
+inkInput.addEventListener('input', function(){
+  ink = inkInput.value / 100;
+  syncReadouts();
+  if (streetsReady) map.setPaintProperty('streets', 'line-opacity', ink);
+});
+contrastInput.addEventListener('input', function(){
+  contrast = parseFloat(contrastInput.value);
+  syncReadouts();
+  applyStreetPaint();
+});
+buildingsInput.addEventListener('input', function(){
+  buildings = buildingsInput.value / 100;
+  syncReadouts();
+  applyBuildings();
+});
+widthInput.addEventListener('input', function(){
+  widthMul = parseFloat(widthInput.value);
+  syncReadouts();
+  /* re-set the whole zoom-outer expression — the multiplier is baked
+     into each stop's output (see streetWidthExpr) */
+  if (streetsReady) map.setPaintProperty('streets', 'line-width', streetWidthExpr());
+});
+roadsInput.addEventListener('input', function(){
+  roads = roadsInput.value / 100;
+  syncReadouts();
+  applyRoads();
+});
+document.getElementById('reset').addEventListener('click', function(){
+  ink = DEFAULTS.ink;
+  contrast = DEFAULTS.contrast;
+  buildings = DEFAULTS.buildings;
+  widthMul = DEFAULTS.widthMul;
+  roads = DEFAULTS.roads;
+  inkInput.value = ink * 100;
+  contrastInput.value = contrast;
+  buildingsInput.value = buildings * 100;
+  widthInput.value = widthMul;
+  roadsInput.value = roads * 100;
+  syncReadouts();
+  applyStreetPaint();
+  applyBuildings();
+  applyRoads();
+});
+syncReadouts();
+
+/* ---------- 30-bar histogram (deterministic) ---------- */
+(function(){
+  var h = mulberry32(7);
+  var el = document.getElementById('histogram');
+  var vals = [], max = 0;
+  for (var d = 0; d < 30; d++){
+    var weekly = 1 + 0.28 * Math.sin(d * 2 * Math.PI / 7 + 0.9); /* weekend swell */
+    var v = weekly * (0.55 + 0.45 * h());
+    vals.push(v); if (v > max) max = v;
+  }
+  var peak = vals.indexOf(max);
+  vals.forEach(function(v, idx){
+    var bar = document.createElement('span');
+    bar.style.height = Math.round((v / max) * 100) + '%';
+    if (idx === peak) bar.className = 'hi';
+    el.appendChild(bar);
+  });
+})();
+
+/* ---------- neighborhood ranking ---------- */
+(function(){
+  var rows = [
+    ['Tenderloin', 1842],
+    ['Mission', 1301],
+    ['SoMa', 1240],
+    ['Bayview', 872],
+    ['North Beach', 511]
+  ];
+  var max = rows[0][1];
+  var ol = document.getElementById('ranking');
+  rows.forEach(function(r, idx){
+    var li = document.createElement('li');
+    li.innerHTML =
+      '<div class="rank-row">' +
+        '<span class="idx num">' + (idx + 1) + '</span>' +
+        '<span class="name">' + r[0] + '</span>' +
+        '<span class="val num">' + r[1].toLocaleString('en-US') + '</span>' +
+      '</div>' +
+      '<div class="rank-bar"><i style="width:' + Math.round(r[1] / max * 100) + '%"></i></div>';
+    ol.appendChild(li);
+  });
+})();
+</script>
+
+</body>
+</html>

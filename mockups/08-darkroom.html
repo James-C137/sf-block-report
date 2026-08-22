@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Block Report — Darkroom</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+<style>
+  :root{
+    --bg: #0B0B0B;
+    --ink-hi: #DEDEDE;      /* brightest UI text — never pure white */
+    --ink:    #A8A8A8;      /* body text */
+    --ink-lo: #6E6E6E;      /* labels, captions */
+    --hair:   rgba(255,255,255,0.12);
+    --hair-soft: rgba(255,255,255,0.07);
+    --bar:    rgba(255,255,255,0.30);
+    --bar-dim: rgba(255,255,255,0.10);
+    --panel:  rgba(10,10,10,0.6);
+    --sans: "Hanken Grotesk", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html, body{ height:100%; }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num{ font-family: var(--mono); font-variant-ligatures: none; }
+
+  /* ---------- stage / map ---------- */
+  #stage{ position: relative; height: 100dvh; }
+  @supports not (height: 100dvh){ #stage{ height: 100vh; } }
+  #map{ position:absolute; inset:0; background:#0B0B0B; }
+
+  /* compact attribution, de-chromed */
+  .maplibregl-ctrl-attrib{
+    background: rgba(10,10,10,0.55) !important;
+    font-family: var(--sans);
+    font-size: 10px;
+  }
+  .maplibregl-ctrl-attrib a{ color: var(--ink-lo) !important; text-decoration: none; }
+  .maplibregl-ctrl-attrib-button{ filter: invert(1) opacity(0.5); }
+
+  /* ---------- panel ---------- */
+  .panel{
+    font-size: 13px;
+  }
+  .panel-inner{ display:flex; flex-direction:column; gap:20px; }
+
+  .wordmark{
+    display:flex; align-items: baseline; justify-content: space-between;
+  }
+  .wordmark h1{
+    font-size: 13px; font-weight: 600; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--ink-hi);
+  }
+  .wordmark span{
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-lo);
+  }
+
+  .meta{ display:flex; flex-direction:column; gap:2px; }
+  .meta .range{ font-family: var(--mono); font-size: 12px; color: var(--ink); }
+  .meta .count{ font-size: 11px; color: var(--ink-lo); }
+  .meta .count b{ font-family: var(--mono); font-weight: 500; color: var(--ink); }
+
+  /* histogram */
+  .hist{ display:flex; flex-direction:column; gap:5px; }
+  .hist-bars{
+    display:flex; align-items:flex-end; gap:2px; height:34px;
+    border-bottom: 1px solid var(--hair-soft); padding-bottom:1px;
+  }
+  .hist-bars i{ flex:1 1 0; background: var(--bar); min-height:2px; }
+  .hist-labels{
+    display:flex; justify-content:space-between;
+    font-family: var(--mono); font-size: 9.5px; color: var(--ink-lo);
+  }
+
+  /* chips */
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{
+    font-family: var(--sans); font-size: 10.5px; letter-spacing: 0.04em;
+    color: var(--ink); background: transparent;
+    border: 1px solid var(--hair); border-radius: 999px;
+    padding: 4px 10px; cursor: default; white-space: nowrap;
+  }
+  .chip.on{ color: var(--ink-hi); border-color: rgba(255,255,255,0.28); }
+
+  /* segmented control */
+  .seg{
+    display:flex; border:1px solid var(--hair); border-radius: 3px; overflow:hidden;
+  }
+  .seg button{
+    flex:1 1 0; appearance:none; background:transparent; border:0;
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-lo);
+    padding: 7px 0; cursor: pointer;
+  }
+  .seg button + button{ border-left: 1px solid var(--hair); }
+  .seg button.on{ background: rgba(255,255,255,0.08); color: var(--ink-hi); }
+
+  /* ranking */
+  .rank{ display:flex; flex-direction:column; gap:9px; }
+  .rank-title{
+    font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ink-lo);
+  }
+  .rank-row{ display:grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: baseline; }
+  .rank-row .name{ font-size: 11.5px; color: var(--ink); }
+  .rank-row .val{ font-family: var(--mono); font-size: 11px; color: var(--ink); }
+  .rank-row .track{
+    grid-column: 1 / -1; height: 2px; background: var(--bar-dim); position: relative;
+  }
+  .rank-row .track i{
+    position:absolute; inset:0 auto 0 0; background: rgba(255,255,255,0.55);
+  }
+
+  .footnote{ font-size: 9.5px; color: #4E4E4E; letter-spacing: 0.04em; }
+
+  /* ---------- scroll affordance (mobile) ---------- */
+  .more{
+    position:absolute; left:50%; bottom:14px; transform: translateX(-50%);
+    display:none; appearance:none; background:transparent; border:0;
+    color: var(--ink); cursor:pointer; padding:8px;
+    animation: sink 2.6s ease-in-out infinite;
+  }
+  .more svg{ display:block; }
+  @keyframes sink{
+    0%,100%{ opacity:0.35; transform: translate(-50%, 0); }
+    50%    { opacity:0.8;  transform: translate(-50%, 4px); }
+  }
+
+  /* ---------- desktop: panel floats over the map ---------- */
+  @media (min-width: 768px){
+    body{ overflow: hidden; }
+    .panel{
+      position: fixed; top: 16px; left: 16px; z-index: 5;
+      width: 296px; max-height: calc(100dvh - 32px);
+      overflow-y: auto; scrollbar-width: none;
+      background: var(--panel);
+      -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+      border: 1px solid var(--hair);
+      padding: 18px 18px 16px;
+    }
+    .panel::-webkit-scrollbar{ display:none; }
+  }
+
+  /* ---------- mobile: map first, stack below ---------- */
+  @media (max-width: 767px){
+    .panel{
+      background: var(--bg);
+      border-top: 1px solid var(--hair);
+      padding: 22px 18px 30px;
+    }
+    .panel-inner{ max-width: 420px; margin: 0 auto; }
+    .more{ display:block; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="map"></div>
+  <button class="more" aria-label="Scroll for details"
+          onclick="document.querySelector('.panel').scrollIntoView({behavior:'smooth'})">
+    <svg width="16" height="9" viewBox="0 0 16 9" fill="none" aria-hidden="true">
+      <path d="M1 1l7 6 7-6" stroke="currentColor" stroke-width="1.25"/>
+    </svg>
+  </button>
+</div>
+
+<aside class="panel" id="details">
+  <div class="panel-inner">
+
+    <div class="wordmark">
+      <h1>Block Report</h1>
+      <span>SF</span>
+    </div>
+
+    <div class="meta">
+      <div class="range">Jul 22 – Aug 21, 2026</div>
+      <div class="count"><b>12,408</b> reports</div>
+    </div>
+
+    <div class="hist">
+      <div class="hist-bars" id="hist" aria-hidden="true"></div>
+      <div class="hist-labels"><span>Jul 22</span><span>Aug 21</span></div>
+    </div>
+
+    <div class="chips">
+      <span class="chip on">Larceny / Theft</span>
+      <span class="chip">Assault</span>
+      <span class="chip">Motor Vehicle Theft</span>
+      <span class="chip">Burglary</span>
+      <span class="chip">Robbery</span>
+    </div>
+
+    <div class="seg" role="group" aria-label="Layer mode">
+      <button id="btn-heat" class="on" onclick="setMode('heat')">Heat</button>
+      <button id="btn-points" onclick="setMode('points')">Points</button>
+    </div>
+
+    <div class="rank">
+      <div class="rank-title">By neighborhood</div>
+      <div id="rank"></div>
+    </div>
+
+    <div class="footnote">Synthetic data — design study, not real incidents.</div>
+
+  </div>
+</aside>
+
+<script>
+/* ---------------- static props (render first, independent of the map) ---------------- */
+
+/* histogram — 30 days */
+const days = [352,371,398,344,389,417,433,402,371,356,
+              408,442,469,451,419,388,404,437,481,459,
+              426,391,373,409,447,472,458,431,396,364];
+const histEl = document.getElementById('hist');
+const maxDay = Math.max(...days);
+histEl.innerHTML = days
+  .map(v => `<i style="height:${Math.round(v / maxDay * 100)}%"></i>`)
+  .join('');
+
+/* neighborhood ranking */
+const ranking = [
+  ['Tenderloin', 1842], ['Mission', 1301], ['SoMa', 1240],
+  ['Bayview', 872], ['North Beach', 511]
+];
+const maxRank = ranking[0][1];
+document.getElementById('rank').innerHTML = ranking.map(([name, n]) => `
+  <div class="rank-row" style="margin-bottom:9px">
+    <span class="name">${name}</span>
+    <span class="val">${n.toLocaleString('en-US')}</span>
+    <span class="track"><i style="width:${(n / maxRank * 100).toFixed(1)}%"></i></span>
+  </div>`).join('');
+
+/* ---------------- seeded RNG ---------------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(20260821);
+function gauss(){
+  let u = 0, v = 0;
+  while (u === 0) u = rand();
+  while (v === 0) v = rand();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ---------------- fake incidents (~2,000) ---------------- */
+const BOUNDS = [[-122.525, 37.703], [-122.353, 37.835]];
+const features = [];
+function cluster(cx, cy, sx, sy, n, w){
+  for (let i = 0; i < n; i++){
+    features.push({
+      type: 'Feature',
+      properties: { w },
+      geometry: { type: 'Point', coordinates: [cx + gauss() * sx, cy + gauss() * sy] }
+    });
+  }
+}
+cluster(-122.414, 37.783, 0.0100, 0.0062, 950, 1.0);  // Tenderloin / SoMa — strongest
+cluster(-122.419, 37.760, 0.0062, 0.0080, 480, 0.85); // Mission
+cluster(-122.390, 37.732, 0.0090, 0.0075, 280, 0.65); // Bayview — lighter
+for (let i = 0; i < 290; i++){                        // thin citywide scatter
+  features.push({
+    type: 'Feature',
+    properties: { w: 0.35 },
+    geometry: { type: 'Point', coordinates: [
+      BOUNDS[0][0] + rand() * (BOUNDS[1][0] - BOUNDS[0][0]),
+      BOUNDS[0][1] + rand() * (BOUNDS[1][1] - BOUNDS[0][1])
+    ]}
+  });
+}
+const incidents = { type: 'FeatureCollection', features };
+
+/* ---------------- map ---------------- */
+/* strip every trace of hue from the CARTO style: grays only */
+function toGray(str){
+  let m = str.match(/^#([0-9a-f]{3})$/i);
+  if (m) str = '#' + m[1].split('').map(c => c + c).join('');
+  m = str.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+  if (m){
+    const r = parseInt(m[1].slice(0,2),16), g = parseInt(m[1].slice(2,4),16), b = parseInt(m[1].slice(4,6),16);
+    const v = Math.round(0.2126*r + 0.7152*g + 0.0722*b);
+    const h = v.toString(16).padStart(2,'0');
+    return '#' + h + h + h + (m[2] || '');
+  }
+  m = str.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i);
+  if (m){
+    const v = Math.round(0.2126*+m[1] + 0.7152*+m[2] + 0.0722*+m[3]);
+    return m[4] !== undefined ? `rgba(${v},${v},${v},${m[4]})` : `rgb(${v},${v},${v})`;
+  }
+  m = str.match(/^(hsla?)\(\s*[\d.]+\s*,\s*[\d.]+%\s*,\s*([\d.]+%)\s*(?:,\s*([\d.]+)\s*)?\)$/i);
+  if (m) return m[3] !== undefined ? `hsla(0,0%,${m[2]},${m[3]})` : `hsl(0,0%,${m[2]})`;
+  return str;
+}
+function desaturate(node){
+  if (Array.isArray(node)){ node.forEach((v,i) => {
+    if (typeof v === 'string') node[i] = toGray(v); else desaturate(v);
+  }); return; }
+  if (node && typeof node === 'object'){ for (const k of Object.keys(node)){
+    const v = node[k];
+    if (typeof v === 'string') node[k] = toGray(v); else desaturate(v);
+  }}
+}
+
+let map;
+fetch('https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json')
+  .then(r => r.json())
+  .then(style => {
+    desaturate(style);
+    for (const l of style.layers){
+      if (l.type === 'background') (l.paint || (l.paint = {}))['background-color'] = '#0A0A0A';
+      if (l.type === 'fill' && /water|ocean/i.test(l.id)) (l.paint || (l.paint = {}))['fill-color'] = '#050505';
+    }
+    initMap(style);
+  });
+
+function initMap(style){
+map = new maplibregl.Map({
+  container: 'map',
+  style,
+  center: [-122.44, 37.77],
+  zoom: 11,
+  attributionControl: false,
+  dragRotate: false,
+  pitchWithRotate: false
+});
+map.touchZoomRotate.disableRotation();
+map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+
+map.on('load', () => {
+  map.fitBounds(BOUNDS, { padding: 24, duration: 0 });
+
+  map.addSource('incidents', { type: 'geojson', data: incidents });
+
+  /* single-ink heat: transparent -> dim gray -> soft silver -> near-white */
+  map.addLayer({
+    id: 'heat',
+    type: 'heatmap',
+    source: 'incidents',
+    paint: {
+      'heatmap-weight': ['get', 'w'],
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 0.22, 13, 0.55, 15, 1.1],
+      'heatmap-radius':    ['interpolate', ['linear'], ['zoom'], 10, 10, 12, 19, 14, 34],
+      'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'],
+        0,    'rgba(0,0,0,0)',
+        0.15, 'rgba(70,70,70,0.25)',
+        0.35, 'rgba(118,118,118,0.45)',
+        0.60, 'rgba(170,170,170,0.68)',
+        0.85, 'rgba(220,220,220,0.88)',
+        1,    'rgba(255,255,255,1)'
+      ],
+      'heatmap-opacity': 0.9
+    }
+  });
+
+  map.addLayer({
+    id: 'points',
+    type: 'circle',
+    source: 'incidents',
+    layout: { visibility: 'none' },
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 1.3, 13, 2.4, 15, 3.5],
+      'circle-color': '#D9D9D9',
+      'circle-opacity': 0.55,
+      'circle-stroke-width': 0
+    }
+  });
+});
+}
+
+/* ---------------- Heat / Points toggle ---------------- */
+function setMode(mode){
+  if (!map || !map.getLayer('heat')) return;
+  map.setLayoutProperty('heat',   'visibility', mode === 'heat'   ? 'visible' : 'none');
+  map.setLayoutProperty('points', 'visibility', mode === 'points' ? 'visible' : 'none');
+  document.getElementById('btn-heat').classList.toggle('on', mode === 'heat');
+  document.getElementById('btn-points').classList.toggle('on', mode === 'points');
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Report — Direction Mockups</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    background: #16181c;
+    color: #e8e8e6;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #2a2d33;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #9aa0a8; margin-right: 8px; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  nav button {
+    font: inherit;
+    font-size: 13px;
+    color: #c9cdd3;
+    background: #22252b;
+    border: 1px solid #33373f;
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  nav button:hover { background: #2b2f36; }
+  nav button.active { background: #e8e8e6; color: #16181c; border-color: #e8e8e6; font-weight: 600; }
+  nav button .num { opacity: 0.55; margin-right: 5px; font-variant-numeric: tabular-nums; }
+  main { flex: 1; min-height: 0; position: relative; }
+  iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+    display: none;
+  }
+  iframe.visible { display: block; }
+  .hint { margin-left: auto; font-size: 12px; color: #6b717a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Block Report — directions</h1>
+  <nav id="nav"></nav>
+  <span class="hint">←/→ arrow keys to switch</span>
+</header>
+<main id="main"></main>
+<script>
+  const mockups = [
+    ["01-night-dispatch.html", "Night Dispatch"],
+    ["02-blotter.html", "The Blotter"],
+    ["03-field-survey.html", "Field Survey"],
+    ["04-fog-city.html", "Fog City"],
+    ["05-supergraphic.html", "Supergraphic"],
+    ["06-sanborn.html", "Sanborn Atlas"],
+    ["07-graphite.html", "Graphite"],
+    ["08-darkroom.html", "Darkroom"],
+    ["09-slate.html", "Slate"],
+    ["10-hexbin-3d.html", "3D Hexbin"],
+    ["11-isometric.html", "Isometric"],
+    ["12-contour.html", "Contours"],
+    ["13-dots.html", "Dot Density"],
+    ["14-hex-iso.html", "Hex Refined"],
+    ["15-heat-3d.html", "Heat 3D"],
+    ["16-heat-3d-v2.html", "Heat 3D v2"],
+    ["17-contour-3d.html", "Contour 3D"],
+    ["18-heat-tunable.html", "Heat Tunable"],
+    ["19-contour-filled.html", "Contour Filled"],
+    ["20-blocks.html", "Blocks"],
+    ["21-streets.html", "Streets"],
+    ["22-buildings.html", "Buildings"],
+    ["23-buildings-blocks.html", "Buildings+Blocks"],
+  ];
+  const nav = document.getElementById("nav");
+  const main = document.getElementById("main");
+  const buttons = [], frames = [];
+  let current = 0;
+
+  mockups.forEach(([file, name], i) => {
+    const b = document.createElement("button");
+    b.innerHTML = '<span class="num">' + String(i + 1).padStart(2, "0") + '</span>' + name;
+    b.onclick = () => show(i);
+    nav.appendChild(b);
+    buttons.push(b);
+    const f = document.createElement("iframe");
+    f.src = file;
+    f.title = name;
+    main.appendChild(f);
+    frames.push(f);
+  });
+
+  function show(i) {
+    current = i;
+    buttons.forEach((b, j) => b.classList.toggle("active", j === i));
+    frames.forEach((f, j) => f.classList.toggle("visible", j === i));
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") show((current + 1) % mockups.length);
+    if (e.key === "ArrowLeft") show((current + mockups.length - 1) % mockups.length);
+  });
+  show(0);
+</script>
+</body>
+</html>

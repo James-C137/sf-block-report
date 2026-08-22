@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Report — Sanborn Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDE3CB;
+    --paper-hi:#F5EEDC;
+    --land:#F1E9D3;
+    --ink:#4A3826;
+    --ink-soft:rgba(74,56,38,.55);
+    --ink-faint:rgba(74,56,38,.3);
+    --text:#2C2114;
+    --water:#A9BCC0;
+    --water-deep:#7E97A0;
+    --water-ink:#56707C;
+    --olive:#CBC79F;
+    --carmine:#B3341F;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    min-height:820px;
+    min-width:1180px;
+    position:relative;
+    background-color:var(--paper);
+    background-image:
+      radial-gradient(1100px 700px at 18% 22%, rgba(133,101,49,.055), transparent 62%),
+      radial-gradient(900px 720px at 84% 70%, rgba(133,101,49,.06), transparent 60%),
+      radial-gradient(460px 380px at 66% 12%, rgba(150,110,55,.045), transparent 65%),
+      radial-gradient(380px 300px at 8% 88%, rgba(150,110,55,.05), transparent 65%);
+    color:var(--text);
+    font-family:"EB Garamond", Georgia, "Times New Roman", serif;
+    font-feature-settings:"onum" 1;
+    overflow:hidden;
+  }
+  /* aged glaze + vignette over everything */
+  body::after{
+    content:"";
+    position:fixed; inset:0; z-index:70;
+    pointer-events:none;
+    mix-blend-mode:multiply;
+    background:
+      radial-gradient(1300px 900px at 30% 35%, rgba(126,94,44,.04), transparent 60%),
+      radial-gradient(700px 500px at 78% 20%, rgba(126,94,44,.05), transparent 62%),
+      radial-gradient(closest-corner circle at 50% 46%, transparent 52%, rgba(88,62,28,.11) 100%);
+  }
+
+  /* ---------- PLATE FRAME ---------- */
+  .plate{
+    position:absolute; inset:16px;
+    border:2px solid var(--ink);
+    overflow:hidden;
+    background:var(--paper);
+  }
+  .plate::before{ /* inner hairline of the double rule */
+    content:"";
+    position:absolute; inset:5px;
+    border:1px solid var(--ink);
+    pointer-events:none;
+    z-index:40;
+  }
+
+  .map{
+    position:absolute; inset:6px;
+    width:calc(100% - 12px);
+    height:calc(100% - 12px);
+  }
+  .map svg{width:100%;height:100%;display:block;}
+
+  /* ---------- TITLE BLOCK ---------- */
+  .title-block{
+    position:absolute; top:28px; left:50%;
+    transform:translateX(-50%);
+    z-index:30;
+    text-align:center;
+    background:linear-gradient(175deg, var(--paper-hi), #F0E7D0);
+    border:1px solid var(--ink);
+    outline:1px solid var(--ink-soft);
+    outline-offset:3px;
+    padding:14px 46px 16px;
+    white-space:nowrap;
+  }
+  .title-block .eyebrow{
+    font-size:11px;
+    letter-spacing:.42em;
+    text-indent:.42em;
+    text-transform:uppercase;
+    color:var(--ink);
+  }
+  .title-block .eyebrow .orn{color:var(--carmine); letter-spacing:0; text-indent:0; padding:0 .9em;}
+  .title-block h1{
+    font-family:"IM Fell English SC","EB Garamond",serif;
+    font-weight:400;
+    font-size:46px;
+    line-height:1.05;
+    letter-spacing:.14em;
+    text-indent:.14em;
+    margin:6px 0 7px;
+    color:var(--text);
+  }
+  .title-block .plate-line{
+    font-size:12px;
+    letter-spacing:.3em;
+    text-indent:.3em;
+    text-transform:uppercase;
+    color:var(--ink);
+  }
+  .title-block .plate-line b{font-weight:500; color:var(--text);}
+  .title-block hr{
+    border:0; height:1px; width:64%;
+    margin:8px auto 9px;
+    background:linear-gradient(to right, transparent, var(--ink-soft) 18%, var(--ink-soft) 82%, transparent);
+  }
+
+  /* ---------- CORNER PLATE NUMBER ---------- */
+  .plate-no{
+    position:absolute; top:30px; right:46px;
+    z-index:30; text-align:center;
+    color:var(--ink);
+  }
+  .plate-no .cap{font-size:10px; letter-spacing:.5em; text-indent:.5em; text-transform:uppercase;}
+  .plate-no .num{
+    font-family:"IM Fell English",serif;
+    font-size:66px; line-height:.95;
+    color:var(--text);
+  }
+  .plate-no .rule{width:52px; height:1px; background:var(--ink-soft); margin:6px auto 0;}
+
+  /* ---------- BOTTOM CREDIT ---------- */
+  .credit{
+    position:absolute; bottom:22px; left:50%;
+    transform:translateX(-50%);
+    z-index:30;
+    font-size:9.5px;
+    letter-spacing:.28em;
+    text-indent:.28em;
+    text-transform:uppercase;
+    color:var(--ink);
+    opacity:.8;
+    white-space:nowrap;
+  }
+
+  /* ---------- LEGEND CARTOUCHE ---------- */
+  .cartouche{
+    position:absolute; left:46px; bottom:42px;
+    z-index:35;
+    width:354px;
+    background:
+      radial-gradient(420px 300px at 20% 10%, rgba(133,101,49,.05), transparent 70%),
+      linear-gradient(168deg, var(--paper-hi), #EFE6CE);
+    border:1px solid var(--ink);
+    box-shadow:0 3px 18px rgba(70,50,22,.22);
+    padding:7px;
+  }
+  .cartouche .bezel{
+    border:2px solid var(--ink);
+    padding:1px;
+  }
+  .cartouche .bezel-inner{
+    border:1px solid var(--ink-soft);
+    padding:12px 19px 14px;
+  }
+
+  .c-head{text-align:center; margin-bottom:9px;}
+  .c-head .word{
+    font-family:"IM Fell English SC",serif;
+    font-size:18px;
+    letter-spacing:.32em;
+    text-indent:.32em;
+    line-height:1;
+  }
+  .c-head .flourish{
+    display:flex; align-items:center; gap:10px;
+    margin-top:5px;
+    color:var(--carmine);
+    font-size:9px;
+  }
+  .c-head .flourish::before,
+  .c-head .flourish::after{
+    content:""; flex:1; height:1px;
+    background:linear-gradient(to right, transparent, var(--ink-soft));
+  }
+  .c-head .flourish::after{background:linear-gradient(to left, transparent, var(--ink-soft));}
+  .c-head .sub{
+    font-size:10px; font-style:italic;
+    color:var(--ink); margin-top:4px;
+    letter-spacing:.06em;
+  }
+
+  .c-section{margin-top:9px;}
+  .c-section:first-of-type{margin-top:0;}
+  .c-label{
+    font-size:9.5px;
+    letter-spacing:.34em;
+    text-indent:.02em;
+    text-transform:uppercase;
+    color:var(--ink);
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:7px;
+  }
+  .c-label::after{content:""; flex:1; height:1px; background:var(--ink-faint);}
+
+  /* period of survey */
+  .dates{display:flex; align-items:center; gap:8px;}
+  .date-field{
+    font:inherit; color:var(--text);
+    font-size:12.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    background:var(--paper-hi);
+    border:1px solid var(--ink-soft);
+    padding:3px 9px 3px 11px;
+    display:inline-flex; align-items:center; gap:8px;
+    cursor:pointer;
+    flex:1; justify-content:space-between;
+  }
+  .date-field .caret{font-size:8px; color:var(--ink); opacity:.8;}
+  .date-field:hover{border-color:var(--ink); background:#F8F2E2;}
+  .dates .to{font-style:italic; font-size:12px; color:var(--ink);}
+  .period-note{
+    font-size:11px; font-style:italic;
+    color:var(--ink);
+    margin-top:4px;
+    letter-spacing:.03em;
+  }
+  .period-note b{font-style:normal; font-weight:600; color:var(--text); letter-spacing:.05em;}
+  .histo{margin-top:5px;}
+  .histo svg{width:100%; height:46px; display:block;}
+  .histo-cap{
+    display:flex; justify-content:space-between;
+    font-size:8.5px; letter-spacing:.24em;
+    text-transform:uppercase; color:var(--ink); opacity:.85;
+    margin-top:3px;
+  }
+
+  /* classification checklist */
+  .cat-row{
+    font:inherit; color:var(--text); text-align:left;
+    background:none; border:0;
+    width:100%;
+    display:flex; align-items:center; gap:9px;
+    font-size:13px;
+    letter-spacing:.09em;
+    padding:1.5px 3px;
+    cursor:pointer;
+  }
+  .cat-row:hover{background:rgba(179,52,31,.06);}
+  .cat-row .box{
+    width:11px; height:11px; flex:none;
+    border:1px solid var(--ink);
+    background:var(--paper-hi);
+    position:relative;
+  }
+  .cat-row.checked .box::before{
+    content:"✕";
+    position:absolute; inset:0;
+    font-size:11px; line-height:10px;
+    text-align:center;
+    color:var(--carmine);
+  }
+  .cat-row .name{font-variant:small-caps; letter-spacing:.12em; font-size:13.5px;}
+  .cat-row .n{margin-left:auto; font-size:12.5px; color:var(--ink); letter-spacing:.05em;}
+  .cat-row.muted{opacity:.62;}
+  .cat-row.muted .name{font-style:italic; font-variant:normal; letter-spacing:.06em;}
+
+  /* mode */
+  .mode{display:flex; gap:22px;}
+  .mode-opt{
+    font:inherit; color:var(--text); background:none; border:0;
+    display:flex; align-items:center; gap:8px;
+    font-size:13px;
+    cursor:pointer;
+    padding:2px 3px;
+  }
+  .mode-opt:hover{background:rgba(179,52,31,.06);}
+  .mode-opt .ring{
+    width:11px; height:11px; flex:none;
+    border:1px solid var(--ink);
+    border-radius:50%;
+    background:var(--paper-hi);
+  }
+  .mode-opt.on .ring{
+    background:radial-gradient(circle at 50% 45%, var(--carmine) 0 3.2px, var(--paper-hi) 3.8px);
+    border-color:var(--text);
+  }
+  .mode-opt .name{font-variant:small-caps; letter-spacing:.12em; font-size:13.5px;}
+  .mode-opt.on .name{font-weight:600;}
+  .mode .slash{color:var(--ink-soft); font-style:italic; align-self:center;}
+
+  /* table of districts */
+  .dist-row{
+    display:flex; align-items:baseline; gap:8px;
+    font-size:13px;
+    padding:2px 3px;
+  }
+  .dist-row:hover{background:rgba(179,52,31,.06); cursor:pointer;}
+  .dist-row .rn{
+    width:20px; flex:none;
+    font-size:11px; letter-spacing:.08em;
+    color:var(--ink);
+    font-style:italic;
+  }
+  .dist-row .swatch{
+    width:10px; height:10px; flex:none;
+    align-self:center;
+    background:var(--carmine);
+    border:.5px solid rgba(74,56,38,.4);
+  }
+  .dist-row .name{font-variant:small-caps; letter-spacing:.12em; font-size:13.5px;}
+  .dist-row .lead{
+    flex:1;
+    border-bottom:1.5px dotted var(--ink-soft);
+    transform:translateY(-3px);
+    min-width:14px;
+  }
+  .dist-row .n{font-size:13px; letter-spacing:.04em;}
+
+  /* density scale */
+  .scalebar{
+    height:10px;
+    border:1px solid var(--ink-soft);
+    background:
+      linear-gradient(to right, rgba(179,52,31,0), rgba(179,52,31,.88)),
+      var(--paper-hi);
+  }
+  .scale-caps{
+    display:flex; justify-content:space-between;
+    font-size:8.5px; letter-spacing:.26em;
+    text-transform:uppercase; color:var(--ink);
+    margin-top:4px;
+  }
+  .scale-note{
+    font-size:10px; font-style:italic; color:var(--ink);
+    text-align:center; margin-top:2px; letter-spacing:.04em;
+  }
+
+  button:focus-visible{
+    outline:1.5px solid var(--carmine);
+    outline-offset:2px;
+  }
+
+  @media (max-height:920px){
+    .cartouche{transform:scale(.88); transform-origin:left bottom;}
+  }
+  @media (max-height:830px){
+    .cartouche{transform:scale(.8);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important; animation:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="plate">
+
+  <!-- ==================== THE MAP ==================== -->
+  <div class="map" aria-label="Stylized survey plate of San Francisco">
+  <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" role="img">
+    <defs>
+      <path id="land" d="M430 305
+        C455 285 490 262 525 268
+        C560 274 585 292 615 286
+        C650 279 668 258 700 254
+        C735 250 765 258 800 252
+        C830 247 845 232 862 238
+        C872 242 875 252 890 250
+        C910 247 930 228 955 232
+        C985 236 1000 228 1018 236
+        C1045 248 1075 272 1098 300
+        C1120 328 1132 360 1136 392
+        C1141 430 1136 452 1130 476
+        L1112 490 L1116 514 L1146 526
+        C1158 548 1160 582 1154 610
+        L1132 622 L1134 646
+        C1152 664 1196 678 1230 696
+        L1256 710 L1242 734 L1204 746
+        C1186 752 1170 750 1164 766
+        C1158 782 1178 792 1198 804
+        C1220 816 1234 828 1228 846
+        C1222 864 1194 864 1176 878
+        C1158 892 1152 912 1148 938
+        C1145 960 1146 982 1148 1004
+        L424 1004
+        C418 900 414 800 418 700
+        C421 600 424 500 428 400
+        C429 368 429 336 430 305 Z"/>
+      <clipPath id="landClip"><use href="#land"/></clipPath>
+      <filter id="wash" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation="12"/>
+      </filter>
+      <!-- plat grid: blocks of three -->
+      <pattern id="gridA" width="66" height="66" patternUnits="userSpaceOnUse">
+        <path d="M66 0H0V66" fill="none" stroke="#4A3826" stroke-width=".9" opacity=".5"/>
+        <path d="M22 0V66 M44 0V66 M0 22H66 M0 44H66" fill="none" stroke="#4A3826" stroke-width=".45" opacity=".45"/>
+      </pattern>
+      <pattern id="gridB" width="66" height="66" patternUnits="userSpaceOnUse" patternTransform="rotate(-40)">
+        <path d="M66 0H0V66" fill="none" stroke="#4A3826" stroke-width=".9" opacity=".5"/>
+        <path d="M22 0V66 M44 0V66 M0 22H66 M0 44H66" fill="none" stroke="#4A3826" stroke-width=".45" opacity=".45"/>
+      </pattern>
+      <pattern id="gridC" width="66" height="66" patternUnits="userSpaceOnUse" patternTransform="rotate(8)">
+        <path d="M66 0H0V66" fill="none" stroke="#4A3826" stroke-width=".9" opacity=".5"/>
+        <path d="M22 0V66 M44 0V66 M0 22H66 M0 44H66" fill="none" stroke="#4A3826" stroke-width=".45" opacity=".45"/>
+      </pattern>
+    </defs>
+
+    <!-- water -->
+    <rect x="0" y="0" width="1600" height="1000" fill="#A9BCC0"/>
+
+    <!-- shoreline contour rings -->
+    <use href="#land" fill="none" stroke="#7E97A0" stroke-width="38" opacity=".14"/>
+    <use href="#land" fill="none" stroke="#7E97A0" stroke-width="22" opacity=".2"/>
+    <use href="#land" fill="none" stroke="#7E97A0" stroke-width="9" opacity=".3"/>
+
+    <!-- land -->
+    <use href="#land" fill="#F1E9D3" stroke="#4A3826" stroke-width="1.4"/>
+
+    <!-- plat grids, clipped to land -->
+    <g clip-path="url(#landClip)" opacity=".55">
+      <rect x="426" y="316" width="418" height="692" fill="url(#gridA)"/>
+      <rect x="828" y="655" width="332" height="352" fill="url(#gridA)"/>
+      <rect x="844" y="228" width="300" height="266" fill="url(#gridC)"/>
+      <path d="M765 700 L1136 386 L1148 470 L1156 600 L1150 640 L980 730 L800 720 Z" fill="url(#gridB)"/>
+    </g>
+
+    <!-- parks -->
+    <g clip-path="url(#landClip)">
+      <path d="M545 320 Q560 270 640 262 Q720 258 745 300 Q750 330 700 345 Q620 360 570 350 Q540 340 545 320 Z"
+            fill="#CBC79F" opacity=".85" stroke="#4A3826" stroke-width=".7"/>
+      <rect x="470" y="468" width="360" height="56" fill="#CBC79F" stroke="#4A3826" stroke-width=".8"/>
+    </g>
+
+    <!-- arterials -->
+    <g clip-path="url(#landClip)" stroke="#4A3826" fill="none">
+      <path d="M905 252 V560" stroke-width="1.1" opacity=".7"/>
+      <path d="M432 396 H900" stroke-width="1" opacity=".65"/>
+      <path d="M610 330 V1004" stroke-width="1" opacity=".6"/>
+      <path d="M955 242 L1040 330" stroke-width=".9" opacity=".65"/>
+      <path d="M1148 412 L783 721" stroke-width=".9" opacity=".6"/>
+    </g>
+    <!-- Market St: cased double line -->
+    <g clip-path="url(#landClip)">
+      <path d="M1136 388 L765 700" stroke="#4A3826" stroke-width="3" fill="none"/>
+      <path d="M1136 388 L765 700" stroke="#F1E9D3" stroke-width="1.1" fill="none"/>
+    </g>
+
+    <!-- piers -->
+    <g stroke="#4A3826" stroke-width=".9" opacity=".75">
+      <path d="M1046 258 L1064 244"/>
+      <path d="M1072 278 L1092 266"/>
+      <path d="M1096 304 L1117 294"/>
+      <path d="M1114 332 L1136 324"/>
+      <path d="M1128 362 L1151 356"/>
+      <path d="M1136 396 L1160 393"/>
+      <path d="M1134 436 L1158 436"/>
+      <path d="M930 236 L936 214"/>
+      <path d="M890 246 L893 224"/>
+    </g>
+
+    <!-- water labels -->
+    <g fill="#56707C" font-family="EB Garamond, serif" font-style="italic" opacity=".9">
+      <text x="180" y="268" font-size="15" letter-spacing="5">PACIFIC&#160;&#160;OCEAN</text>
+      <text x="530" y="232" font-size="12" letter-spacing="5">GOLDEN&#160;&#160;GATE</text>
+      <text x="1345" y="560" font-size="15" letter-spacing="4.5" transform="rotate(-72 1345 560)">SAN&#160;FRANCISCO&#160;BAY</text>
+    </g>
+
+    <!-- district labels (under the wash, so the ink tints them) -->
+    <g fill="#4A3826" font-family="EB Garamond, serif" opacity=".8" text-anchor="middle">
+      <text x="648" y="313" font-size="12" letter-spacing="3">PRESIDIO</text>
+      <text x="812" y="286" font-size="10.5" letter-spacing="2.6">MARINA</text>
+      <text x="1000" y="264" font-size="10" letter-spacing="2.2">NORTH BEACH</text>
+      <text x="650" y="500" font-size="10.5" letter-spacing="2.6" opacity=".95">GOLDEN GATE PARK</text>
+      <text x="636" y="428" font-size="12" letter-spacing="3">RICHMOND</text>
+      <text x="632" y="612" font-size="12" letter-spacing="3">SUNSET</text>
+      <text x="952" y="399" font-size="10" letter-spacing="2.2">TENDERLOIN</text>
+      <text x="1048" y="480" font-size="10" letter-spacing="2.2">SOMA</text>
+      <text x="892" y="632" font-size="12" letter-spacing="3">MISSION</text>
+      <text x="1114" y="752" font-size="12" letter-spacing="3">BAYVIEW</text>
+      <text x="948" y="530" font-size="9" letter-spacing="2" transform="rotate(-40 948 530)" opacity=".9">MARKET&#160;ST.</text>
+    </g>
+
+    <!-- carmine watercolor wash, held at the shoreline -->
+    <g clip-path="url(#landClip)">
+    <g filter="url(#wash)" style="mix-blend-mode:multiply" fill="#B3341F">
+      <ellipse cx="975" cy="418" rx="60" ry="42" opacity=".55"/>
+      <ellipse cx="1015" cy="455" rx="72" ry="50" opacity=".45"/>
+      <ellipse cx="985" cy="425" rx="28" ry="20" opacity=".75"/>
+      <ellipse cx="1045" cy="502" rx="48" ry="34" opacity=".3"/>
+      <ellipse cx="930" cy="455" rx="36" ry="26" opacity=".35" transform="rotate(-20 930 455)"/>
+      <ellipse cx="938" cy="640" rx="44" ry="56" opacity=".35"/>
+      <ellipse cx="950" cy="688" rx="30" ry="34" opacity=".25"/>
+      <ellipse cx="922" cy="600" rx="24" ry="22" opacity=".3" transform="rotate(24 922 600)"/>
+      <ellipse cx="1118" cy="788" rx="44" ry="34" opacity=".22"/>
+      <ellipse cx="1152" cy="824" rx="26" ry="20" opacity=".18"/>
+      <ellipse cx="1000" cy="285" rx="26" ry="18" opacity=".16"/>
+    </g>
+    </g>
+
+    <!-- compass rose -->
+    <g transform="translate(1352,248)">
+      <circle r="41" fill="none" stroke="#4A3826" stroke-width=".9" opacity=".85"/>
+      <circle r="33" fill="none" stroke="#4A3826" stroke-width=".45" opacity=".7"/>
+      <g transform="rotate(45)" fill="#4A3826" opacity=".5">
+        <path d="M0 -22 L4 0 L0 22 L-4 0 Z"/>
+        <path d="M-22 0 L0 4 L22 0 L0 -4 Z"/>
+      </g>
+      <path d="M0 -38 L5.5 -5.5 L38 0 L5.5 5.5 L0 38 L-5.5 5.5 L-38 0 L-5.5 -5.5 Z"
+            fill="#F1E9D3" stroke="#4A3826" stroke-width="1"/>
+      <path d="M0 -38 L5.5 -5.5 L-5.5 -5.5 Z" fill="#B3341F"/>
+      <circle r="3.4" fill="#4A3826"/>
+      <text y="-49" text-anchor="middle" font-family="IM Fell English, serif" font-size="16" fill="#4A3826">N</text>
+    </g>
+
+    <!-- scale of feet -->
+    <g transform="translate(1310,896)" font-family="EB Garamond, serif" fill="#4A3826">
+      <text x="0" y="-14" text-anchor="middle" font-size="10" letter-spacing="3">SCALE OF FEET</text>
+      <rect x="-90" y="0" width="180" height="6" fill="none" stroke="#4A3826" stroke-width=".9"/>
+      <rect x="-90" y="0" width="45" height="6" fill="#4A3826"/>
+      <rect x="0" y="0" width="45" height="6" fill="#4A3826"/>
+      <text x="-90" y="20" text-anchor="middle" font-size="9.5">0</text>
+      <text x="0" y="20" text-anchor="middle" font-size="9.5">1000</text>
+      <text x="90" y="20" text-anchor="middle" font-size="9.5">2000</text>
+    </g>
+  </svg>
+  </div>
+
+  <!-- ==================== TITLE BLOCK ==================== -->
+  <header class="title-block">
+    <div class="eyebrow">City <span class="orn">&#10022;</span> &amp; <span class="orn">&#10022;</span> County of San Francisco</div>
+    <h1>Block Report</h1>
+    <hr>
+    <div class="plate-line">Plate <b>N<sup>o</sup> 1</b> &nbsp;&#183;&nbsp; Surveyed <b>Jul 22 &#8211; Aug 21, 2026</b> &nbsp;&#183;&nbsp; <b>12,408</b> Reports of Record</div>
+  </header>
+
+  <!-- ==================== PLATE NUMBER ==================== -->
+  <div class="plate-no" aria-hidden="true">
+    <div class="cap">Plate</div>
+    <div class="num">1</div>
+    <div class="rule"></div>
+  </div>
+
+  <!-- ==================== LEGEND CARTOUCHE ==================== -->
+  <aside class="cartouche">
+    <div class="bezel"><div class="bezel-inner">
+
+      <div class="c-head">
+        <div class="word">Reference</div>
+        <div class="flourish">&#10022;</div>
+        <div class="sub">Legend &amp; instruments of the survey</div>
+      </div>
+
+      <section class="c-section">
+        <div class="c-label">Period of Survey</div>
+        <div class="dates">
+          <button class="date-field" type="button">Jul 22, 2026 <span class="caret">&#9660;</span></button>
+          <span class="to">to</span>
+          <button class="date-field" type="button">Aug 21, 2026 <span class="caret">&#9660;</span></button>
+        </div>
+        <p class="period-note"><b>12,408</b> reports entered of record this period.</p>
+        <div class="histo">
+          <svg viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M8 56V26M17.6 56V30M27.2 56V27M36.8 56V21M46.4 56V18M56 56V26M65.6 56V32M75.2 56V29M84.8 56V25M94.4 56V22M104 56V19M113.6 56V23M123.2 56V31M132.8 56V33M142.4 56V28M152 56V24M161.6 56V20M180.8 56V25M190.4 56V29M200 56V32M209.6 56V26M219.2 56V22M228.8 56V16M238.4 56V19M248 56V27M257.6 56V30M267.2 56V25M276.8 56V17M286.4 56V14"
+                  stroke="#4A3826" stroke-width="4.5" opacity=".6"/>
+            <path d="M171.2 56V10" stroke="#B3341F" stroke-width="4.5"/>
+            <line x1="3" y1="57" x2="297" y2="57" stroke="#4A3826" stroke-width="1"/>
+            <line x1="3" y1="57" x2="3" y2="52" stroke="#4A3826" stroke-width="1"/>
+            <line x1="297" y1="57" x2="297" y2="52" stroke="#4A3826" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="histo-cap"><span>Jul 22</span><span>reports by day</span><span>Aug 21</span></div>
+      </section>
+
+      <section class="c-section">
+        <div class="c-label">Classification</div>
+        <button class="cat-row checked" type="button"><span class="box"></span><span class="name">Larceny / Theft</span><span class="n">5,214</span></button>
+        <button class="cat-row checked" type="button"><span class="box"></span><span class="name">Assault</span><span class="n">1,982</span></button>
+        <button class="cat-row checked" type="button"><span class="box"></span><span class="name">Motor Vehicle Theft</span><span class="n">1,491</span></button>
+        <button class="cat-row checked" type="button"><span class="box"></span><span class="name">Burglary</span><span class="n">1,205</span></button>
+        <button class="cat-row checked" type="button"><span class="box"></span><span class="name">Robbery</span><span class="n">688</span></button>
+        <button class="cat-row muted" type="button"><span class="box"></span><span class="name">all other classes</span><span class="n">1,828</span></button>
+      </section>
+
+      <section class="c-section">
+        <div class="c-label">Mode of Exhibit</div>
+        <div class="mode">
+          <button class="mode-opt on" type="button"><span class="ring"></span><span class="name">Heat wash</span></button>
+          <span class="slash">&#8260;</span>
+          <button class="mode-opt" type="button"><span class="ring"></span><span class="name">Point marks</span></button>
+        </div>
+      </section>
+
+      <section class="c-section">
+        <div class="c-label">Table of Districts</div>
+        <div class="dist-row"><span class="rn">I.</span><span class="swatch" style="opacity:1"></span><span class="name">Tenderloin</span><span class="lead"></span><span class="n">1,842</span></div>
+        <div class="dist-row"><span class="rn">II.</span><span class="swatch" style="opacity:.72"></span><span class="name">Mission</span><span class="lead"></span><span class="n">1,301</span></div>
+        <div class="dist-row"><span class="rn">III.</span><span class="swatch" style="opacity:.68"></span><span class="name">SoMa</span><span class="lead"></span><span class="n">1,240</span></div>
+        <div class="dist-row"><span class="rn">IV.</span><span class="swatch" style="opacity:.48"></span><span class="name">Bayview</span><span class="lead"></span><span class="n">872</span></div>
+        <div class="dist-row"><span class="rn">V.</span><span class="swatch" style="opacity:.3"></span><span class="name">North Beach</span><span class="lead"></span><span class="n">511</span></div>
+      </section>
+
+      <section class="c-section">
+        <div class="c-label">Density of Wash</div>
+        <div class="scalebar"></div>
+        <div class="scale-caps"><span>Faint</span><span>Full</span></div>
+        <p class="scale-note">the deeper the carmine, the more reports the block</p>
+      </section>
+
+    </div></div>
+  </aside>
+
+  <!-- ==================== CREDIT ==================== -->
+  <footer class="credit">Drawn from records of the San Francisco Police Dept. &#183; incident reports via DataSF &#183; every mark a report of record</footer>
+
+</div>
+
+</body>
+</html>

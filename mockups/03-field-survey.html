@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Report — Field Survey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#EDEFEC;        /* desk / paper-gray ground */
+    --paper:#F6F7F3;         /* sheet */
+    --panel:#F6F7F3;
+    --ink:#191C19;           /* near-black */
+    --rule:#191C19;
+    --rule-soft:#B9BEB6;
+    --land:#D5DBCF;          /* muted gray-green */
+    --land-line:#B7BFAE;
+    --park:#C6D0B9;
+    --water:#CBD5D9;         /* flat pale gray-blue */
+    --orange:#E8590C;        /* safety orange — data + active only */
+    --orange-2:#F08C4B;
+    --orange-3:#F6BE95;
+    --orange-4:#FBE3D0;
+    --mut:#5A6058;
+    font-size:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{background:var(--ground);}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:"IBM Plex Sans Condensed",Arial Narrow,Arial,sans-serif;
+    padding:36px 28px 48px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:"IBM Plex Mono",Menlo,Consolas,monospace;}
+
+  /* ---------- the sheet ---------- */
+  .sheet{
+    max-width:1520px;
+    margin:0 auto;
+    background:var(--paper);
+    border:1px solid var(--ink);
+    position:relative;
+    display:grid;
+    grid-template-columns:30px 1fr;   /* binding strip + document */
+  }
+  /* punched binding margin */
+  .binding{
+    border-right:1px solid var(--rule-soft);
+    background:
+      radial-gradient(circle 5px at 15px 50%, var(--ground) 4.5px, var(--paper) 5.5px);
+    background-size:30px 120px;
+    background-repeat:repeat-y;
+  }
+  .doc{min-width:0;}
+
+  /* ---------- form header ---------- */
+  .form-head{
+    display:flex;
+    align-items:stretch;
+    border-bottom:1px solid var(--ink);
+  }
+  .form-head .id{
+    padding:18px 22px 14px;
+    border-right:1px solid var(--ink);
+    flex:0 0 auto;
+  }
+  .form-head .id h1{
+    font-size:1.5rem;
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    white-space:nowrap;
+  }
+  .form-head .id h1 .sep{color:var(--mut);font-weight:400;padding:0 .35em;}
+  .form-head .dept{
+    flex:1 1 auto;
+    padding:18px 22px 14px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:4px;
+    min-width:0;
+  }
+  .form-head .dept .l1{
+    font-size:.66rem;letter-spacing:.22em;text-transform:uppercase;font-weight:600;
+  }
+  .form-head .dept .l2{
+    font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);
+  }
+  .form-head .formno{
+    flex:0 0 auto;
+    border-left:1px solid var(--ink);
+    padding:18px 22px 14px;
+    display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:5px;
+  }
+  .form-head .formno .no{font-size:.8rem;font-weight:600;letter-spacing:.06em;}
+  .form-head .formno .pg{font-size:.62rem;letter-spacing:.16em;color:var(--mut);text-transform:uppercase;}
+
+  /* ---------- meta strip ---------- */
+  .meta{
+    display:flex;
+    border-bottom:1px solid var(--ink);
+    font-size:.7rem;
+  }
+  .meta .cell{
+    padding:10px 22px;
+    border-right:1px solid var(--rule-soft);
+    display:flex;align-items:baseline;gap:10px;
+    white-space:nowrap;
+  }
+  .meta .cell:last-child{border-right:none;border-left:1px solid var(--rule-soft);margin-left:auto;}
+  .meta .k{
+    letter-spacing:.2em;text-transform:uppercase;font-weight:600;font-size:.62rem;color:var(--mut);
+  }
+  .meta .v{font-family:"IBM Plex Mono",monospace;font-weight:500;}
+  .meta .v.big{font-size:.85rem;font-weight:600;}
+  .meta .v .unit{color:var(--mut);font-weight:400;}
+
+  /* ---------- body grid ---------- */
+  .body-grid{
+    display:grid;
+    grid-template-columns:332px 1fr;
+  }
+  .rail{
+    border-right:1px solid var(--ink);
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .fsec.cert{margin-top:auto;border-top:1px solid var(--rule-soft);border-bottom:none;}
+  .sigline{display:flex;gap:14px;align-items:flex-end;}
+  .sigline .sig{flex:1;}
+  .sigline .sig .line{border-bottom:1px solid var(--ink);height:26px;position:relative;}
+  .sigline .sig .line svg{position:absolute;left:6px;bottom:-4px;}
+  .sigline .sig .cap{font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);margin-top:4px;font-weight:600;}
+  .sigline .sdate{flex:0 0 84px;}
+  .sigline .sdate .line{border-bottom:1px solid var(--ink);height:26px;display:flex;align-items:flex-end;font-family:"IBM Plex Mono",monospace;font-size:.66rem;padding-bottom:3px;}
+
+  /* ---------- form sections ---------- */
+  .fsec{
+    position:relative;
+    border-bottom:1px solid var(--rule-soft);
+    padding:28px 20px 20px;
+  }
+  .fsec:last-child{border-bottom:none;}
+  .flabel{
+    position:absolute;
+    top:-1px;left:14px;
+    transform:translateY(-50%);
+    background:var(--paper);
+    border:1px solid var(--ink);
+    padding:3px 9px 2px;
+    font-size:.6rem;
+    font-weight:700;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    white-space:nowrap;
+  }
+  .fsec:first-child .flabel{transform:none;top:12px;}
+  .fsec:first-child{padding-top:46px;}
+  .fnote{
+    font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);
+    margin-top:12px;
+  }
+
+  /* PERIOD */
+  .dates{display:flex;align-items:center;gap:8px;}
+  .datebox{
+    flex:1;
+    border:1px solid var(--ink);
+    padding:7px 9px 6px;
+    background:#fff;
+  }
+  .datebox .dk{font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);display:block;margin-bottom:3px;font-weight:600;}
+  .datebox .dv{font-family:"IBM Plex Mono",monospace;font-size:.78rem;font-weight:500;}
+  .dates .arrow{font-family:"IBM Plex Mono",monospace;font-size:.8rem;color:var(--mut);}
+  .histo{
+    margin-top:14px;
+    border:1px solid var(--rule-soft);
+    padding:8px 8px 6px;
+    background:#fff;
+  }
+  .histo .bars{
+    display:flex;align-items:flex-end;gap:2px;height:46px;
+  }
+  .histo .bars i{
+    flex:1 1 0;background:var(--orange);display:block;min-width:2px;
+  }
+  .histo .axis{
+    display:flex;justify-content:space-between;
+    margin-top:5px;padding-top:4px;border-top:1px solid var(--rule-soft);
+    font-family:"IBM Plex Mono",monospace;font-size:.55rem;color:var(--mut);
+  }
+
+  /* CATEGORY */
+  .checks{display:flex;flex-direction:column;}
+  .check{
+    display:flex;align-items:center;gap:10px;
+    padding:7px 2px;
+    border-bottom:1px dashed var(--rule-soft);
+    cursor:default;
+  }
+  .check:last-child{border-bottom:none;}
+  .check:hover{background:rgba(25,28,25,.035);}
+  .box{
+    width:13px;height:13px;flex:0 0 13px;
+    border:1px solid var(--ink);
+    background:#fff;
+    position:relative;
+  }
+  .check.on .box{background:var(--orange);border-color:var(--orange);}
+  .check.on .box::after{
+    content:"";
+    position:absolute;inset:0;
+    background:
+      linear-gradient(45deg,transparent 44%,#fff 44%,#fff 56%,transparent 56%),
+      linear-gradient(-45deg,transparent 44%,#fff 44%,#fff 56%,transparent 56%);
+  }
+  .check .cname{
+    font-size:.74rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase;
+    flex:1;
+  }
+  .check .ccount{font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--mut);}
+  .check.on .ccount{color:var(--ink);}
+
+  /* DISPLAY radios */
+  .radios{display:flex;border:1px solid var(--ink);}
+  .radio{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:9px;
+    padding:9px 6px 8px;
+    font-size:.68rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+    background:#fff;cursor:default;
+  }
+  .radio + .radio{border-left:1px solid var(--ink);}
+  .dot{
+    width:11px;height:11px;border-radius:50%;
+    border:1px solid var(--ink);background:#fff;flex:0 0 11px;position:relative;
+  }
+  .radio.on{background:var(--ink);color:var(--paper);}
+  .radio.on .dot{border-color:var(--paper);}
+  .radio.on .dot::after{
+    content:"";position:absolute;inset:2px;border-radius:50%;background:var(--orange);
+  }
+  .radio:not(.on):hover{background:rgba(25,28,25,.045);}
+
+  /* DISTRICT RANKING */
+  .rank{width:100%;border-collapse:collapse;}
+  .rank td{
+    padding:7px 2px 6px;
+    border-bottom:1px solid var(--rule-soft);
+    vertical-align:middle;
+    font-size:.74rem;
+  }
+  .rank tr:last-child td{border-bottom:none;}
+  .rank .rno{font-family:"IBM Plex Mono",monospace;font-size:.62rem;color:var(--mut);width:26px;}
+  .rank .rname{font-weight:500;letter-spacing:.05em;text-transform:uppercase;width:110px;white-space:nowrap;}
+  .rank .rbar{padding-right:8px;}
+  .rank .rbar i{display:block;height:7px;background:var(--orange);}
+  .rank .rct{font-family:"IBM Plex Mono",monospace;font-size:.7rem;text-align:right;width:44px;}
+  .rank tr:hover td{background:rgba(25,28,25,.035);}
+
+  /* ---------- map plate ---------- */
+  .plate{
+    padding:22px 22px 18px;
+    display:flex;flex-direction:column;
+    min-width:0;
+  }
+  .plate-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:10px;gap:16px;
+  }
+  .plate-head .pt{
+    font-size:.66rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;
+  }
+  .plate-head .pref{
+    font-family:"IBM Plex Mono",monospace;font-size:.6rem;color:var(--mut);white-space:nowrap;
+  }
+  .mapframe{
+    position:relative;
+    border:1px solid var(--ink);
+    background:var(--water);
+    flex:1;
+    min-height:560px;
+    overflow:hidden;
+  }
+  .mapframe svg{position:absolute;inset:0;display:block;width:100%;height:100%;}
+  .heatblob{mix-blend-mode:multiply;}
+
+  /* stamp */
+  .stamp{
+    position:absolute;
+    top:26px;right:28px;
+    transform:rotate(-7deg);
+    border:2px solid var(--orange);
+    color:var(--orange);
+    padding:7px 13px 6px;
+    text-align:center;
+    opacity:.88;
+    pointer-events:none;
+  }
+  .stamp .s1{font-size:.78rem;font-weight:700;letter-spacing:.3em;text-transform:uppercase;}
+  .stamp .s2{
+    font-family:"IBM Plex Mono",monospace;font-size:.52rem;letter-spacing:.12em;
+    margin-top:3px;padding-top:3px;border-top:1px solid var(--orange);
+  }
+
+  /* legend strip */
+  .legend{
+    border:1px solid var(--ink);border-top:none;
+    display:flex;align-items:stretch;
+    background:#fff;
+    font-size:.62rem;
+  }
+  .legend .lk{
+    padding:9px 14px 8px;
+    border-right:1px solid var(--ink);
+    font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+    display:flex;align-items:center;
+  }
+  .legend .steps{display:flex;align-items:center;gap:0;padding:0 6px;}
+  .legend .step{
+    display:flex;align-items:center;gap:7px;
+    padding:9px 14px 8px;
+  }
+  .legend .sw{
+    width:26px;height:13px;border:1px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    font-family:"IBM Plex Mono",monospace;font-size:.6rem;line-height:1;
+  }
+  .legend .sl{letter-spacing:.18em;text-transform:uppercase;font-weight:600;}
+  .legend .lright{
+    margin-left:auto;
+    display:flex;align-items:center;gap:18px;
+    padding:0 14px;
+    border-left:1px solid var(--rule-soft);
+    font-family:"IBM Plex Mono",monospace;font-size:.58rem;color:var(--mut);
+    white-space:nowrap;
+  }
+  .scalebar{display:flex;align-items:center;gap:6px;}
+  .scalebar .sb{
+    width:72px;height:5px;border:1px solid var(--ink);
+    background:linear-gradient(90deg,var(--ink) 0 25%,#fff 25% 50%,var(--ink) 50% 75%,#fff 75%);
+  }
+
+  /* footer */
+  .form-foot{
+    border-top:1px solid var(--ink);
+    display:flex;justify-content:space-between;gap:20px;
+    padding:9px 22px;
+    font-family:"IBM Plex Mono",monospace;
+    font-size:.58rem;color:var(--mut);
+    letter-spacing:.04em;
+  }
+  .form-foot .fr{white-space:nowrap;}
+
+  @media (max-width:980px){
+    body{padding:16px 10px;}
+    .sheet{grid-template-columns:1fr;}
+    .binding{display:none;}
+    .body-grid{grid-template-columns:1fr;}
+    .rail{border-right:none;border-bottom:1px solid var(--ink);}
+    .form-head{flex-wrap:wrap;}
+    .form-head .dept{display:none;}
+    .meta{flex-wrap:wrap;}
+    .meta .cell:last-child{margin-left:0;border-left:none;}
+    .plate{padding:16px 12px 14px;}
+    .plate-head{flex-wrap:wrap;}
+    .plate-head .pref{white-space:normal;}
+    .mapframe{min-height:340px;}
+    .legend{flex-wrap:wrap;}
+    .legend .steps{flex-wrap:wrap;}
+    .legend .lright{margin-left:0;width:100%;border-left:none;border-top:1px solid var(--rule-soft);padding:8px 14px;}
+    .form-foot{flex-wrap:wrap;}
+    .form-foot .fr{white-space:normal;}
+  }
+  @media (max-width:520px){
+    .form-head .id{padding:14px 14px 12px;}
+    .form-head .id h1{font-size:1.05rem;letter-spacing:.12em;}
+    .form-head .formno{padding:12px 14px 10px;align-items:flex-start;border-left:none;}
+    .meta .cell{white-space:normal;}
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="binding" aria-hidden="true"></div>
+  <div class="doc">
+
+    <!-- FORM HEADER -->
+    <header class="form-head">
+      <div class="id">
+        <h1>SF·BR<span class="sep">—</span>Block Report</h1>
+      </div>
+      <div class="dept">
+        <span class="l1">City &amp; County of San Francisco — Incident Density Survey</span>
+        <span class="l2">Prepared from DataSF · Police Department Incident Reports</span>
+      </div>
+      <div class="formno mono">
+        <span class="no">FORM 22-B / REV 08.2026</span>
+        <span class="pg">Sheet 1 of 1</span>
+      </div>
+    </header>
+
+    <!-- META STRIP -->
+    <div class="meta">
+      <div class="cell"><span class="k">Period of record</span><span class="v">JUL 22 – AUG 21, 2026</span></div>
+      <div class="cell"><span class="k">Reports filed</span><span class="v big">12,408</span></div>
+      <div class="cell"><span class="k">Districts</span><span class="v">41 / 41</span></div>
+      <div class="cell"><span class="k">Retrieved</span><span class="v">2026-08-21 06:00 PT</span></div>
+    </div>
+
+    <!-- BODY -->
+    <div class="body-grid">
+
+      <!-- LEFT RAIL -->
+      <aside class="rail">
+
+        <!-- 1 · PERIOD -->
+        <section class="fsec">
+          <span class="flabel">Period:</span>
+          <div class="dates">
+            <div class="datebox">
+              <span class="dk">From</span>
+              <span class="dv">2026-07-22</span>
+            </div>
+            <span class="arrow">&rarr;</span>
+            <div class="datebox">
+              <span class="dk">To</span>
+              <span class="dv">2026-08-21</span>
+            </div>
+          </div>
+          <div class="histo" aria-hidden="true">
+            <div class="bars">
+              <i style="height:26px"></i><i style="height:31px"></i><i style="height:24px"></i><i style="height:33px"></i><i style="height:29px"></i><i style="height:35px"></i><i style="height:28px"></i><i style="height:25px"></i><i style="height:34px"></i><i style="height:31px"></i><i style="height:38px"></i><i style="height:29px"></i><i style="height:36px"></i><i style="height:32px"></i><i style="height:27px"></i><i style="height:40px"></i><i style="height:36px"></i><i style="height:30px"></i><i style="height:35px"></i><i style="height:42px"></i><i style="height:33px"></i><i style="height:29px"></i><i style="height:38px"></i><i style="height:32px"></i><i style="height:36px"></i><i style="height:44px"></i><i style="height:39px"></i><i style="height:34px"></i><i style="height:31px"></i><i style="height:37px"></i>
+            </div>
+            <div class="axis"><span>07-22</span><span>REPORTS / DAY</span><span>08-21</span></div>
+          </div>
+        </section>
+
+        <!-- 2 · CATEGORY -->
+        <section class="fsec">
+          <span class="flabel">Category:</span>
+          <div class="checks">
+            <div class="check on"><span class="box"></span><span class="cname">Larceny / Theft</span><span class="ccount">5,872</span></div>
+            <div class="check on"><span class="box"></span><span class="cname">Assault</span><span class="ccount">2,214</span></div>
+            <div class="check on"><span class="box"></span><span class="cname">Motor Vehicle Theft</span><span class="ccount">1,946</span></div>
+            <div class="check on"><span class="box"></span><span class="cname">Burglary</span><span class="ccount">1,401</span></div>
+            <div class="check on"><span class="box"></span><span class="cname">Robbery</span><span class="ccount">975</span></div>
+          </div>
+          <p class="fnote">Mark all that apply · Σ = 12,408</p>
+        </section>
+
+        <!-- 3 · DISPLAY -->
+        <section class="fsec">
+          <span class="flabel">Display:</span>
+          <div class="radios">
+            <div class="radio on"><span class="dot"></span>Heat</div>
+            <div class="radio"><span class="dot"></span>Points</div>
+          </div>
+          <p class="fnote">Density rendered per §3.2, single-ink ramp</p>
+        </section>
+
+        <!-- 4 · DISTRICT RANKING -->
+        <section class="fsec">
+          <span class="flabel">District Ranking:</span>
+          <table class="rank">
+            <tr>
+              <td class="rno">01</td><td class="rname">Tenderloin</td>
+              <td class="rbar"><i style="width:100%"></i></td>
+              <td class="rct">1,842</td>
+            </tr>
+            <tr>
+              <td class="rno">02</td><td class="rname">Mission</td>
+              <td class="rbar"><i style="width:71%"></i></td>
+              <td class="rct">1,301</td>
+            </tr>
+            <tr>
+              <td class="rno">03</td><td class="rname">SoMa</td>
+              <td class="rbar"><i style="width:67%"></i></td>
+              <td class="rct">1,240</td>
+            </tr>
+            <tr>
+              <td class="rno">04</td><td class="rname">Bayview</td>
+              <td class="rbar"><i style="width:47%"></i></td>
+              <td class="rct">872</td>
+            </tr>
+            <tr>
+              <td class="rno">05</td><td class="rname">North Beach</td>
+              <td class="rbar"><i style="width:28%"></i></td>
+              <td class="rct">511</td>
+            </tr>
+          </table>
+          <p class="fnote">Top 5 of 41 analysis districts, by report count</p>
+        </section>
+
+        <!-- CERTIFICATION -->
+        <section class="fsec cert">
+          <span class="flabel">Certification:</span>
+          <div class="sigline">
+            <div class="sig">
+              <div class="line" aria-hidden="true">
+                <svg width="118" height="30" viewBox="0 0 118 30" fill="none">
+                  <path d="M6 24 C 14 6, 20 4, 24 14 C 27 21, 31 20, 36 10 C 41 2, 45 8, 47 16 C 50 24, 56 12, 63 11 C 74 9, 70 22, 82 15 C 92 9, 100 14, 112 12"
+                        stroke="#191C19" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="cap">Prepared by — Block Report, Automated Survey Unit</div>
+            </div>
+            <div class="sdate">
+              <div class="line">08-21-26</div>
+              <div class="cap" style="font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);margin-top:4px;font-weight:600;">Date</div>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- MAP PLATE -->
+      <main class="plate">
+        <div class="plate-head">
+          <span class="pt">Plate 1 — Incident Density, City &amp; County of San Francisco</span>
+          <span class="pref">DATUM NAD83 · EPSG:7131 · 37°46'N 122°25'W</span>
+        </div>
+
+        <div class="mapframe">
+          <svg viewBox="0 0 980 720" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Stylized density map of San Francisco with heat concentrated over the Tenderloin, SoMa, Mission and Bayview">
+            <defs>
+              <!-- street grid, orthogonal (Richmond/Sunset/avenues) -->
+              <pattern id="gridA" width="26" height="26" patternUnits="userSpaceOnUse">
+                <path d="M26 0H0V26" fill="none" stroke="#B7BFAE" stroke-width="1" opacity=".55"/>
+              </pattern>
+              <!-- street grid, rotated to Market alignment (SoMa/Mission) -->
+              <pattern id="gridB" width="24" height="24" patternUnits="userSpaceOnUse" patternTransform="rotate(-40)">
+                <path d="M24 0H0V24" fill="none" stroke="#AAB3A0" stroke-width="1" opacity=".6"/>
+              </pattern>
+              <!-- single-ink density ramp -->
+              <radialGradient id="blob">
+                <stop offset="0%"  stop-color="#E8590C" stop-opacity=".82"/>
+                <stop offset="38%" stop-color="#E8590C" stop-opacity=".42"/>
+                <stop offset="72%" stop-color="#E8590C" stop-opacity=".14"/>
+                <stop offset="100%" stop-color="#E8590C" stop-opacity="0"/>
+              </radialGradient>
+              <clipPath id="landclip"><use href="#landpath"/></clipPath>
+              <clipPath id="somaclip">
+                <polygon points="430,180 720,180 720,470 430,470"/>
+              </clipPath>
+            </defs>
+
+            <!-- water -->
+            <rect x="0" y="0" width="980" height="720" fill="#CBD5D9"/>
+
+            <!-- graticule over water -->
+            <g stroke="#B8C4C9" stroke-width="1">
+              <line x1="0" y1="180" x2="980" y2="180"/>
+              <line x1="0" y1="420" x2="980" y2="420"/>
+              <line x1="245" y1="0" x2="245" y2="720"/>
+              <line x1="735" y1="0" x2="735" y2="720"/>
+            </g>
+
+            <!-- Golden Gate bridge hairline -->
+            <line x1="205" y1="152" x2="168" y2="8" stroke="#191C19" stroke-width="1.5"/>
+            <line x1="213" y1="152" x2="176" y2="8" stroke="#191C19" stroke-width="1" opacity=".4"/>
+            <!-- Bay bridge hairline to Treasure Is. and beyond -->
+            <line x1="700" y1="248" x2="836" y2="128" stroke="#191C19" stroke-width="1.5"/>
+            <line x1="836" y1="128" x2="978" y2="106" stroke="#191C19" stroke-width="1.5"/>
+            <!-- Treasure Island -->
+            <path d="M824 96 L858 100 L862 132 L830 140 L818 118 Z" fill="#D5DBCF" stroke="#9AA592" stroke-width="1"/>
+            <!-- Alcatraz -->
+            <path d="M544 62 L568 58 L576 72 L558 80 L542 74 Z" fill="#D5DBCF" stroke="#9AA592" stroke-width="1"/>
+
+            <!-- LAND: the peninsula -->
+            <path id="landpath" d="M118 736 L118 208 L130 190 L156 176 L172 180 L196 160 L216 164
+              L238 150 L268 154 L300 144 L336 150 L370 142 L402 148 L436 140 L468 148
+              L500 138 L522 150 L548 142 L578 152 L602 144 L630 152 L654 162 L666 180
+              L680 202 L692 226 L700 252 L704 284 L700 316 L694 344 L688 372 L698 396
+              L692 424 L704 452 L714 484 L742 516 L768 540 L752 566 L726 586 L736 616
+              L718 648 L706 688 L714 714 L712 736 Z"
+              fill="#D5DBCF" stroke="#9AA592" stroke-width="1.25"/>
+
+            <!-- orthogonal grid across land -->
+            <g clip-path="url(#landclip)">
+              <rect x="0" y="0" width="980" height="720" fill="url(#gridA)"/>
+              <!-- rotated grid over SoMa / Mission wedge -->
+              <g clip-path="url(#somaclip)">
+                <rect x="380" y="140" width="400" height="380" fill="url(#gridB)"/>
+              </g>
+            </g>
+
+            <!-- pier stubs on the Embarcadero -->
+            <g stroke="#9AA592" stroke-width="1.5">
+              <line x1="676" y1="196" x2="694" y2="188"/>
+              <line x1="688" y1="216" x2="708" y2="209"/>
+              <line x1="696" y1="238" x2="716" y2="233"/>
+              <line x1="703" y1="262" x2="722" y2="260"/>
+              <line x1="703" y1="292" x2="721" y2="292"/>
+            </g>
+
+            <!-- Golden Gate Park + panhandle -->
+            <g>
+              <rect x="150" y="330" width="238" height="54" fill="#C6D0B9" stroke="#9AA592" stroke-width="1"/>
+              <rect x="388" y="344" width="52" height="18" fill="#C6D0B9" stroke="#9AA592" stroke-width="1"/>
+              <text x="269" y="361" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" letter-spacing="2" fill="#5A6058">GOLDEN GATE PARK</text>
+            </g>
+
+            <!-- Market St diagonal -->
+            <line x1="698" y1="258" x2="466" y2="474" stroke="#191C19" stroke-width="2"/>
+            <text font-family="IBM Plex Mono, monospace" font-size="9" letter-spacing="2" fill="#191C19"
+                  transform="translate(560,388) rotate(-43)">MARKET ST</text>
+
+            <!-- district micro-labels -->
+            <g font-family="IBM Plex Mono, monospace" font-size="8.5" letter-spacing="1.5" fill="#5A6058">
+              <text x="250" y="248">RICHMOND</text>
+              <text x="250" y="470">SUNSET</text>
+              <text x="560" y="120" fill="#7C8894">SAN FRANCISCO BAY</text>
+              <text x="58" y="560" fill="#7C8894" transform="rotate(-90 66 560)">PACIFIC OCEAN</text>
+              <text x="596" y="238">TENDERLOIN</text>
+              <text x="648" y="330">SOMA</text>
+              <text x="532" y="472">MISSION</text>
+              <text x="652" y="600">BAYVIEW</text>
+              <text x="588" y="176">NORTH BEACH</text>
+            </g>
+
+            <!-- HEAT: single-ink density, clipped to land -->
+            <g clip-path="url(#landclip)" class="heatblob">
+              <!-- Tenderloin / Civic Center — strongest -->
+              <circle cx="612" cy="262" r="88" fill="url(#blob)"/>
+              <circle cx="612" cy="262" r="52" fill="url(#blob)"/>
+              <circle cx="612" cy="262" r="30" fill="url(#blob)"/>
+              <!-- SoMa -->
+              <circle cx="656" cy="308" r="82" fill="url(#blob)"/>
+              <circle cx="656" cy="308" r="44" fill="url(#blob)"/>
+              <!-- Civic west shoulder -->
+              <circle cx="574" cy="288" r="54" fill="url(#blob)"/>
+              <!-- Mission -->
+              <circle cx="560" cy="430" r="70" fill="url(#blob)"/>
+              <circle cx="560" cy="430" r="36" fill="url(#blob)" opacity=".7"/>
+              <!-- Bayview — lighter -->
+              <circle cx="700" cy="560" r="62" fill="url(#blob)" opacity=".55"/>
+            </g>
+
+            <!-- frame ticks -->
+            <g stroke="#191C19" stroke-width="1">
+              <line x1="245" y1="0" x2="245" y2="8"/><line x1="490" y1="0" x2="490" y2="8"/><line x1="735" y1="0" x2="735" y2="8"/>
+              <line x1="245" y1="712" x2="245" y2="720"/><line x1="490" y1="712" x2="490" y2="720"/><line x1="735" y1="712" x2="735" y2="720"/>
+              <line x1="0" y1="180" x2="8" y2="180"/><line x1="0" y1="420" x2="8" y2="420"/><line x1="0" y1="600" x2="8" y2="600"/>
+              <line x1="972" y1="180" x2="980" y2="180"/><line x1="972" y1="420" x2="980" y2="420"/><line x1="972" y1="600" x2="980" y2="600"/>
+            </g>
+            <g font-family="IBM Plex Mono, monospace" font-size="8" letter-spacing="1" fill="#5A6058">
+              <text x="250" y="18">122°29'W</text>
+              <text x="740" y="18">122°23'W</text>
+              <text x="36" y="176">37°48'N</text>
+              <text x="36" y="416">37°45'N</text>
+              <!-- north arrow -->
+              <g transform="translate(930,646)">
+                <line x1="0" y1="26" x2="0" y2="0" stroke="#191C19" stroke-width="1"/>
+                <path d="M0 0 L-5 10 L0 7 L5 10 Z" fill="#191C19"/>
+                <text x="-3" y="40" fill="#191C19">N</text>
+              </g>
+            </g>
+          </svg>
+
+          <!-- stamp -->
+          <div class="stamp" aria-hidden="true">
+            <div class="s1">Public Record</div>
+            <div class="s2">DATASF · SFPD-IR · 2026-08-21</div>
+          </div>
+        </div>
+
+        <!-- LEGEND STRIP -->
+        <div class="legend">
+          <span class="lk">Scale:</span>
+          <div class="steps">
+            <span class="step"><span class="sw" style="background:var(--orange-4)">&#9617;</span><span class="sl">Low</span></span>
+            <span class="step"><span class="sw" style="background:var(--orange-3)">&#9618;</span><span class="sl">Med</span></span>
+            <span class="step"><span class="sw" style="background:var(--orange-2);color:rgba(255,255,255,.55)">&#9619;</span><span class="sl">High</span></span>
+            <span class="step"><span class="sw" style="background:var(--orange);color:var(--orange)">&#9608;</span><span class="sl">Severe</span></span>
+          </div>
+          <div class="lright">
+            <span>KERNEL: 250 M</span>
+            <span class="scalebar"><span class="sb"></span><span>0&ndash;2 KM</span></span>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="form-foot">
+      <span>SOURCE: DATASF — POLICE DEPARTMENT INCIDENT REPORTS (2018–PRESENT) · DATASET wg3t-h5gs · RETRIEVED 2026-08-21</span>
+      <span class="fr">SF·BR/22-B · FOR PUBLIC DISTRIBUTION · VOID IF ALTERED</span>
+    </footer>
+
+  </div>
+</div>
+
+</body>
+</html>

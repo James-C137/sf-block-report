@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Block Report — Blotter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Spectral+SC:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --desk:    #E6E4DE;
+    --paper:   #F9F8F4;
+    --paper-2: #F1EFE9;   /* park / presidio tint, masks grid   */
+    --ink:     #1B1917;
+    --ink-60:  rgba(27,25,23,.60);
+    --ink-45:  rgba(27,25,23,.45);
+    --rule:    rgba(27,25,23,.75);
+    --hair:    rgba(27,25,23,.22);
+    --hair-lt: rgba(27,25,23,.12);
+    --carmine: #921C25;   /* the one heat ink */
+    --carmine-soft: rgba(146,28,37,.08);
+    --serif:  "Spectral", Georgia, "Times New Roman", serif;
+    --sc:     "Spectral SC", "Spectral", Georgia, serif;
+    --mono:   "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    background: var(--desk);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 40px 24px 72px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a{ color: inherit; }
+  a:focus-visible, button:focus-visible, [tabindex]:focus-visible{
+    outline: 2px solid var(--carmine);
+    outline-offset: 2px;
+  }
+
+  /* ---------- the sheet ---------- */
+  .sheet{
+    max-width: 1400px;
+    margin: 0 auto;
+    background: var(--paper);
+    border: 1px solid var(--hair);
+    box-shadow: 0 1px 0 rgba(27,25,23,.10), 0 18px 44px -30px rgba(27,25,23,.45);
+    padding: 44px 60px 40px;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead{ text-align:center; }
+  .masthead .topline{
+    display:flex; justify-content:space-between; align-items:baseline;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--hair);
+    padding: 5px 2px 4px;
+    font-family: var(--sc);
+    font-size: 11px;
+    letter-spacing: .14em;
+    color: var(--ink-60);
+  }
+  .masthead h1{
+    font-family: var(--serif);
+    font-weight: 800;
+    font-size: clamp(52px, 6.2vw, 88px);
+    line-height: 1.04;
+    letter-spacing: .015em;
+    padding: 26px 0 18px;
+  }
+  .masthead h1 .the{
+    font-weight: 500;
+    font-style: italic;
+    font-size: .42em;
+    letter-spacing: .08em;
+    vertical-align: .62em;
+    margin-right: .35em;
+  }
+  .dateline{
+    display:flex; justify-content:space-between; align-items:baseline; gap:24px;
+    border-top: 1px solid var(--rule);
+    padding: 6px 2px 7px;
+    font-family: var(--sc);
+    font-size: 11.5px;
+    letter-spacing: .13em;
+    color: var(--ink-60);
+    position: relative;
+  }
+  .dateline .mid{ color: var(--ink); }
+  /* double rule under the masthead */
+  .double-rule{
+    border-top: 3px solid var(--rule);
+    position: relative;
+    margin-bottom: 34px;
+  }
+  .double-rule::after{
+    content:"";
+    display:block;
+    border-top: 1px solid var(--rule);
+    margin-top: 2px;
+  }
+
+  /* ---------- page body ---------- */
+  .body-grid{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 336px;
+    gap: 0 44px;
+  }
+  .lead{ min-width: 0; }
+
+  .lead-head{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-bottom: 14px; gap: 24px;
+  }
+  .lead-head h2{
+    font-weight: 700;
+    font-size: 27px;
+    line-height: 1.15;
+    letter-spacing: .002em;
+  }
+  .lead-head .byline{
+    font-family: var(--sc);
+    font-size: 11px;
+    letter-spacing: .14em;
+    color: var(--ink-60);
+    white-space: nowrap;
+  }
+  .lead .deck{
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink-60);
+    max-width: 62ch;
+    margin-bottom: 20px;
+  }
+
+  /* ---------- figure / map ---------- */
+  figure.map-fig{ position: relative; }
+  .map-frame{
+    position: relative;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 8px;
+  }
+  .map-frame svg{ display:block; width:100%; height:auto; }
+
+  .stamp{
+    position:absolute;
+    top: 26px; right: 30px;
+    transform: rotate(-5.5deg);
+    border: 2px solid var(--carmine);
+    color: var(--carmine);
+    font-family: var(--sc);
+    font-size: 10.5px;
+    letter-spacing: .22em;
+    line-height: 1.5;
+    text-align:center;
+    padding: 7px 14px 6px;
+    opacity: .82;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  .stamp b{ display:block; font-weight:600; font-size: 12.5px; letter-spacing:.26em; }
+
+  figcaption{
+    display:flex; justify-content:space-between; gap:24px; align-items:baseline;
+    border-bottom: 1px solid var(--hair);
+    padding: 9px 2px 10px;
+    font-size: 13.5px;
+  }
+  figcaption .fig-no{ font-family: var(--sc); font-size: 11px; letter-spacing:.13em; white-space:nowrap; }
+  figcaption .fig-text{ font-style: italic; color: var(--ink-60); }
+  figcaption .fig-key{
+    display:flex; align-items:center; gap:8px;
+    font-family: var(--sc); font-size: 10.5px; letter-spacing:.12em;
+    color: var(--ink-60); white-space:nowrap;
+  }
+  .ramp{
+    width: 88px; height: 8px;
+    background: linear-gradient(to right, rgba(146,28,37,0), rgba(146,28,37,.85));
+    border: 1px solid var(--hair);
+  }
+
+  /* ---------- histogram footnote ---------- */
+  .histo{ margin-top: 22px; }
+  .histo-label{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family: var(--sc); font-size: 10.5px; letter-spacing: .14em;
+    color: var(--ink-60);
+    margin-bottom: 8px;
+  }
+  .bars{
+    display:flex; align-items:flex-end; gap: 4px;
+    height: 58px;
+    border-bottom: 1px solid var(--rule);
+    padding: 0 1px;
+  }
+  .bars i{
+    flex:1 1 0; min-width:0;
+    background: rgba(27,25,23,.68);
+    transition: background .12s ease;
+  }
+  .bars i:hover{ background: var(--ink); }
+  .bars i.peak{ background: var(--carmine); }
+  .bars i.peak:hover{ background: var(--carmine); }
+  .histo-axis{
+    display:flex; justify-content:space-between;
+    font-family: var(--mono); font-size: 10px; letter-spacing:.06em;
+    color: var(--ink-45);
+    padding-top: 6px;
+  }
+  .histo-note{
+    font-size: 12.5px; font-style: italic; color: var(--ink-60);
+    margin-top: 10px;
+  }
+  .histo-note .fn{ color: var(--carmine); font-style: normal; }
+
+  /* ---------- side panel ---------- */
+  aside.panel{
+    border-left: 1px solid var(--hair);
+    padding-left: 34px;
+    font-size: 14px;
+  }
+  .panel section{ padding: 2px 0 20px; }
+  .panel section + section{ border-top: 1px solid var(--hair); padding-top: 18px; }
+
+  .sec-label{
+    font-family: var(--sc);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .2em;
+    display:flex; align-items:center; gap: 10px;
+    margin-bottom: 13px;
+  }
+  .sec-label::after{ content:""; flex:1; border-top:1px solid var(--hair-lt); }
+
+  /* date-range control */
+  .period{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .period .arrow{
+    font-family: var(--serif);
+    text-decoration:none;
+    width: 24px; height: 24px;
+    border: 1px solid var(--hair);
+    border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 13px; line-height:1;
+    color: var(--ink-60);
+  }
+  .period .arrow:hover{ border-color: var(--ink); color: var(--ink); }
+  .period .range{
+    font-family: var(--sc);
+    font-size: 14.5px;
+    letter-spacing: .1em;
+    text-align:center;
+  }
+  .period-presets{
+    display:flex; justify-content:center; gap: 14px;
+    margin-top: 11px;
+    font-family: var(--sc); font-size: 10.5px; letter-spacing:.14em;
+  }
+  .period-presets a{ text-decoration:none; color: var(--ink-45); padding-bottom:2px; }
+  .period-presets a:hover{ color: var(--ink); }
+  .period-presets a.on{
+    color: var(--carmine);
+    border-bottom: 1px solid var(--carmine);
+  }
+
+  /* rendering toggle */
+  .render-toggle{
+    display:flex; align-items:baseline; gap: 6px;
+    font-family: var(--sc); font-size: 13px; letter-spacing: .16em;
+  }
+  .render-toggle a{ text-decoration:none; padding: 2px 4px; }
+  .render-toggle .sep{ color: var(--ink-45); }
+  .render-toggle a.on{
+    color: var(--carmine);
+    border-bottom: 2px solid var(--carmine);
+  }
+  .render-toggle a.off{ color: var(--ink-45); }
+  .render-toggle a.off:hover{ color: var(--ink); border-bottom: 1px solid var(--hair); }
+  .render-note{
+    font-size: 12px; font-style: italic; color: var(--ink-45);
+    margin-top: 8px;
+  }
+
+  /* classifications checklist */
+  .classifieds{ list-style:none; }
+  .classifieds li{
+    display:flex; align-items:baseline; gap: 10px;
+    padding: 6.5px 4px;
+    border-bottom: 1px dotted var(--hair-lt);
+    cursor: default;
+  }
+  .classifieds li:last-child{ border-bottom: none; }
+  .classifieds li:hover{ background: var(--carmine-soft); }
+  .box{
+    width: 11px; height: 11px;
+    border: 1px solid var(--rule);
+    position: relative; top: 1px;
+    flex: 0 0 auto;
+  }
+  li.checked .box::before,
+  li.checked .box::after{
+    content:""; position:absolute; left:-1px; top:4px;
+    width: 12px; height: 1.5px;
+    background: var(--carmine);
+  }
+  li.checked .box::before{ transform: rotate(45deg); }
+  li.checked .box::after{ transform: rotate(-45deg); }
+  .classifieds .cat{ flex: 1; }
+  li.unchecked .cat{ color: var(--ink-45); }
+  .classifieds .n{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-60);
+    font-variant-numeric: tabular-nums;
+  }
+  .classifieds-note{
+    font-size: 12px; font-style: italic; color: var(--ink-45);
+    margin-top: 9px;
+  }
+
+  /* the ledger */
+  .ledger{ list-style:none; }
+  .ledger li{
+    display:flex; align-items:baseline; gap: 8px;
+    padding: 6px 4px;
+  }
+  .ledger li:hover{ background: var(--carmine-soft); }
+  .ledger .rank{
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-45);
+    width: 14px; flex: 0 0 auto;
+  }
+  .ledger .hood{ white-space: nowrap; }
+  .ledger .leader{
+    flex: 1;
+    border-bottom: 1px dotted var(--hair);
+    margin: 0 4px 4px;
+    min-width: 12px;
+  }
+  .ledger .count{
+    font-family: var(--mono); font-size: 13px; font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .ledger li:first-child .count{ color: var(--carmine); }
+  .ledger .tick{
+    flex: 0 0 auto;
+    height: 7px;
+    background: var(--carmine);
+    opacity: .78;
+    position: relative; top: -1px;
+  }
+  .ledger-note{
+    font-size: 12px; font-style: italic; color: var(--ink-45);
+    margin-top: 10px;
+  }
+
+  /* notice box */
+  .notice{
+    border: 1px solid var(--hair);
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-60);
+  }
+  .notice b{
+    font-family: var(--sc); font-weight: 600; font-size: 10.5px;
+    letter-spacing: .18em; color: var(--ink);
+    display:block; margin-bottom: 4px;
+  }
+
+  /* ---------- footer ---------- */
+  footer{
+    margin-top: 38px;
+    border-top: 1px solid var(--rule);
+    padding-top: 9px;
+    display:flex; justify-content:space-between; gap: 24px;
+    font-family: var(--sc);
+    font-size: 10.5px;
+    letter-spacing: .13em;
+    color: var(--ink-45);
+  }
+
+  /* ---------- svg text ---------- */
+  .sea-label{
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: .3em;
+    fill: var(--ink-45);
+  }
+  .hood-label{
+    font-family: var(--sc);
+    font-size: 8.5px;
+    letter-spacing: .22em;
+    fill: rgba(27,25,23,.62);
+  }
+  .hood-label.dim{ fill: rgba(27,25,23,.42); }
+  .street-label{
+    font-family: var(--sc);
+    font-size: 8px;
+    letter-spacing: .3em;
+    fill: rgba(27,25,23,.55);
+  }
+
+  @media (max-width: 980px){
+    .sheet{ padding: 32px 28px; }
+    .body-grid{ grid-template-columns: 1fr; }
+    aside.panel{ border-left: none; padding-left: 0; border-top: 3px double var(--rule); margin-top: 34px; padding-top: 22px; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <!-- ================= MASTHEAD ================= -->
+  <header class="masthead">
+    <div class="topline">
+      <span>Est. MMXXVI</span>
+      <span>Compiled Nightly from the Public Record</span>
+      <span>Free of Charge</span>
+    </div>
+    <h1><span class="the">The</span>BLOCK REPORT</h1>
+    <div class="dateline">
+      <span>Vol. 1 · No. 31</span>
+      <span class="mid">San Francisco &nbsp;·&nbsp; Jul 22 – Aug 21, 2026 &nbsp;·&nbsp; 12,408 reports on file</span>
+      <span>Karl the Fog, A.M.</span>
+    </div>
+    <div class="double-rule"></div>
+  </header>
+
+  <!-- ================= BODY ================= -->
+  <div class="body-grid">
+
+    <!-- ---------- LEAD COLUMN ---------- -->
+    <main class="lead">
+      <div class="lead-head">
+        <h2>A Month on the Blotter, Rendered in One Ink</h2>
+        <span class="byline">From DataSF Records</span>
+      </div>
+      <p class="deck">Thirty days of incident reports, pressed onto the city like a stamp: darkest where the filings run thickest, fading where the record thins.</p>
+
+      <figure class="map-fig">
+        <div class="map-frame">
+          <div class="stamp"><b>Public Record</b>No. 12,408 · Filed</div>
+
+          <svg viewBox="0 0 700 620" role="img" aria-label="Stylized map of San Francisco with reported incidents shown as a single-ink density wash, heaviest over the Tenderloin and SoMa">
+            <defs>
+              <!-- engraved sea -->
+              <pattern id="sea" width="10" height="7" patternUnits="userSpaceOnUse">
+                <path d="M0 3.5 H10" stroke="rgba(27,25,23,.13)" stroke-width=".6"/>
+              </pattern>
+              <!-- street grids -->
+              <pattern id="gridW" width="21" height="21" patternUnits="userSpaceOnUse">
+                <path d="M0 0 H21 M0 0 V21" stroke="rgba(27,25,23,.15)" stroke-width=".65"/>
+              </pattern>
+              <pattern id="gridD" width="19" height="19" patternUnits="userSpaceOnUse" patternTransform="rotate(-44)">
+                <path d="M0 0 H19 M0 0 V19" stroke="rgba(27,25,23,.13)" stroke-width=".65"/>
+              </pattern>
+              <!-- heat inks -->
+              <radialGradient id="heat">
+                <stop offset="0%"  stop-color="#921C25" stop-opacity=".50"/>
+                <stop offset="45%" stop-color="#921C25" stop-opacity=".26"/>
+                <stop offset="100%" stop-color="#921C25" stop-opacity="0"/>
+              </radialGradient>
+              <radialGradient id="heatCore">
+                <stop offset="0%"  stop-color="#7C141C" stop-opacity=".72"/>
+                <stop offset="55%" stop-color="#921C25" stop-opacity=".30"/>
+                <stop offset="100%" stop-color="#921C25" stop-opacity="0"/>
+              </radialGradient>
+              <clipPath id="landClip"><use href="#landPath"/></clipPath>
+            </defs>
+
+            <!-- water -->
+            <rect width="700" height="620" fill="#F2F0EA"/>
+            <rect width="700" height="620" fill="url(#sea)"/>
+
+            <!-- land -->
+            <path id="landPath" d="
+              M 84 620
+              L 80 470
+              C 78 400 80 330 86 250
+              C 90 215 100 190 122 172
+              C 140 158 158 152 178 150
+              C 196 148 208 142 224 138
+              C 238 135 252 133 264 138
+              C 290 148 316 152 338 148
+              C 352 145 360 138 372 140
+              C 382 142 386 150 398 152
+              C 418 154 434 146 448 150
+              C 462 154 470 162 476 172
+              L 492 210
+              C 498 226 500 240 498 256
+              L 490 320
+              C 487 344 486 360 488 378
+              L 478 430
+              C 475 444 472 452 474 462
+              L 520 484
+              L 534 502
+              L 500 522
+              L 486 538
+              C 480 556 476 570 470 588
+              L 462 620
+              Z" fill="#F9F8F4" stroke="#1B1917" stroke-width="1.1"/>
+
+            <!-- street grids, clipped to land -->
+            <g clip-path="url(#landClip)">
+              <!-- west-side orthogonal grid -->
+              <rect x="84" y="150" width="262" height="470" fill="url(#gridW)"/>
+              <!-- mission / southern orthogonal -->
+              <rect x="346" y="382" width="160" height="238" fill="url(#gridW)"/>
+              <!-- downtown & soma grid, turned with Market -->
+              <rect x="346" y="128" width="160" height="254" fill="url(#gridD)"/>
+            </g>
+
+            <!-- presidio & golden gate park (opaque tint masks the grid) -->
+            <polygon points="152,152 268,140 272,224 162,230" fill="#EFEDE6" stroke="rgba(27,25,23,.35)" stroke-width=".7"/>
+            <text x="212" y="190" text-anchor="middle" class="hood-label dim">PRESIDIO</text>
+
+            <rect x="90" y="298" width="212" height="42" fill="#EFEDE6" stroke="rgba(27,25,23,.35)" stroke-width=".7"/>
+            <rect x="302" y="310" width="34" height="14" fill="#EFEDE6" stroke="rgba(27,25,23,.35)" stroke-width=".7"/>
+            <text x="196" y="322.5" text-anchor="middle" class="hood-label dim">GOLDEN GATE PARK</text>
+
+            <!-- market street -->
+            <line x1="497" y1="258" x2="322" y2="428" stroke="#1B1917" stroke-width="1.8"/>
+            <g transform="translate(384,362) rotate(-44)">
+              <text x="0" y="-6" text-anchor="middle" class="street-label">MARKET ST.</text>
+            </g>
+
+            <!-- piers along the embarcadero -->
+            <g stroke="rgba(27,25,23,.5)" stroke-width=".8">
+              <line x1="480" y1="180" x2="489" y2="176"/>
+              <line x1="486" y1="196" x2="495" y2="192"/>
+              <line x1="492" y1="214" x2="501" y2="211"/>
+              <line x1="496" y1="232" x2="505" y2="230"/>
+              <line x1="498" y1="250" x2="507" y2="249"/>
+              <line x1="494" y1="288" x2="503" y2="289"/>
+              <line x1="491" y1="308" x2="500" y2="309"/>
+            </g>
+
+            <!-- golden gate bridge -->
+            <g stroke="rgba(27,25,23,.65)">
+              <line x1="240" y1="136" x2="212" y2="52" stroke-width="1.4"/>
+              <line x1="244.5" y1="135" x2="216.5" y2="51" stroke-width=".6"/>
+              <line x1="234" y1="114" x2="245" y2="110" stroke-width="1.6"/>
+              <line x1="225" y1="86"  x2="236" y2="82"  stroke-width="1.6"/>
+            </g>
+
+            <!-- bay bridge, yerba buena & treasure island -->
+            <g>
+              <line x1="497" y1="262" x2="590" y2="238" stroke="rgba(27,25,23,.65)" stroke-width="1.3"/>
+              <ellipse cx="602" cy="234" rx="13" ry="9.5" transform="rotate(-16 602 234)"
+                       fill="#F9F8F4" stroke="#1B1917" stroke-width=".9"/>
+              <rect x="600" y="192" width="22" height="26" rx="5" transform="rotate(-12 611 205)"
+                    fill="#F9F8F4" stroke="#1B1917" stroke-width=".9"/>
+              <line x1="614" y1="230" x2="700" y2="210" stroke="rgba(27,25,23,.65)" stroke-width="1.3"/>
+            </g>
+
+            <!-- ============ THE HEAT: one ink, soaking through ============ -->
+            <g style="mix-blend-mode:multiply">
+              <!-- tenderloin / soma, strongest -->
+              <circle cx="443" cy="255" r="58" fill="url(#heat)"/>
+              <circle cx="452" cy="296" r="66" fill="url(#heat)"/>
+              <circle cx="441" cy="262" r="26" fill="url(#heatCore)"/>
+              <circle cx="456" cy="292" r="20" fill="url(#heatCore)" opacity=".85"/>
+              <!-- mission -->
+              <circle cx="402" cy="408" r="55" fill="url(#heat)" opacity=".85"/>
+              <circle cx="408" cy="386" r="20" fill="url(#heatCore)" opacity=".6"/>
+              <!-- bayview, lighter -->
+              <circle cx="484" cy="505" r="46" fill="url(#heat)" opacity=".62"/>
+              <!-- north beach, faint -->
+              <circle cx="438" cy="186" r="30" fill="url(#heat)" opacity=".42"/>
+            </g>
+
+            <!-- neighborhood labels -->
+            <text x="443" y="243" text-anchor="middle" class="hood-label">TENDERLOIN</text>
+            <text x="462" y="312" text-anchor="middle" class="hood-label">SOMA</text>
+            <text x="399" y="424" text-anchor="middle" class="hood-label">MISSION</text>
+            <text x="490" y="512" text-anchor="middle" class="hood-label">BAYVIEW</text>
+            <text x="437" y="175" text-anchor="middle" class="hood-label">NORTH BEACH</text>
+            <text x="336" y="170" text-anchor="middle" class="hood-label dim">MARINA</text>
+            <text x="205" y="272" text-anchor="middle" class="hood-label dim">RICHMOND</text>
+            <text x="185" y="430" text-anchor="middle" class="hood-label dim">SUNSET</text>
+            <text x="330" y="452" text-anchor="middle" class="hood-label dim">CASTRO</text>
+            <text x="300" y="242" text-anchor="middle" class="hood-label dim">HAIGHT</text>
+
+            <!-- water labels -->
+            <text x="46" y="420" class="sea-label" transform="rotate(-90 46 420)" text-anchor="middle">PACIFIC OCEAN</text>
+            <text x="600" y="382" class="sea-label" text-anchor="middle">SAN FRANCISCO BAY</text>
+            <text x="330" y="96" class="sea-label" text-anchor="middle">GOLDEN GATE</text>
+
+            <!-- neatline -->
+            <rect x="1" y="1" width="698" height="618" fill="none" stroke="rgba(27,25,23,.5)" stroke-width="1"/>
+          </svg>
+        </div>
+
+        <figcaption>
+          <span class="fig-no">Fig. 1</span>
+          <span class="fig-text">Reported incidents, by density of occurrence. One ink; darker is more.</span>
+          <span class="fig-key">Fewer <span class="ramp"></span> More</span>
+        </figcaption>
+      </figure>
+
+      <!-- histogram footnote -->
+      <div class="histo">
+        <div class="histo-label">
+          <span>Reports Filed, by Day</span>
+          <span>Thirty Days</span>
+        </div>
+        <div class="bars" aria-hidden="true">
+          <i style="height:62%"></i><i style="height:55%"></i><i style="height:48%"></i>
+          <i style="height:58%"></i><i style="height:66%"></i><i style="height:71%"></i>
+          <i style="height:64%"></i><i style="height:52%"></i><i style="height:47%"></i>
+          <i style="height:60%"></i><i style="height:73%"></i><i style="height:68%"></i>
+          <i style="height:58%"></i><i style="height:50%"></i><i style="height:55%"></i>
+          <i style="height:64%"></i><i style="height:78%"></i><i style="height:84%"></i>
+          <i style="height:70%"></i><i style="height:61%"></i><i style="height:57%"></i>
+          <i style="height:66%"></i><i style="height:72%"></i><i class="peak" style="height:100%"></i>
+          <i style="height:88%"></i><i style="height:74%"></i><i style="height:63%"></i>
+          <i style="height:59%"></i><i style="height:68%"></i><i style="height:76%"></i>
+        </div>
+        <div class="histo-axis"><span>JUL 22</span><span>AUG 06</span><span>AUG 21</span></div>
+        <p class="histo-note"><span class="fn">*</span> Aug 14 marks the month's peak: 512 reports filed in a single day, the most since the record opened.</p>
+      </div>
+    </main>
+
+    <!-- ---------- SIDE PANEL ---------- -->
+    <aside class="panel">
+
+      <section>
+        <h3 class="sec-label">The Period</h3>
+        <div class="period">
+          <a class="arrow" href="#" aria-label="Previous period">&#8249;</a>
+          <span class="range">Jul 22 – Aug 21, 2026</span>
+          <a class="arrow" href="#" aria-label="Next period">&#8250;</a>
+        </div>
+        <div class="period-presets">
+          <a href="#">7 Days</a>
+          <a href="#" class="on">30 Days</a>
+          <a href="#">90 Days</a>
+          <a href="#">Year</a>
+        </div>
+      </section>
+
+      <section>
+        <h3 class="sec-label">Rendering</h3>
+        <div class="render-toggle">
+          <a href="#" class="on">Heat</a>
+          <span class="sep">/</span>
+          <a href="#" class="off">Points</a>
+        </div>
+        <p class="render-note">Heat presses each report into a single wash of ink. Points would set them individually, one mark per filing.</p>
+      </section>
+
+      <section>
+        <h3 class="sec-label">Classifications</h3>
+        <ul class="classifieds">
+          <li class="checked"><span class="box"></span><span class="cat">Larceny &amp; Theft</span><span class="n">5,214</span></li>
+          <li class="checked"><span class="box"></span><span class="cat">Assault</span><span class="n">2,190</span></li>
+          <li class="checked"><span class="box"></span><span class="cat">Motor Vehicle Theft</span><span class="n">1,873</span></li>
+          <li class="checked"><span class="box"></span><span class="cat">Burglary</span><span class="n">1,655</span></li>
+          <li class="checked"><span class="box"></span><span class="cat">Robbery</span><span class="n">988</span></li>
+        </ul>
+        <p class="classifieds-note">All classifications shown. Strike one to withhold it from the figure.</p>
+      </section>
+
+      <section>
+        <h3 class="sec-label">The Ledger</h3>
+        <ul class="ledger">
+          <li><span class="rank">1</span><span class="hood">Tenderloin</span><span class="leader"></span><span class="count">1,842</span><span class="tick" style="width:34px"></span></li>
+          <li><span class="rank">2</span><span class="hood">Mission</span><span class="leader"></span><span class="count">1,301</span><span class="tick" style="width:24px"></span></li>
+          <li><span class="rank">3</span><span class="hood">SoMa</span><span class="leader"></span><span class="count">1,240</span><span class="tick" style="width:23px"></span></li>
+          <li><span class="rank">4</span><span class="hood">Bayview</span><span class="leader"></span><span class="count">872</span><span class="tick" style="width:16px"></span></li>
+          <li><span class="rank">5</span><span class="hood">North Beach</span><span class="leader"></span><span class="count">511</span><span class="tick" style="width:9px"></span></li>
+        </ul>
+        <p class="ledger-note">Neighborhood of record, five heaviest. Together they hold 46 of every 100 reports.</p>
+      </section>
+
+      <section>
+        <h3 class="sec-label">Notice</h3>
+        <div class="notice">
+          <b>To the Reader</b>
+          Compiled nightly from the City &amp; County of San Francisco open data portal. Locations are approximate to the nearest block face; the record is amended as reports are reclassified.
+        </div>
+      </section>
+
+    </aside>
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <footer>
+    <span>The Block Report · San Francisco</span>
+    <span>Source: DataSF, Police Department Incident Reports</span>
+    <span>Page A-1</span>
+  </footer>
+
+</div>
+
+</body>
+</html>
