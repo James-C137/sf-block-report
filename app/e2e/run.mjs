@@ -152,7 +152,7 @@ const browser = await chromium.launch({
 
   await waitFor(page, () => document.querySelectorAll('.nhood-label').length >= 15, 'neighborhood labels render as DOM markers');
   await waitFor(page, () => {
-    const n = document.querySelector('.nhood.nhood-in');
+    const n = document.querySelector('.nhood-fade.nhood-in');
     return !!n && getComputedStyle(n).opacity === '1';
   }, 'labels fade in on first placement');
   /* the minor tier's zoom-driven reveal: hidden below 12.6, half-faded
@@ -161,13 +161,16 @@ const browser = await chromium.launch({
     window.__blockReport.map.jumpTo({ zoom });
     const els = document.querySelectorAll('.nhood-label');
     const m = els[els.length - 1]; /* rank order: last is deepest minor */
-    return { display: m.style.display, opacity: parseFloat(m.style.opacity || '1') };
+    return {
+      culled: m.parentElement.classList.contains('nhood-culled'),
+      opacity: parseFloat(m.style.opacity || '1'),
+    };
   }, z);
   const atLow = await minorState(11.85);
   const atMid = await minorState(12.85);
   const atHigh = await minorState(13.2);
-  ok(atLow.display === 'none', 'minor labels hidden below z12.6');
-  ok(Math.abs(atMid.opacity - 0.5) < 0.02 && atMid.display !== 'none', `minor reveal half-faded at z12.85 (got ${atMid.opacity})`);
+  ok(atLow.culled, 'minor labels culled below z12.6');
+  ok(Math.abs(atMid.opacity - 0.5) < 0.02, `minor reveal half-faded at z12.85 (got ${atMid.opacity})`);
   ok(atHigh.opacity === 1, 'minor reveal complete past z13.1');
   await page.evaluate(() => window.__blockReport.map.jumpTo({ zoom: 11.85 }));
 
@@ -237,6 +240,17 @@ const browser = await chromium.launch({
   await waitFor(page, () => !!window.__blockReport.map.getLayer('blocks'), 'blocks layer present (mobile snapshot)');
   ok((await page.evaluate(() => document.scrollingElement.scrollWidth <= window.innerWidth)), 'no horizontal overflow at 390px');
   ok(await page.evaluate(() => !!document.querySelector('.maplibregl-cooperative-gesture-screen')), 'cooperative gestures active on narrow viewports');
+  /* the majors crowd on a phone at citywide zoom — collision culling
+     must thin them */
+  await waitFor(page, () => document.querySelectorAll('.nhood-label').length >= 15, 'labels present on mobile');
+  /* assert the EFFECTIVE rendered opacity, not just the class — MapLibre's
+     inline marker opacity once masked a culling no-op */
+  const cull = await page.evaluate(() => {
+    const els = [...document.querySelectorAll('.nhood-fade')];
+    const gone = els.filter((n) => n.classList.contains('nhood-culled') && getComputedStyle(n).opacity !== '1').length;
+    return { total: els.length, gone };
+  });
+  ok(cull.gone >= 1, `collision culling visually thins the crowd on narrow viewports (${cull.gone}/${cull.total} culled)`);
   await context.close();
 }
 

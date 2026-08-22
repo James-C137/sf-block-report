@@ -110,7 +110,12 @@ async function boot(): Promise<void> {
   /* labels are decorative — they load quietly and never touch the
      progress pill or the degrade ladder */
   nhoodsP
-    .then((features) => addLabelMarkers(map, features, state.pristineField))
+    .then((features) => {
+      const labels = addLabelMarkers(map, features, state.pristineField);
+      /* a new pin blocks label space — re-place without waiting for the
+         next camera move */
+      pings.onChange(() => labels.refresh());
+    })
     .catch((err) => console.warn('Neighborhood names could not be loaded — map stays unlabeled:', err));
 
   /* ---- the commit path: every filter change re-derives the page ---- */

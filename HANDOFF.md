@@ -112,11 +112,19 @@ deleted from the deploy, individual files remain reachable by URL).
   comes from a 24px SDF glyph atlas and went soft once the size law
   blew it up in-world, reading low-res next to the crisp DOM pin
   labels. Pins and neighborhoods now share one DOM `.map-label` system
-  (Inter, same halo, same inversion rule, same scale law in
-  `layers/labels.ts` / `pings.ts`), which also drops the glyph fetch
-  and the symbol-bucket warm-up jump. Trade accepted: no collision
-  culling (anchors are sparse enough per visibility tier). Upright
-  camera-facing text reads as standing billboards. Dead ends on
+  (Montserrat Medium via Google Fonts — the symbol era's face, kept by
+  user request; same halo, inversion rule, and scale law in
+  `layers/labels.ts` / `pings.ts`), which also drops the CARTO glyph
+  fetch and the symbol-bucket warm-up jump. The halo is a real
+  `-webkit-text-stroke` under the fill (`paint-order: stroke fill`) —
+  offset text-shadow copies read as displaced clones at in-world
+  scale. Collision culling is reimplemented by hand in rank order
+  (majors > minors, curation order breaks ties, the user's pins block
+  everything; losers fade via the opacity transition). GOTCHA: MapLibre
+  Markers write an inline style.opacity on the root element they manage
+  (terrain occlusion), overriding any stylesheet rule there — all our
+  fade classes live on an inner `.nhood-fade` wrapper for that reason.
+  Upright camera-facing text reads as standing billboards. Dead ends on
   record: a ground-plane variant (`pitch-alignment: map`) looked
   knocked over, and a separate timed-crossfade "world" layer was
   scrapped as redundant.

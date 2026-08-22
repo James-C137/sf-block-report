@@ -230,6 +230,9 @@ button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
    Pins and neighborhoods share font, weight, halo, and the on-dark
    inversion, so DOM-crisp text reads as a single family. */
 .map-label{
+  /* Montserrat Medium — the geographic voice from the symbol-layer era,
+     kept when labels went DOM; Inter stays the UI voice */
+  font-family:'Montserrat', 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
   font-size:10.5px; font-weight:500; line-height:1.35;
   color:var(--ink);
   /* a REAL outline: stroke painted UNDER the glyph fill. It's vector, so
@@ -264,8 +267,15 @@ button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
 
 /* neighborhood labels (DOM markers; scale/translate set from JS under
    the same law as the pins) */
-.nhood{ pointer-events:none; z-index:1; opacity:0; transition:opacity 0.3s ease; }
-.nhood.nhood-in{ opacity:1; }
+.nhood{ pointer-events:none; z-index:1; }
+/* entrance + collision fades live on an inner wrapper: MapLibre writes
+   an inline opacity on the marker root itself (terrain occlusion), which
+   would override any stylesheet rule there */
+.nhood-fade{ display:block; opacity:0; transition:opacity 0.3s ease; }
+.nhood-fade.nhood-in{ opacity:1; }
+/* collision loser — fades out via the same transition (must follow
+   .nhood-in: equal specificity, source order decides) */
+.nhood-fade.nhood-culled{ opacity:0; }
 .ping{ z-index:2; }           /* your pins ride above the wayfinding */
 .nhood-label{
   position:absolute;
