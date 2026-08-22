@@ -971,15 +971,17 @@ var map = new maplibregl.Map(mapOptions);
 /* ---------- zoom crossfade ----------
    Blocks and the inked street network carry the ink at low zoom;
    buildings take over as they become individually legible. Full block +
-   street strength through z13, both gone by z14.5, buildings entering
-   inversely across the same range. Buildings are truly absent below the
-   handoff (layer minzoom just under the entrance start, entrance curves
-   already at zero there) and arrive via one of three treatments — the
-   same field hands off between geometries, so the middle reads as one
-   surface resolving, the ink migrating from street network into volumes. */
-var BLOCK_FADE_FROM = 13.0;
-var BLOCK_FADE_TO   = 14.5;
-var BLDG_MINZOOM    = 12.9;   /* unloads while invisible — no pop */
+   street strength through z14, both gone by z15.5, buildings entering
+   inversely across the same range (the whole handoff sat one level lower
+   originally; it was pushed up so the dots own a z12–14 phase over the
+   block mosaic before the volumes rise). Buildings are truly absent below
+   the handoff (layer minzoom just under the entrance start, entrance
+   curves already at zero there) — the same field hands off between
+   geometries, so the middle reads as one surface resolving, the ink
+   migrating from street network into volumes. */
+var BLOCK_FADE_FROM = 14.0;
+var BLOCK_FADE_TO   = 15.5;
+var BLDG_MINZOOM    = 13.9;   /* unloads while invisible — no pop */
 var BLDG_FULL_OPACITY = 0.85;   /* full-entrance cap — at 0.96 the charcoal
                                    volumes read too intense; letting a
                                    little basemap through softens them */
@@ -990,11 +992,11 @@ var BLDG_FULL_OPACITY = 0.85;   /* full-entrance cap — at 0.96 the charcoal
    mid-crossfade — a linear 13->14.5 ramp reads as a lighter "gap" in the
    middle where both layers sit at half strength. */
 var GROUND_FADE = [
-  [13.0, 1.00],
-  [13.5, 0.96],
-  [13.9, 0.82],
-  [14.2, 0.50],
-  [14.5, 0.00]
+  [14.0, 1.00],
+  [14.5, 0.96],
+  [14.9, 0.82],
+  [15.2, 0.50],
+  [15.5, 0.00]
 ];
 
 /* entrance treatment (fade + grow together), as
@@ -1003,8 +1005,8 @@ var GROUND_FADE = [
    are already inking the hotspot while the ground is still holding, and
    the two curves overlap instead of trading off through a pale middle. */
 var ENTRANCE = {
-  op:[[13.0, 0], [13.3, 0.50], [13.65, 0.85], [14.0, 1]],
-  h:[[13.2, 0], [13.6, 0.50], [14.05, 0.85], [14.5, 1]]
+  op:[[14.0, 0], [14.3, 0.50], [14.65, 0.85], [15.0, 1]],
+  h:[[14.2, 0], [14.6, 0.50], [15.05, 0.85], [15.5, 1]]
 };
 
 /* build a zoom interpolate from [zoom, fraction] stops; `scale` maps each
@@ -1294,10 +1296,10 @@ function blockOpacityExpr(){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
 }
-/* points entrance: starts one zoom level before the buildings' entrance
-   but snaps in over ~0.4 of a level — the dots pop out of the block
-   mosaic quickly, then the volumes rise beneath them */
-var POINTS_ENTRANCE = [[12.0, 0], [12.15, 0.5], [12.3, 0.9], [12.4, 1]];
+/* points entrance: anchored at z12, well before the buildings' handoff,
+   and snapping in over ~a quarter level — the dots pop out of the block
+   mosaic, own the z12–14 phase, then the volumes rise beneath them */
+var POINTS_ENTRANCE = [[12.0, 0], [12.1, 0.6], [12.2, 0.95], [12.25, 1]];
 var POINTS_MINZOOM = POINTS_ENTRANCE[0][0] - 0.1;
 function pointBaseOpacityExpr(){
   /* per-spot report weight w (normalized + sqrt in aggregatePoints) sets
@@ -1633,14 +1635,17 @@ map.on('load', function(){
                                  is already at zero here, so no pop */
     paint:{
       /* radius grows with the spot's report weight so hot addresses read
-         bigger, not just darker — 0.6x singles up to 1.35x (zoom stays
-         the OUTER interpolate — same MapLibre gotcha as line-width) */
+         bigger, not just darker — 0.6x singles up to 1.35x — and SCALES IN
+         hard across the entrance: dots grow from a third of their size to
+         full over the same quarter-level the fade uses (zoom stays the
+         OUTER interpolate — same MapLibre gotcha as line-width) */
       'circle-radius':(function(){
         var f = ['+', 0.6, ['*', 0.75, ['get','w']]];
         return ['interpolate',['linear'],['zoom'],
-          10, ['*', 1.6, f],
-          13, ['*', 2.6, f],
-          16, ['*', 4.2, f]
+          12.0,  ['*', 0.8, f],
+          12.25, ['*', 2.3, f],
+          13,    ['*', 2.6, f],
+          16,    ['*', 4.2, f]
         ];
       })(),
       /* the accent orange — the one touch of color on the map itself.
@@ -1813,8 +1818,8 @@ map.on('load', function(){
       layout: labelLayout,
       paint: Object.assign({}, labelPaint, {
         'text-opacity': ['interpolate', ['linear'], ['zoom'],
-          13.8, 1,
-          14.6, 0.85
+          14.8, 1,
+          15.6, 0.85
         ]
       })
     });
@@ -1829,8 +1834,8 @@ map.on('load', function(){
         'text-opacity': ['interpolate', ['linear'], ['zoom'],
           12.6, 0,
           13.1, 1,
-          13.8, 1,
-          14.6, 0.85
+          14.8, 1,
+          15.6, 0.85
         ]
       })
     });

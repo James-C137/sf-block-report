@@ -75,7 +75,8 @@ deleted from the deploy, individual files remain reachable by URL).
   addresses) and the paper stroke thins at citywide zoom (it read as
   measles at full width there).
 - **Density rendering**: census-block choropleth + inked street segments at
-  citywide zoom, crossfading (z13→14.5) into per-building inked extrusions —
+  citywide zoom, crossfading (z14→15.5; pushed up a level so the dots own a
+  z12–14 phase over the mosaic first) into per-building inked extrusions —
   curves overlap so total ink stays constant through the handoff (no mid-fade
   wash-out; validated by sampled hotspot darkness). Buildings enter via the
   "Both" treatment (opacity leads, height rises) and are minzoom-culled below.
@@ -86,10 +87,11 @@ deleted from the deploy, individual files remain reachable by URL).
   at citywide zoom, rest reveal past z12.6, pole-of-inaccessibility anchors,
   density-aware inversion (paper-white text over dark ink).
 - **Points overlay** (not a separate view, no toggle): dots draw above the
-  extrusions and FADE IN starting one zoom level before the buildings but
-  snapping in fast — z12→12.4 (a slow full-level fade felt draggy),
-  minzoom-culled below — so dots pop out of the block mosaic, then the
-  volumes rise. GOTCHA (bit us): `circle-opacity` fades the FILL only;
+  extrusions and SNAP in at z12→12.25, opacity and radius together (they
+  scale from a third of their size to full — slower fades felt draggy),
+  minzoom-culled below. With the building handoff pushed to z14→15.5 the
+  dots own a long z12–14 phase over the block mosaic before the volumes
+  rise. GOTCHA (bit us): `circle-opacity` fades the FILL only;
   the stroke rides a separate `circle-stroke-opacity` (default 1), so it
   must follow the same entrance curve or the borders blink in at full
   strength at the minzoom boundary.
