@@ -110,9 +110,15 @@ deleted from the deploy, individual files remain reachable by URL).
   road-dim follows: roads un-dim when the ink is off and return along
   the slider's fade curve. Other defaults remain baked in: ink 100%,
   contrast 1.0, blocks 85%, height 100%, entrance "Both".
-- **Handoff is baked at z14.5→16** (locked in by eye via the slider; the
-  crossfade started life at z13 and moved up twice). The slider remains
-  for testing (now z12.5–16.5 around the new anchor).
+- **LOCKED-IN LOOK (2026-08-22, tuned by eye via the panel sliders)**:
+  street ink OFF (the block mosaic carries the ground alone — the whole
+  deck.gl MAX-blend street apparatus survives behind the toggle for
+  experiments), handoff z14.5→16, sub-streets delay +0.5z, dots fade in
+  at z12.5 / strength 85% (= blocks) / size 150%. These are the baked
+  defaults; the reset button returns to exactly this state.
+- **Handoff is baked at z14.5→16** (the crossfade started life at z13 and
+  moved up twice). The slider remains for testing (z12.5–16.5 around the
+  anchor).
 - **Sub-streets delay** (panel slider, 0–2z, default +0.5): the basemap's
   small road layers (minor/service/path, ids matched at load with their
   own minzoom ≥ 11) popped in abruptly mid-handoff. Their entrance is now

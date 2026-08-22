@@ -552,8 +552,8 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <span class="microlabel" id="streets-label">Street ink</span>
     <div class="segment" role="group" aria-labelledby="streets-label">
-      <button type="button" id="streets-on" class="active" aria-pressed="true">On</button>
-      <button type="button" id="streets-off" aria-pressed="false">Off</button>
+      <button type="button" id="streets-on" aria-pressed="false">On</button>
+      <button type="button" id="streets-off" class="active" aria-pressed="true">Off</button>
     </div>
     <div class="slider-head">
       <span class="microlabel">Fades out at</span>
@@ -1365,7 +1365,10 @@ function shiftStops(stops){
   return stops.map(function(s){ return [s[0] + HANDOFF_SHIFT, s[1]]; });
 }
 
-var STREETS_ON = true;
+var STREETS_ON = false;               /* street ink is OFF in the locked-in
+                                         look — the block mosaic carries the
+                                         ground alone; the toggle remains
+                                         for experiments */
 var STREET_FADE_TO = BLOCK_FADE_TO;   /* zoom where street ink is fully gone */
 var STREETS_MAX = 0.15;               /* strength cap, same scale as blocks
                                          (0.85 = match the mosaic); 15% tuned
@@ -1439,12 +1442,13 @@ function blockOpacityExpr(){
 }
 /* dots controls (panel): entrance anchor, strength cap (same dimension
    as the block cap, like the street slider), and a size multiplier.
-   Defaults: z13 — one level before the buildings' handoff, snapping in
-   over ~a quarter level so the dots pop out of the block mosaic before
-   the volumes rise — strength 85% (= blocks), size 100%. */
-var DOTS_FADE_AT = 13.0;
+   Locked-in defaults: z12.5 — two levels before the z14.5 handoff,
+   snapping in over ~a quarter level so the dots pop out of the block
+   mosaic and own a long phase before the volumes rise — strength 85%
+   (= blocks), size 150%. */
+var DOTS_FADE_AT = 12.5;
 var DOTS_MAX = BLOCKS_MAX;
-var DOTS_SIZE = 1.0;
+var DOTS_SIZE = 1.5;
 function pointsEntranceStops(){
   var a = DOTS_FADE_AT;
   return [[a, 0], [a + 0.1, 0.6], [a + 0.2, 0.95], [a + 0.25, 1]];
@@ -1932,6 +1936,7 @@ map.on('load', function(){
                                     already 0 at the cutoff, so no pop;
                                     slider updates this via setLayerZoomRange */
         layout:{
+          visibility: STREETS_ON ? 'visible' : 'none',
           'line-cap':'butt',     /* round caps are discs that double-paint at
                                     every shared node — butt/miter kills it */
           'line-join':'miter'
