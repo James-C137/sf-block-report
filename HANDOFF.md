@@ -138,9 +138,11 @@ deleted from the deploy, individual files remain reachable by URL).
   aggregate existed and was removed on request; uncategorized rows have
   no chip and are always shown). All on by default; tapping one off
   fades the chip and re-aggregates the dots overlay from only the
-  active categories (raw points kept as `incidentData.rawFC`). The heat
-  surface deliberately stays all-categories — it's the ambient layer.
-  Fallback (simulated) chips stay static.
+  active categories (raw points kept as `incidentData.rawFC`). All/None
+  master buttons sit in the Category header (live mode only) — None
+  also hides the uncategorized stragglers, All brings everything back.
+  The heat surface deliberately stays all-categories — it's the ambient
+  layer. Fallback (simulated) chips stay static.
 - **Map pings (by address)**: a "Pins" panel section — type an address
   (geocoded by OpenStreetMap Nominatim, browser-direct, bounded to an SF
   viewbox) to drop a graphite teardrop pin and see where home/work land

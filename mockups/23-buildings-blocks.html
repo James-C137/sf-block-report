@@ -193,6 +193,30 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     color:var(--ink);
     border-color:var(--ink);
   }
+  .chips-head{
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .chips-actions .sep{ color:var(--ink-25); font-size:9px; margin:0 2px; }
+  .linklike{
+    appearance:none;
+    border:0;
+    background:none;
+    padding:0;
+    font-family:inherit;
+    font-size:9px;
+    font-weight:500;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-40);
+    cursor:pointer;
+    transition:color 120ms ease;
+  }
+  .linklike:hover{ color:var(--ink); }
+  .linklike:focus-visible{
+    outline:1px solid var(--ink);
+    outline-offset:2px;
+  }
+
   /* live chips are filter toggles: tapping one off fades it and drops
      that category from the dots overlay */
   button.chip{
@@ -570,7 +594,14 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <hr class="rule">
 
-    <span class="microlabel">Category</span>
+    <div class="chips-head">
+      <span class="microlabel">Category</span>
+      <span class="chips-actions" id="chips-actions" hidden>
+        <button type="button" class="linklike" id="cats-all">All</button>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <button type="button" class="linklike" id="cats-none">None</button>
+      </span>
+    </div>
     <div class="chips" id="chips"></div>
     <div class="notice" id="notice"></div>
 
@@ -2307,9 +2338,11 @@ function applyDotFilter(){
   var src = map.getSource('incidents');
   if (src) src.setData(aggregatePoints({ features: feats }));
 }
+var catChipEls = [];   /* [{key, el}] for the All/None master buttons */
 function renderFilterChips(catList){
   var el = document.getElementById('chips');
   el.innerHTML = '';
+  catChipEls = [];
   var items = catList.map(function(c){ return { key: c[0], label: c[0], count: c[1] }; });
   items.forEach(function(it){
     var chip = document.createElement('button');
@@ -2329,9 +2362,24 @@ function renderFilterChips(catList){
       chip.setAttribute('aria-pressed', on);
       applyDotFilter();
     });
+    catChipEls.push({ key: it.key, el: chip });
     el.appendChild(chip);
   });
+  document.getElementById('chips-actions').hidden = false;
 }
+function setAllCats(on){
+  if (!CAT_KEYS) return;
+  /* None hides the uncategorized ('__other') stragglers too; All brings
+     everything back — the master buttons own that bucket */
+  activeCats = on ? new Set(Array.from(CAT_KEYS).concat(['__other'])) : new Set();
+  catChipEls.forEach(function(c){
+    c.el.classList.toggle('off', !on);
+    c.el.setAttribute('aria-pressed', on);
+  });
+  applyDotFilter();
+}
+document.getElementById('cats-all').addEventListener('click', function(){ setAllCats(true); });
+document.getElementById('cats-none').addEventListener('click', function(){ setAllCats(false); });
 function renderRanking(rows){   /* [[name, count], ...] */
   var ol = document.getElementById('ranking');
   ol.innerHTML = '';
