@@ -142,8 +142,10 @@ deleted from the deploy, individual files remain reachable by URL).
   viewbox) to drop a graphite teardrop pin and see where home/work land
   on the density. Pins scale under the SAME law as the neighborhood
   labels (constant screen size to z14, then fixed world size, growing
-  about the tip). Remove via tapping the pin or its × in the panel
-  list; persisted per device in localStorage (`block-report-pings`,
+  about the tip). Removal ONLY via the × in the panel list — pins are
+  pointer-events:none on the map so a stray tap can't delete home/work
+  (tap-to-remove existed and was removed on request); persisted per
+  device in localStorage (`block-report-pings`,
   {a,lng,lat} objects; the earliest bare-pair saves still restore).
   MapLibre DOM Markers own their element's transform, so the scalable
   pin lives on an inner span. Tap-to-drop was replaced by

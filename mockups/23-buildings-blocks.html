@@ -237,7 +237,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
      so it stays planted while it grows with the world past z14 */
   .ping{
     width:20px; height:20px;
-    cursor:pointer;
+    pointer-events:none;   /* pins are display-only; the panel list removes */
   }
   .ping .pin{
     position:absolute; inset:0;
@@ -582,7 +582,7 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <hr class="rule lt">
 
-    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. Add pins by address in the panel (tap a pin to remove; saved on this device; address lookup by OpenStreetMap Nominatim). <span id="updated"></span></p>
+    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. Add pins by address in the panel (saved on this device; address lookup by OpenStreetMap Nominatim). <span id="updated"></span></p>
 
   </div>
 </section>
@@ -2157,18 +2157,16 @@ function renderPinList(){
 function addPing(lng, lat, label, skipSave){
   var el = document.createElement('div');
   el.className = 'ping';
-  el.title = label + ' — tap to remove';
+  el.title = label;
   var pinEl = document.createElement('span');
   pinEl.className = 'pin';
   el.appendChild(pinEl);
   var marker = new maplibregl.Marker({ element: el, anchor:'bottom' })
     .setLngLat([lng, lat])
     .addTo(map);
+  /* removal happens only via the panel list's × — no tap-to-remove on
+     the map, so a stray tap can't delete home/work */
   var p = { lng: lng, lat: lat, label: label, marker: marker, pinEl: pinEl };
-  el.addEventListener('click', function(ev){
-    ev.stopPropagation();
-    removePing(p);
-  });
   pings.push(p);
   updatePingScales();
   renderPinList();
