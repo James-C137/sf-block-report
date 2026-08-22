@@ -131,6 +131,26 @@ deleted from the deploy, individual files remain reachable by URL).
   past their style minzoom and faded in over ~0.4 zoom, pre-multiplied
   with the street-ink road-dim into a single numeric zoom curve
   (MapLibre allows only one top-level ['zoom'] interpolate per property).
+- **Filters drive EVERYTHING (live data)**: the category chips and the
+  histogram's date brush filter one row set that re-derives the density
+  grids, block mosaic, street ink, dots + details, report count, and
+  neighborhood ranking (`commitFilters` → `refreshPanel` +
+  `recomputeMapData`; blocks/streets re-score from cached geometry —
+  `blocksCache`/`streetsCache`/`streetPaths`). BUILDINGS are the
+  exception: scored once at load from the pristine grids (which are
+  never overwritten — filtered grids live in `gridMainF`/`gridStreetF`),
+  they HIDE while any filter is active and the block mosaic carries all
+  zooms flat (`blockOpacityFlatExpr`); clearing filters restores them,
+  still valid. Approved trade: re-scoring 76k footprints per toggle is
+  seconds; blocks-only high zoom is fine.
+- **Date-range brush**: drag across the histogram (it doubles as the
+  brush track; `touch-action:none`) to select a sub-range of the fetched
+  30-day window — single tap = one day, whole track or the period-row
+  Reset link = full window. Out-of-selection bars dim; the histogram
+  itself always shows category-filtered daily counts over the FULL
+  window so the track stays stable while brushing.
+- **Legend** (panel): charcoal ramp swatch (fewer→more per block), the
+  orange dot (darker/larger with repeat reports), and the pin glyph.
 - **Dot details + category filter (live data)**: tapping a dot opens a
   house-styled popup (`.ink-pop`) with the spot's intersection (the
   dataset geocodes incidents to intersections; backslash separator
@@ -219,11 +239,17 @@ pill is a real button that scrolls to the panel.
   original Vite+React choice was revisited; the mockups proved the panel
   doesn't need a framework). No-build version ships first for feedback —
   that's what's live now.
-- **Data architecture**: all map geometry fetched at **build time** and served
-  static; only **incident data** hits the Socrata API at **run time**
-  (browser-direct, CORS is open; register a free Socrata app token for rate
-  limits — it's fine to ship in the client).
-- **Time model**: free date range, capped at a 30-day span.
+- **Data architecture**: map geometry is a **one-time full download**
+  committed to the repo (user's call, 2026-08-22: do NOT refetch per
+  build/CI — geometry is near-static; refresh manually if ever needed,
+  and widen the building bboxes in that same one-time refresh). Only
+  **incident data** hits the Socrata API at **run time** (browser-direct,
+  CORS is open; register a free Socrata app token for rate limits — it's
+  fine to ship in the client).
+- **Time model**: free date range, capped at a 30-day span. Implemented
+  in the mockup as a sub-range of the fetched 30-day window (histogram
+  brush); ranges reaching further back than 30 days would need a refetch
+  and are left for the real build.
 - **V1 scope**: heat + date range + category filter + neighborhood ranking +
   points overlay.
 - **Design taste** (hard-won): minimal, monochrome, map is the centerpiece.
@@ -234,13 +260,15 @@ pill is a real button that scrolls to the panel.
 ## Next steps
 
 1. Collect feedback on the live mockup.
-2. Real build: Vite + vanilla TS scaffold; port 23 as modules. The live
-   Socrata incident fetch, density grid, and real-data panel (count,
-   histogram, category chips, ranking) are DONE in the no-build page — still
-   to wire: the interactive date-range brush and category chip filtering,
-   plus a Socrata app token to move off the tokenless throttle pool.
-3. Build-time geometry fetch script (reproduce the queries above) + GitHub
-   Actions deploy of `dist/` to Pages, with Vite `base: '/sf-block-report/'`.
+2. Real build: Vite + vanilla TS scaffold; port 23 as modules. The FULL V1
+   scope is now live in the no-build page (heat, date-range brush,
+   category filter driving everything, ranking, dots, pins, legend) —
+   the port is a restructuring job, not a feature job. Still open: a
+   Socrata app token to move off the tokenless throttle pool.
+3. One-time geometry refresh with widened building bboxes (fixes the
+   Russian Hill cutoff), committed to the repo; then GitHub Actions
+   deploy of `dist/` to Pages with Vite `base: '/sf-block-report/'` —
+   the deploy does NOT refetch geometry (decision above).
 4. Watch CARTO basemap usage terms if traffic grows (OpenFreeMap is the
    drop-in alternative).
 

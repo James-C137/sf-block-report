@@ -152,18 +152,26 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     color:var(--ink-40);
   }
 
-  /* histogram */
+  /* histogram — also the date-range brush track */
   .histogram{
     display:flex; align-items:flex-end; gap:2px;
     height:34px;
     margin-top:14px;
+    touch-action:none;    /* the drag IS the interaction — don't scroll */
+    cursor:crosshair;
   }
   .histogram span{
     flex:1 1 0;
     background:var(--bar);
     min-height:2px;
+    transition:opacity 120ms ease;
   }
   .histogram span.hi{ background:var(--accent); }
+  .histogram span.dim{ opacity:0.22; }
+
+  .period-right{
+    display:flex; align-items:baseline; gap:12px;
+  }
   .hist-axis{
     display:flex; justify-content:space-between;
     margin-top:5px;
@@ -285,6 +293,39 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     border-radius:50% 50% 0 50%;
     transform:rotate(45deg);   /* square corner points down = the tip */
     box-shadow:0 1px 3px rgba(26,26,26,0.3);
+  }
+
+  /* legend */
+  .legend{ margin-top:12px; }
+  .legend-row{
+    display:flex; align-items:center; gap:12px;
+    padding:4px 0;
+    font-size:10.5px;
+    color:var(--ink-60);
+  }
+  .legend-key{
+    width:56px; flex:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .legend-ramp{
+    width:56px; height:8px;
+    background:linear-gradient(to right, #FFFFFF, #B9AFA7 45%, #6E625A 75%, #26201D);
+    border:1px solid var(--hair-lt);
+  }
+  .legend-dot{
+    width:9px; height:9px;
+    border-radius:50%;
+    background:var(--accent);
+    opacity:0.8;
+    box-shadow:0 0 0 1px rgba(255,255,255,0.9), 0 0 0 2px var(--hair-lt);
+  }
+  .legend-pin{
+    width:10px; height:10px;
+    background:var(--ink);
+    border:1px solid var(--paper);
+    border-radius:50% 50% 0 50%;
+    transform:rotate(45deg);
+    box-shadow:0 1px 2px rgba(26,26,26,0.25);
   }
 
   /* pins panel section */
@@ -582,14 +623,17 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
 
     <div class="period">
       <span class="microlabel">Period</span>
-      <span class="range num" id="period-range">&hellip;</span>
+      <span class="period-right">
+        <button type="button" class="linklike" id="range-reset" hidden>Reset</button>
+        <span class="range num" id="period-range">&hellip;</span>
+      </span>
     </div>
     <div class="count">
       <span class="value num" id="count-value">&hellip;</span>
       <span class="unit">reports</span>
     </div>
 
-    <div class="histogram" id="histogram" aria-hidden="true"></div>
+    <div class="histogram" id="histogram" aria-label="Daily reports — drag to focus a date range"></div>
     <div class="hist-axis num" aria-hidden="true"><span id="hist-start"></span><span id="hist-end"></span></div>
 
     <hr class="rule">
@@ -619,9 +663,27 @@ if (window.innerWidth >= 900 && (navigator.maxTouchPoints || 0) <= 1){
     <span class="microlabel">By neighborhood</span>
     <ol class="ranking" id="ranking"></ol>
 
+    <hr class="rule">
+
+    <span class="microlabel">Legend</span>
+    <div class="legend">
+      <div class="legend-row">
+        <span class="legend-key" aria-hidden="true"><span class="legend-ramp"></span></span>
+        <span>Reports per block &mdash; fewer to more</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-key" aria-hidden="true"><span class="legend-dot"></span></span>
+        <span>Incident spot &mdash; darker &amp; larger with repeat reports</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-key" aria-hidden="true"><span class="legend-pin"></span></span>
+        <span>Your pinned address</span>
+      </div>
+    </div>
+
     <hr class="rule lt">
 
-    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. Add pins by address in the panel (saved on this device; address lookup by OpenStreetMap Nominatim). <span id="updated"></span></p>
+    <p class="footnote"><span id="data-note">Incident reports from SFPD open data (DataSF, Police Department Incident Reports 2018&ndash;present), fetched live for the last 30 days.</span> Density painted per city block and street segment when zoomed out, per building when zoomed in &mdash; blocks from Census 2020, street centerlines and building footprints from DataSF. Tilted 3D view: drag with two fingers or right mouse to rotate. Drag across the histogram to focus a date range; tap category chips to filter. Add pins by address in the panel (saved on this device; address lookup by OpenStreetMap Nominatim). <span id="updated"></span></p>
 
   </div>
 </section>
@@ -784,7 +846,7 @@ function smoothAndNormalize(counts, r){
   }
   return a;
 }
-function buildDensityGrids(fc){
+function buildGrids(fc){
   var counts = new Float32Array(GRID_W * GRID_H);
   var feats = fc.features || [];
   for (var i = 0; i < feats.length; i++){
@@ -794,9 +856,23 @@ function buildDensityGrids(fc){
     if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) continue;
     counts[y * GRID_W + x] += 1;
   }
-  gridMain   = smoothAndNormalize(counts, 4);   /* sigma ≈ 4.5 cells ≈ 190m */
-  gridStreet = smoothAndNormalize(counts, 6);   /* sigma ≈ 6.5 cells ≈ 280m */
+  return {
+    main:   smoothAndNormalize(counts, 4),   /* sigma ≈ 4.5 cells ≈ 190m */
+    street: smoothAndNormalize(counts, 6)    /* sigma ≈ 6.5 cells ≈ 280m */
+  };
 }
+function buildDensityGrids(fc){
+  var g = buildGrids(fc);
+  gridMain = g.main;
+  gridStreet = g.street;
+}
+/* filtered variants (date-range / category filters): when set, the
+   ground layers re-score from these; the PRISTINE grids above stay
+   untouched so the buildings (scored once, at load, from the full set)
+   remain valid the moment filters clear */
+var gridMainF = null, gridStreetF = null;
+function densityAtF(lng, lat){ return sampleGrid(gridMainF || gridMain, lng, lat); }
+function streetFieldAtF(lng, lat){ return sampleGrid(gridStreetF || gridStreet, lng, lat); }
 function sampleGrid(grid, lng, lat){
   if (!grid) return 0;
   if (lng < GRID_MIN_LNG || lng > GRID_MAX_LNG || lat < GRID_MIN_LAT || lat > GRID_MAX_LAT) return 0;
@@ -826,7 +902,8 @@ function toIncidentFC(rows){
       type:'Feature',
       properties:{
         c: rows[i].incident_category || '',
-        x: rows[i].intersection || ''
+        x: rows[i].intersection || '',
+        d: (rows[i].incident_date || '').slice(0, 10)
       },
       geometry:{ type:'Point', coordinates:[lng, lat] }
     });
@@ -1320,31 +1397,45 @@ var buildingsFetch = (MOBILE
 var buildingsPromise = Promise.all([buildingsFetch, densityReady])
   .then(function(r){ return toBuildingFC(r[0]); });
 
+/* blocks are re-scoreable: the geojson + per-feature centroids are kept
+   (blocksCache) so date/category filters can repaint the mosaic from the
+   filtered grid without refetching */
+var blocksCache = null;
+function scoreBlocks(gj, cents){
+  var feats = gj.features;
+  var vals = [];
+  for (var i = 0; i < feats.length; i++){
+    var c = cents[i];
+    var v = c ? densityAtF(c[0], c[1]) : 0;
+    feats[i].properties.v = v;
+    vals.push(v);
+  }
+  /* normalize against the 99th-percentile block so one peak block can't
+     flatten the rest of the ramp */
+  var sorted = vals.slice().sort(function(a, b){ return a - b; });
+  var p99 = sorted[Math.floor(sorted.length * 0.99)] || 1;
+  if (!(p99 > 0)) p99 = 1;
+  for (var j = 0; j < feats.length; j++){
+    feats[j].properties.v = +Math.min(1, feats[j].properties.v / p99).toFixed(4);
+  }
+}
 var blocksPromise = Promise.all([fetchJSON(BLOCKS_LOCAL, BLOCKS_REMOTE), densityReady])
   .then(function(r){
     var gj = r[0];
-    var kept = [];
+    var kept = [], cents = [];
     gj.features.forEach(function(f){
       if (!f.geometry || !f.geometry.coordinates) return;
       var p = f.properties || {};
       /* water-dominant blocks stay unpainted — the bay is not a crime scene */
       var water = parseFloat(p.awater20 || 0) > parseFloat(p.aland20 || 0);
-      var d = 0;
-      if (!water){
-        var c = centroidOf(f.geometry);
-        if (c) d = densityAt(c[0], c[1]);
-      }
-      f.properties = { v:d };
+      var c = water ? null : centroidOf(f.geometry);
+      f.properties = { v: 0 };
       kept.push(f);
+      cents.push(c);
     });
     gj.features = kept;
-    /* normalize against the 99th-percentile block so one peak
-       block can't flatten the rest of the ramp */
-    var sorted = kept.map(function(f){ return f.properties.v; }).sort(function(a, b){ return a - b; });
-    var p99 = sorted[Math.floor(sorted.length * 0.99)] || 1;
-    kept.forEach(function(f){
-      f.properties.v = +Math.min(1, f.properties.v / p99).toFixed(4);
-    });
+    blocksCache = { gj: gj, cents: cents };
+    scoreBlocks(gj, cents);
     blocksShare = 1;
     paintProgress();
     return gj;
@@ -1363,8 +1454,8 @@ var streetsPromise = Promise.all([fetchJSON(STREETS_LOCAL, STREETS_REMOTE), dens
         continue;
       }
       var m = midpointOf(g.coordinates);
-      /* midpoint kept for the label clearings (see deckStreetLayer) */
-      feats[i].properties = { d: +streetFieldAt(m[0], m[1]).toFixed(3), mx: m[0], my: m[1] };
+      /* midpoint kept for re-scoring and the label clearings */
+      feats[i].properties = { d: +streetFieldAtF(m[0], m[1]).toFixed(3), mx: m[0], my: m[1] };
     }
     streetsShare = 1;
     paintProgress();
@@ -1474,14 +1565,11 @@ function blockColorExpr(){
     1.00, '#26201D'
   ];
 }
-function blockOpacityExpr(){
-  /* same ink * v^contrast law as the buildings, pushed through a soft-toe
-     ramp; the Blocks dial caps the whole layer; the outer zoom interpolate
-     fades the mosaic out as buildings become individually legible */
+function blockOpacityFullExpr(){
+  /* same ink * v^contrast law as the buildings, through a near-linear
+     ramp — the old soft toe crushed everything under ~0.2 to white */
   var t = ['*', INK, ['^', ['get','v'], CONTRAST]];
-  /* near-linear ramp — the old soft toe crushed everything under ~0.2 to
-     white; now a lightly-reported block still shows a visible wash */
-  var full = ['*', BLOCKS_MAX, ['interpolate', ['linear'], t,
+  return ['*', BLOCKS_MAX, ['interpolate', ['linear'], t,
     0.00, 0,
     0.03, 0.05,
     0.10, 0.15,
@@ -1491,9 +1579,19 @@ function blockOpacityExpr(){
     0.80, 0.79,
     1.00, 1.0
   ]];
+}
+function blockOpacityExpr(){
+  /* pristine mode: the outer zoom interpolate fades the mosaic out as
+     buildings become individually legible */
+  var full = blockOpacityFullExpr();
   return zoomCurve(shiftStops(GROUND_FADE), function(f){
     return f === 0 ? 0 : (f === 1 ? full : ['*', f, full]);
   });
+}
+function blockOpacityFlatExpr(){
+  /* filtered mode: buildings are hidden (their pristine scores don't
+     match the filter), so blocks carry ALL zooms — no fade-out */
+  return blockOpacityFullExpr();
 }
 /* dots controls (panel): entrance anchor, strength cap (same dimension
    as the block cap, like the street slider), and a size multiplier.
@@ -1619,6 +1717,8 @@ function zoomFade(z){
 }
 
 var deckOverlay = null;
+var streetsVersion = 0;   /* bumped on re-score so deck refreshes colors */
+var streetsCache = null;  /* MapLibre-fallback street geojson, for re-scoring */
 var deckCanvasEl = null;
 var streetPaths = null;   /* LineString features scored with d */
 
@@ -1689,7 +1789,7 @@ function deckStreetLayer(){
       blendAlphaDstFactor:'one'
     },
     updateTriggers:{
-      getColor: [zq, streetClearAnchors.length]
+      getColor: [zq, streetClearAnchors.length, streetsVersion]
     }
   });
 }
@@ -2003,8 +2103,9 @@ map.on('load', function(){
       }
     }, beforeId || undefined);
     blocksReady = true;
-    blocksPromise = null;   /* release the parsed FC for GC — the source owns it now */
+    blocksPromise = null;   /* geojson retained in blocksCache for re-scoring */
     settleLoading();
+    if (!isPristineFilter()){ rescoreBlocks(); applyDensityMode(); }
   }).catch(function(err){
     console.warn('Block fetch failed, buildings will carry it alone:', err);
     blocksFailed = true;
@@ -2031,6 +2132,7 @@ map.on('load', function(){
       map.on('move', updateDeckStreets);
       map.on('moveend', updateDeckStreets);
     } else {
+      streetsCache = geo;   /* kept so filters can re-score + setData */
       map.addSource('streets', { type:'geojson', data:geo });
       map.addLayer({
         id:'streets',
@@ -2053,9 +2155,10 @@ map.on('load', function(){
       }, map.getLayer('buildings') ? 'buildings' : 'points');
     }
     streetsReady = true;
-    streetsPromise = null;  /* release the parsed FC — deck keeps only streetPaths */
+    streetsPromise = null;  /* release — deck keeps streetPaths, fallback streetsCache */
     applyRoadDim();
     settleLoading();
+    if (!isPristineFilter()) rescoreStreets();   /* user filtered before load */
   }).catch(function(err){
     console.warn('Street fetch failed, going without the network layer:', err);
     streetsFailed = true;
@@ -2084,6 +2187,7 @@ map.on('load', function(){
     buildingsReady = true;
     buildingsPromise = null;  /* release the parsed FC for GC — biggest payload on the page */
     settleLoading();
+    applyDensityMode();       /* hide immediately if a filter is already active */
   }).catch(function(err){
     console.warn('Footprint fetch failed, blocks will carry it alone:', err);
     buildingsFailed = true;
@@ -2317,9 +2421,11 @@ document.getElementById('period-range').textContent =
 document.getElementById('hist-start').textContent = fmtDay(PERIOD_START);
 document.getElementById('hist-end').textContent = fmtDay(PERIOD_END);
 
+var histBars = [];
 function renderHistogram(vals){
   var el = document.getElementById('histogram');
   el.innerHTML = '';
+  histBars = [];
   var max = 0, peak = 0;
   vals.forEach(function(v, idx){ if (v > max){ max = v; peak = idx; } });
   if (!max) max = 1;
@@ -2327,7 +2433,13 @@ function renderHistogram(vals){
     var bar = document.createElement('span');
     bar.style.height = Math.round((v / max) * 100) + '%';
     if (idx === peak) bar.className = 'hi';
+    histBars.push(bar);
     el.appendChild(bar);
+  });
+}
+function applyHistDim(){
+  histBars.forEach(function(bar, i){
+    bar.classList.toggle('dim', !!histSel && (i < histSel.a || i > histSel.b));
   });
 }
 function renderChips(items){   /* [[label, count?], ...] — static (fallback) */
@@ -2347,26 +2459,104 @@ function renderChips(items){   /* [[label, count?], ...] — static (fallback) *
   });
 }
 
-/* ---------- category filter (live data): chips drive the dots ----------
-   EVERY category gets its own chip (sorted by count — no "Other"
-   aggregate). All start active; tapping one off re-aggregates the dots
-   overlay (and therefore the dot details popups) from only the active
-   categories. The heat surface deliberately stays all-categories —
-   it's the ambient layer. Uncategorized rows ('__other' bucket, no
-   chip) are always shown. */
+/* ---------- filters: chips + date brush drive EVERYTHING ----------
+   The active categories (every category gets its own chip, no "Other"
+   aggregate; uncategorized rows ride the '__other' bucket owned by the
+   All/None buttons) and the histogram's date selection filter ONE row
+   set that drives the whole page: density grids, block mosaic, street
+   ink, dots + their detail popups, the report count, and the ranking.
+   Buildings are the exception: their 76k footprints are scored once at
+   load from the pristine full set, so while ANY filter is active they
+   hide and the block mosaic carries all zooms (blocks-only high zoom is
+   fine — filtered reading happens citywide anyway); clearing the
+   filters brings them straight back, still valid. */
 var CAT_KEYS = null;     /* Set of all category names with chips */
 var activeCats = null;   /* Set of active buckets */
+var histSel = null;      /* {a, b} histogram bar indices, or null = full */
+var dayKeys = [];        /* ISO day per histogram bar */
+var dayIndex = {};
+var allRows = null;      /* the fetched rows (live mode only) */
+
 function catBucket(c){
   return (CAT_KEYS && CAT_KEYS.has(c)) ? c : '__other';
 }
-function applyDotFilter(){
-  if (!incidentData || !incidentData.rawFC) return;
-  var feats = incidentData.rawFC.features;
-  if (activeCats){
-    feats = feats.filter(function(f){ return activeCats.has(catBucket(f.properties.c)); });
+function isAllCatsActive(){
+  if (!CAT_KEYS || !activeCats) return true;
+  if (!activeCats.has('__other')) return false;
+  var all = true;
+  CAT_KEYS.forEach(function(k){ if (!activeCats.has(k)) all = false; });
+  return all;
+}
+function isPristineFilter(){
+  return !histSel && isAllCatsActive();
+}
+function inDateSel(day){
+  if (!histSel) return true;
+  var di = dayIndex[day];
+  return di !== undefined && di >= histSel.a && di <= histSel.b;
+}
+function activeFeats(){
+  return incidentData.rawFC.features.filter(function(f){
+    var p = f.properties;
+    if (!inDateSel(p.d)) return false;
+    return !activeCats || activeCats.has(catBucket(p.c));
+  });
+}
+function activeRows(){
+  return allRows.filter(function(r){
+    if (!inDateSel((r.incident_date || '').slice(0, 10))) return false;
+    return !activeCats || activeCats.has(catBucket(r.incident_category || ''));
+  });
+}
+
+/* re-score the ground layers from the current (filtered or pristine) grid */
+function rescoreBlocks(){
+  if (!blocksCache || !map.getSource('blocks')) return;
+  scoreBlocks(blocksCache.gj, blocksCache.cents);
+  map.getSource('blocks').setData(blocksCache.gj);
+}
+function rescoreStreets(){
+  var feats = streetPaths || (streetsCache && streetsCache.features);
+  if (!feats) return;
+  for (var i = 0; i < feats.length; i++){
+    var p = feats[i].properties;
+    if (p && p.mx !== undefined) p.d = +streetFieldAtF(p.mx, p.my).toFixed(3);
   }
+  if (streetPaths){ streetsVersion++; updateDeckStreets(); }
+  else if (map.getSource('streets')) map.getSource('streets').setData(streetsCache);
+}
+function applyDensityMode(){
+  var pristine = isPristineFilter();
+  if (map.getLayer('buildings')){
+    map.setLayoutProperty('buildings', 'visibility', pristine ? 'visible' : 'none');
+  }
+  if (map.getLayer('blocks')){
+    map.setPaintProperty('blocks', 'fill-opacity',
+      pristine ? blockOpacityExpr() : blockOpacityFlatExpr());
+  }
+}
+function recomputeMapData(){
+  if (!incidentData || !incidentData.live || !incidentData.rawFC) return;
+  var pristine = isPristineFilter();
+  var feats = null;
+  if (pristine){
+    gridMainF = null;
+    gridStreetF = null;
+  } else {
+    feats = activeFeats();
+    var g = buildGrids({ features: feats });
+    gridMainF = g.main;
+    gridStreetF = g.street;
+  }
+  rescoreBlocks();
+  rescoreStreets();
+  applyDensityMode();
   var src = map.getSource('incidents');
-  if (src) src.setData(aggregatePoints({ features: feats }));
+  if (src) src.setData(pristine ? incidentData.fc : aggregatePoints({ features: feats }));
+}
+function commitFilters(){
+  refreshPanel();
+  recomputeMapData();
 }
 var catChipEls = [];   /* [{key, el}] for the All/None master buttons */
 function renderFilterChips(catList){
@@ -2390,7 +2580,7 @@ function renderFilterChips(catList){
       else activeCats.delete(it.key);
       chip.classList.toggle('off', !on);
       chip.setAttribute('aria-pressed', on);
-      applyDotFilter();
+      commitFilters();
     });
     catChipEls.push({ key: it.key, el: chip });
     el.appendChild(chip);
@@ -2406,7 +2596,7 @@ function setAllCats(on){
     c.el.classList.toggle('off', !on);
     c.el.setAttribute('aria-pressed', on);
   });
-  applyDotFilter();
+  commitFilters();
 }
 document.getElementById('cats-all').addEventListener('click', function(){ setAllCats(true); });
 document.getElementById('cats-none').addEventListener('click', function(){ setAllCats(false); });
@@ -2428,38 +2618,68 @@ function renderRanking(rows){   /* [[name, count], ...] */
   });
 }
 
-function computeStats(rows){
-  var daily = {}, cats = {}, hoods = {};
-  rows.forEach(function(r){
+function sortedCounts(m){
+  return Object.keys(m)
+    .map(function(k){ return [k, m[k]]; })
+    .sort(function(a, b){ return b[1] - a[1]; });
+}
+
+function updatePeriodLabel(){
+  var a = histSel ? histSel.a : 0;
+  var b = histSel ? histSel.b : WINDOW_DAYS - 1;
+  var from = dayKeys.length ? dayKeys[a] : PERIOD_START;
+  var to = dayKeys.length ? dayKeys[b] : PERIOD_END;
+  document.getElementById('period-range').textContent =
+    fmtDay(from) + ' – ' + fmtDay(to) + ', ' + to.slice(0, 4);
+  document.getElementById('range-reset').hidden = !histSel;
+}
+
+function refreshPanel(){
+  if (!allRows) return;
+  /* the histogram always spans the FULL fetched window (it doubles as
+     the date-brush track), showing category-filtered daily counts;
+     out-of-selection days dim */
+  var daily = {};
+  allRows.forEach(function(r){
+    if (activeCats && !activeCats.has(catBucket(r.incident_category || ''))) return;
     var day = (r.incident_date || '').slice(0, 10);
     if (day) daily[day] = (daily[day] || 0) + 1;
-    if (r.incident_category) cats[r.incident_category] = (cats[r.incident_category] || 0) + 1;
+  });
+  renderHistogram(dayKeys.map(function(d){ return daily[d] || 0; }));
+  applyHistDim();
+  /* count + ranking come from the fully filtered set */
+  var rows = activeRows();
+  document.getElementById('count-value').textContent = rows.length.toLocaleString('en-US');
+  var hoods = {};
+  rows.forEach(function(r){
     if (r.analysis_neighborhood) hoods[r.analysis_neighborhood] = (hoods[r.analysis_neighborhood] || 0) + 1;
   });
-  function sorted(m){
-    return Object.keys(m)
-      .map(function(k){ return [k, m[k]]; })
-      .sort(function(a, b){ return b[1] - a[1]; });
-  }
-  return { daily: daily, allCats: sorted(cats), topHoods: sorted(hoods).slice(0, 5) };
+  renderRanking(sortedCounts(hoods).slice(0, 5).map(function(h){
+    return [NHOOD_DISPLAY[h[0]] || h[0], h[1]];
+  }));
+  updatePeriodLabel();
 }
 
 function applyLivePanel(rows){
-  var s = computeStats(rows);
-  document.getElementById('count-value').textContent = rows.length.toLocaleString('en-US');
+  allRows = rows;
+  dayKeys = [];
+  dayIndex = {};
   var startMs = new Date(PERIOD_START + 'T00:00:00Z').getTime();
-  var vals = [];
   for (var i = 0; i < WINDOW_DAYS; i++){
     var day = new Date(startMs + i * MS_DAY).toISOString().slice(0, 10);
-    vals.push(s.daily[day] || 0);
+    dayKeys.push(day);
+    dayIndex[day] = i;
   }
-  renderHistogram(vals);
-  var catNames = s.allCats.map(function(c){ return c[0]; });
-  CAT_KEYS = new Set(catNames);
-  /* '__other' (uncategorized rows, no chip) stays permanently active */
-  activeCats = new Set(catNames.concat(['__other']));
-  renderFilterChips(s.allCats);
-  renderRanking(s.topHoods.map(function(h){ return [NHOOD_DISPLAY[h[0]] || h[0], h[1]]; }));
+  var cats = {};
+  rows.forEach(function(r){
+    if (r.incident_category) cats[r.incident_category] = (cats[r.incident_category] || 0) + 1;
+  });
+  var allCats = sortedCounts(cats);
+  CAT_KEYS = new Set(allCats.map(function(c){ return c[0]; }));
+  /* '__other' (uncategorized rows, no chip) starts active */
+  activeCats = new Set(allCats.map(function(c){ return c[0]; }).concat(['__other']));
+  renderFilterChips(allCats);
+  refreshPanel();
   document.getElementById('updated').textContent =
     'Updated ' + fmtDay(PERIOD_END) + ', ' + PERIOD_END.slice(0, 4) + '.';
   if (rows.length >= INCIDENT_CAP){
@@ -2467,6 +2687,53 @@ function applyLivePanel(rows){
       ' most recent reports.');
   }
 }
+
+/* ---------- date brush: drag across the histogram ----------
+   Pointer capture keeps the drag smooth on touch (touch-action:none on
+   the track stops the page from scrolling instead). A single tap picks
+   one day; dragging picks a span; selecting the whole track, or the
+   Reset link, clears back to the full window. Committing re-derives the
+   whole page through commitFilters. */
+var histBrushEl = document.getElementById('histogram');
+var brushing = false, brushAnchor = 0;
+function barIndexFromEvent(ev){
+  var r = histBrushEl.getBoundingClientRect();
+  var t = (ev.clientX - r.left) / (r.width || 1);
+  return Math.max(0, Math.min(WINDOW_DAYS - 1, Math.floor(t * WINDOW_DAYS)));
+}
+histBrushEl.addEventListener('pointerdown', function(ev){
+  if (!allRows) return;   /* fallback mode: display only */
+  brushing = true;
+  brushAnchor = barIndexFromEvent(ev);
+  histSel = { a: brushAnchor, b: brushAnchor };
+  applyHistDim();
+  updatePeriodLabel();
+  try{ histBrushEl.setPointerCapture(ev.pointerId); }catch(e){}
+  ev.preventDefault();
+});
+histBrushEl.addEventListener('pointermove', function(ev){
+  if (!brushing) return;
+  var i = barIndexFromEvent(ev);
+  histSel = { a: Math.min(brushAnchor, i), b: Math.max(brushAnchor, i) };
+  applyHistDim();
+  updatePeriodLabel();
+});
+histBrushEl.addEventListener('pointerup', function(){
+  if (!brushing) return;
+  brushing = false;
+  if (histSel && histSel.a === 0 && histSel.b === WINDOW_DAYS - 1) histSel = null;
+  commitFilters();
+});
+histBrushEl.addEventListener('pointercancel', function(){
+  if (!brushing) return;
+  brushing = false;
+  histSel = null;
+  commitFilters();
+});
+document.getElementById('range-reset').addEventListener('click', function(){
+  histSel = null;
+  commitFilters();
+});
 
 function applyFallbackPanel(){
   document.getElementById('count-value').textContent = '—';
