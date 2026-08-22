@@ -1135,21 +1135,18 @@ var nhoodsPromise = Promise.all([fetchJSON(NHOODS_LOCAL, NHOODS_REMOTE), density
 /* ---------- shared paint state ---------- */
 var PALE = '#E3E3E3';           /* neutral building gray, blends with Positron */
 
-/* heat ramp: a diverging green→red. Quiet blocks wash soft sage green,
-   the field lifts through a pale cream at the crossover (routing green→red
-   through a light neutral instead of the muddy olive a direct blend gives),
-   then blooms into a BRIGHT coral-red at the hotspots — the earlier dark
-   brick end read as dried blood. On the ground layers the paper white
-   comes from ALPHA — hue slides along the ramp as alpha rises. Buildings
-   are opaque and carry the ramp in surface color. Hue anchors, on
-   t = ink * d^contrast: */
+/* heat ramp: monochrome orange — one hue, intensity carries the data
+   (multi-hue gradients were tried and rejected: red/yellow, terracotta,
+   diverging green→red). Reads pale peach → orange → deep burnt orange.
+   On the ground layers the paper white comes from ALPHA — the hue deepens
+   slightly as alpha rises, so the low anchor is warm enough to tint
+   through the low alphas. Buildings are opaque and carry the ramp in
+   surface color. Hue anchors, on t = ink * d^contrast: */
 var HEAT = [
-  [0.00, [95, 155, 109]],   /* #5F9B6D sage green — deep enough to tint
-                               through the low alphas of the ground ramp */
-  [0.35, [156, 192, 150]],  /* #9CC096 soft green   */
-  [0.55, [225, 214, 190]],  /* #E1D6BE cream (crossover) */
-  [0.75, [232, 150, 126]],  /* #E8967E soft coral   */
-  [1.00, [217, 79, 61]]     /* #D94F3D bright red   */
+  [0.00, [230, 135, 66]],   /* #E68742 light orange  */
+  [0.40, [233, 118, 40]],   /* #E97628 orange        */
+  [0.70, [215, 95, 20]],    /* #D75F14 deep orange   */
+  [1.00, [183, 72, 8]]      /* #B74808 burnt orange  */
 ];
 function heatHue(t){
   if (t <= HEAT[0][0]) return HEAT[0][1];
@@ -1173,15 +1170,15 @@ var pointsOn = false;
 var ROAD_DIM = 0.16;            /* basemap road-line opacity while street ink is on */
 
 function buildingColorExpr(){
-  /* shade = ink * d^contrast, mixed neutral pale -> sage -> cream -> coral red */
+  /* shade = ink * d^contrast, mixed neutral pale -> peach -> burnt orange */
   return ['interpolate', ['linear'],
     ['*', INK, ['^', ['get','d'], CONTRAST]],
     0.00, PALE,
-    0.15, '#C2D8BE',
-    0.35, '#9CC096',
-    0.55, '#DFD5BB',
-    0.80, '#E28F74',
-    1.00, '#D94F3D'
+    0.15, '#F4DDC4',
+    0.35, '#F0B87E',
+    0.60, '#E68A3C',
+    0.85, '#CE621A',
+    1.00, '#B74808'
   ];
 }
 function buildingHeightExpr(){
@@ -1198,16 +1195,15 @@ function buildingOpacityExpr(){
   return zoomCurve(ENTRANCE.op, function(f){ return f * BLDG_FULL_OPACITY; });
 }
 function blockColorExpr(){
-  /* hue slides sage→cream→red with t while blockOpacityExpr drives
+  /* hue deepens light→burnt orange with t while blockOpacityExpr drives
      strength — composited over the paper basemap the pair reads
-     white→green→red with a luminous crossover */
+     white→peach→orange */
   var t = ['*', INK, ['^', ['get','v'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, '#5F9B6D',
-    0.35, '#9CC096',
-    0.55, '#E1D6BE',
-    0.75, '#E8967E',
-    1.00, '#D94F3D'
+    0.00, '#E68742',
+    0.40, '#E97628',
+    0.70, '#D75F14',
+    1.00, '#B74808'
   ];
 }
 function blockOpacityExpr(){
@@ -1238,14 +1234,14 @@ function streetColorExpr(){
      separate layer on top (MapLibre fallback layer only) */
   var t = ['*', INK, ['^', ['get','d'], CONTRAST]];
   return ['interpolate', ['linear'], t,
-    0.00, 'rgba(95,155,109,0)',
-    0.03, 'rgba(100,158,113,0.05)',
-    0.10, 'rgba(112,166,121,0.15)',
-    0.22, 'rgba(133,178,135,0.27)',
-    0.40, 'rgba(173,198,160,0.42)',
-    0.60, 'rgba(227,198,174,0.60)',
-    0.80, 'rgba(229,136,113,0.79)',
-    1.00, 'rgba(217,79,61,1)'
+    0.00, 'rgba(230,135,66,0)',
+    0.03, 'rgba(230,134,64,0.05)',
+    0.10, 'rgba(231,131,60,0.15)',
+    0.22, 'rgba(232,126,52,0.27)',
+    0.40, 'rgba(233,118,40,0.42)',
+    0.60, 'rgba(221,103,27,0.60)',
+    0.80, 'rgba(204,87,16,0.79)',
+    1.00, 'rgba(183,72,8,1)'
   ];
 }
 function streetWidthExpr(){
