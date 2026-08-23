@@ -80,6 +80,53 @@ export const DOT_STRENGTH_RAMP: ReadonlyArray<readonly [number, number]> = [
   [1.0, 1.0],
 ];
 
+/* ---- category taxonomy (decision of record, 2026-08-23) ----
+   SFPD's incident_category runs ~45 values; the chips row showed every
+   one and read as spam. Two-part fix ("1+3"): administrative/non-crime
+   rows are EXCLUDED at the parse boundary (they aren't incidents a
+   crime map should paint), and the rest fold into ~10 curated GROUPS
+   for filtering. Dot popups keep the raw category names, so no detail
+   is lost. Any category missing from both tables lands in 'Other' —
+   new dataset values never vanish. */
+export const EXCLUDED_CATEGORIES: ReadonlySet<string> = new Set([
+  'Case Closure',
+  'Courtesy Report',
+  'Miscellaneous Investigation',
+  'Non-Criminal',
+  'Recovered Vehicle',
+  'Vehicle Impounded',
+  'Vehicle Misplaced',
+  'Lost Property',
+  'Warrant', /* police activity, not an underlying incident at that spot */
+  'Traffic Violation Arrest',
+  'Traffic Collision',
+  'Fire Report',
+  'Suicide', /* not a crime; out of place on this map */
+  'Missing Person',
+]);
+export const CATEGORY_GROUPS: Readonly<Record<string, readonly string[]>> = {
+  'Theft': ['Larceny Theft', 'Stolen Property', 'Embezzlement'],
+  'Burglary': ['Burglary'],
+  'Vehicle Theft': ['Motor Vehicle Theft', 'Motor Vehicle Theft?', 'Motorcycle Theft'],
+  'Robbery': ['Robbery'],
+  'Assault & Violence': [
+    'Assault', 'Homicide', 'Rape', 'Sex Offense',
+    'Weapons Offense', 'Weapons Carrying Etc', 'Weapons Offence',
+    'Offences Against The Family And Children',
+    'Human Trafficking (A), Commercial Sex Acts',
+    'Human Trafficking (B), Involuntary Servitude',
+    'Human Trafficking, Commercial Sex Acts',
+  ],
+  'Vandalism & Arson': ['Malicious Mischief', 'Vandalism', 'Arson'],
+  'Fraud & Forgery': ['Fraud', 'Forgery And Counterfeiting'],
+  'Drugs & Vice': ['Drug Offense', 'Drug Violation', 'Prostitution', 'Gambling', 'Liquor Laws'],
+  'Disorder': ['Disorderly Conduct', 'Suspicious Occ', 'Suspicious', 'Civil Sidewalks', 'Trespass', 'Juvenile Offenses'],
+  /* 'Other' is the runtime catch-all — listed members are just the
+     known ones */
+  'Other': ['Other', 'Other Miscellaneous', 'Other Offenses'],
+};
+export const OTHER_GROUP = 'Other';
+
 /* ---- labels ---- */
 export const LABEL_BEND_AT = 14; /* screen-space px below, fixed world size above */
 export const LABEL_INVERT_DENS = 0.8; /* on the gamma-lifted field */

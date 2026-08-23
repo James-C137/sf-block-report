@@ -4,7 +4,7 @@ import { DOTS_GRID_STEP } from '../src/config';
 import type { Incident } from '../src/model/types';
 
 const inc = (lng: number, lat: number, category = '', intersection = '', neighborhood = ''): Incident => ({
-  day: '2026-08-01', category, neighborhood, intersection, lng, lat,
+  day: '2026-08-01', category, group: category, neighborhood, intersection, lng, lat,
 });
 
 describe('spot aggregation', () => {

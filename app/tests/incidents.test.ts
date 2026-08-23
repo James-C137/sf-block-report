@@ -43,14 +43,16 @@ describe('socrata query', () => {
 });
 
 describe('row parsing', () => {
-  it('parses once at the boundary, dropping bad coords and out-of-bbox rows', () => {
+  it('parses once at the boundary, dropping bad coords, out-of-bbox rows, and administrative categories', () => {
     const out = parseRows([
       { incident_date: '2026-08-01T00:00:00.000', incident_category: 'Assault', latitude: '37.78', longitude: '-122.41' },
       { incident_date: '2026-08-01T00:00:00.000', latitude: 'nope', longitude: '-122.41' },
       { incident_date: '2026-08-01T00:00:00.000', latitude: '0', longitude: '0' },
+      { incident_date: '2026-08-01T00:00:00.000', incident_category: 'Case Closure', latitude: '37.78', longitude: '-122.41' },
+      { incident_date: '2026-08-01T00:00:00.000', incident_category: 'Non-Criminal', latitude: '37.78', longitude: '-122.41' },
     ]);
     expect(out).toHaveLength(1);
-    expect(out[0]).toMatchObject({ day: '2026-08-01', category: 'Assault', lng: -122.41, lat: 37.78 });
+    expect(out[0]).toMatchObject({ day: '2026-08-01', category: 'Assault', group: 'Assault & Violence', lng: -122.41, lat: 37.78 });
   });
 });
 

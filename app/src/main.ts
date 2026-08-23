@@ -10,7 +10,7 @@ import { addDotsLayer } from './map/layers/dots';
 import { addLabelLayers, toLabelFC } from './map/layers/labels';
 import { createPings } from './map/pings';
 import { buildField, sampleField } from './model/density';
-import { categoryCounts, sortedCounts } from './model/stats';
+import { groupCounts, sortedCounts } from './model/stats';
 import { Store, type AppState } from './state';
 import { initCompass, initLoading, initScrollHint } from './ui/chrome';
 import { initPanel, showNotice } from './ui/panel';
@@ -33,7 +33,7 @@ async function boot(): Promise<void> {
 
   const { incidents, live, capped } = await incidentsP;
   const pristineField = buildField(incidents);
-  const allCats = sortedCounts(categoryCounts(incidents));
+  const allCats = sortedCounts(groupCounts(incidents));
   const state: AppState = {
     win,
     incidents,

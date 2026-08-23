@@ -51,10 +51,22 @@ function fixtureRows() {
   }
   /* one ungeocodable row the parser must drop */
   rows.push({ incident_date: `${windowDays[0]}T00:00:00.000`, incident_category: 'Fraud' });
+  /* administrative rows the parser must exclude despite valid coords */
+  for (let i = 0; i < ADMIN_ROWS; i++) {
+    rows.push({
+      incident_date: `${windowDays[i]}T00:00:00.000`,
+      incident_category: i % 2 ? 'Case Closure' : 'Non-Criminal',
+      analysis_neighborhood: 'Tenderloin',
+      intersection: '',
+      latitude: '37.782',
+      longitude: '-122.414',
+    });
+  }
   return rows;
 }
+const ADMIN_ROWS = 6;
 const ROWS = fixtureRows();
-const GEOCODED = ROWS.length - 1;
+const GEOCODED = ROWS.length - 1 - ADMIN_ROWS;
 
 const NOMINATIM_HIT = [{
   lat: '37.7811',
@@ -170,10 +182,11 @@ const browser = await chromium.launch({
 
   /* live data flowed into the panel */
   const count = await page.evaluate(() => document.getElementById('count-value')?.textContent ?? '');
-  ok(parseInt(count.replace(/[^0-9]/g, ''), 10) === GEOCODED, `count shows the ${GEOCODED} geocoded fixture rows (got "${count}")`);
+  ok(parseInt(count.replace(/[^0-9]/g, ''), 10) === GEOCODED, `count shows the ${GEOCODED} geocoded rows, administrative ones excluded (got "${count}")`);
   ok((await page.evaluate(() => document.getElementById('histogram')?.childElementCount)) === 30, 'histogram renders 30 day bars');
   const nChips = await page.evaluate(() => document.querySelectorAll('#chips button.chip').length);
-  ok(nChips === 4, `one chip per live category (got ${nChips})`);
+  ok(nChips === 4, `one chip per curated group, not per raw category (got ${nChips})`);
+  ok((await page.evaluate(() => document.querySelector('#chips button.chip')?.firstChild?.textContent)) === 'Theft', 'chips carry group names (Larceny Theft folds into Theft)');
   ok(await page.evaluate(() => (document.getElementById('data-note')?.textContent ?? '').includes('fetched live')), 'data note reports live data');
   ok((await page.evaluate(() => document.querySelectorAll('#ranking li').length)) === 6, 'ranking lists ALL neighborhoods, not a top-5');
   ok((await page.evaluate(() => document.querySelector('#ranking li .name')?.textContent)) === 'Tenderloin', 'ranking sorts by report count');

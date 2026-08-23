@@ -12,6 +12,7 @@ import {
   INCIDENTS_DATASET, INCIDENT_CAP, INCIDENT_TIMEOUT_MS,
   MS_DAY, SODA_APP_TOKEN, WINDOW_DAYS,
 } from '../config';
+import { groupOfCategory, isExcludedCategory } from '../model/categories';
 import type { Incident } from '../model/types';
 
 /* the reporting window: last 30 full days, SF calendar. The dataset
@@ -70,9 +71,14 @@ export function parseRows(rows: SocrataRow[]): Incident[] {
     const lat = parseFloat(r.latitude ?? '');
     if (!isFinite(lng) || !isFinite(lat)) continue;
     if (lng < GRID_MIN_LNG || lng > GRID_MAX_LNG || lat < GRID_MIN_LAT || lat > GRID_MAX_LAT) continue;
+    const category = r.incident_category ?? '';
+    /* administrative/non-crime rows never enter the app (decision of
+       record — see EXCLUDED_CATEGORIES in config) */
+    if (isExcludedCategory(category)) continue;
     out.push({
       day: (r.incident_date ?? '').slice(0, 10),
-      category: r.incident_category ?? '',
+      category,
+      group: groupOfCategory(category),
       neighborhood: r.analysis_neighborhood ?? '',
       intersection: r.intersection ?? '',
       lng,
@@ -129,7 +135,7 @@ export function makeFakeIncidents(win: ReportWindow): Incident[] {
   const out: Incident[] = [];
   const push = (lng: number, lat: number): void => {
     const day = win.days[Math.floor(rand() * win.days.length)] ?? win.startDay;
-    out.push({ day, category: '', neighborhood: '', intersection: '', lng, lat });
+    out.push({ day, category: '', group: '', neighborhood: '', intersection: '', lng, lat });
   };
   for (const k of clusters) {
     for (let i = 0; i < k.n; i++) push(k.c[0]! + gauss() * k.sx, k.c[1]! + gauss() * k.sy);

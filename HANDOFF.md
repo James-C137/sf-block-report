@@ -200,16 +200,25 @@ deleted from the deploy, individual files remain reachable by URL).
   dataset geocodes incidents to intersections; backslash separator
   rendered as "&"), report count, and category breakdown —
   aggregatePoints carries `n`, `x` (intersection), and a stringified
-  per-spot `cats` tally. The panel's category chips are FILTER TOGGLES —
-  EVERY category gets its own chip, sorted by count (an "Other"
-  aggregate existed and was removed on request; uncategorized rows have
-  no chip and are always shown). All on by default; tapping one off
-  fades the chip and re-aggregates the dots overlay from only the
-  active categories (raw points kept as `incidentData.rawFC`). All/None
-  master buttons sit in the Category header (live mode only) — None
-  also hides the uncategorized stragglers, All brings everything back.
-  The heat surface deliberately stays all-categories — it's the ambient
-  layer. Fallback (simulated) chips stay static.
+  per-spot `cats` tally (raw category names — popups stay precise). The
+  panel's category chips are FILTER TOGGLES over CURATED GROUPS
+  (decision 2026-08-23, "1+3"): SFPD's ~45 raw categories read as chip
+  spam, so `CATEGORY_GROUPS` in config folds them into ~10 groups
+  (Theft, Burglary, Vehicle Theft, Robbery, Assault & Violence,
+  Vandalism & Arson, Fraud & Forgery, Drugs & Vice, Disorder, Other —
+  unknown future categories land in Other, never vanish), and
+  `EXCLUDED_CATEGORIES` drops administrative/non-crime rows (case
+  closures, courtesy reports, warrants, traffic, lost property, missing
+  person, suicide, fire, vehicle admin) at the PARSE BOUNDARY — they
+  never enter the counts, density, or dots. Each Incident carries both
+  `category` (raw) and `group`; filters/chips/histogram run on group.
+  Chips sorted by count, all on by default; tapping one off fades the
+  chip and re-derives everything. All/None master buttons sit in the
+  Category header (live mode only) — None also hides the uncategorized
+  stragglers ('' group, which has no chip and follows the ≥1-chip-active
+  rule), All brings everything back. The heat surface deliberately
+  stays all-categories — it's the ambient layer. Fallback (simulated)
+  chips stay static.
 - **Map pings (by address)**: a "Pins" panel section — type an address
   (geocoded by OpenStreetMap Nominatim, browser-direct, bounded to an SF
   viewbox) to drop a graphite teardrop pin and see where home/work land

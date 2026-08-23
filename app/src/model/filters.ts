@@ -1,16 +1,17 @@
 import type { Filters, Incident } from './types';
 
-/* Uncategorized reports ('' category) have no chip. They are shown iff
-   at least one chip is active — this resolves the mockup's asymmetry
+/* Chips filter on curated GROUPS (activeCats holds group names).
+   Uncategorized reports ('' group) have no chip; they are shown iff at
+   least one chip is active — this resolves the mockup's asymmetry
    where toggling every chip off individually behaved differently from
    the None button (PORT_PLAN §6.1). */
 export function incidentPasses(inc: Incident, filters: Filters): boolean {
   const { dateSel, activeCats } = filters;
   if (dateSel && (inc.day < dateSel.from || inc.day > dateSel.to)) return false;
   if (activeCats) {
-    if (inc.category === '') {
+    if (inc.group === '') {
       if (activeCats.size === 0) return false;
-    } else if (!activeCats.has(inc.category)) {
+    } else if (!activeCats.has(inc.group)) {
       return false;
     }
   }

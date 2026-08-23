@@ -10,10 +10,11 @@ export function dailyCounts(incidents: ReadonlyArray<Incident>): Record<string, 
   return daily;
 }
 
-export function categoryCounts(incidents: ReadonlyArray<Incident>): Record<string, number> {
-  const cats: Record<string, number> = {};
-  for (const inc of incidents) if (inc.category) cats[inc.category] = (cats[inc.category] ?? 0) + 1;
-  return cats;
+/* chips run on the curated groups, not the ~45 raw categories */
+export function groupCounts(incidents: ReadonlyArray<Incident>): Record<string, number> {
+  const groups: Record<string, number> = {};
+  for (const inc of incidents) if (inc.group) groups[inc.group] = (groups[inc.group] ?? 0) + 1;
+  return groups;
 }
 
 export function neighborhoodCounts(incidents: ReadonlyArray<Incident>): Record<string, number> {

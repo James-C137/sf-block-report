@@ -2,7 +2,8 @@
    Socrata rows or parallel GeoJSON representations flow through the app. */
 export interface Incident {
   day: string; /* ISO date, e.g. '2026-08-01' */
-  category: string; /* '' when the report is uncategorized */
+  category: string; /* raw dataset category; '' when uncategorized */
+  group: string; /* curated filter group (config CATEGORY_GROUPS); '' iff category is '' */
   neighborhood: string;
   intersection: string;
   lng: number;

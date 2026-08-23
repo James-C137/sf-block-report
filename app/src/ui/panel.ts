@@ -88,14 +88,15 @@ export function initPanel(store: Store): void {
     resetEl.hidden = !sel;
   };
 
-  /* ---- category chips (live only): every category gets its own chip,
-     sorted by count, no "Other" aggregate ---- */
+  /* ---- category chips (live only): one chip per curated GROUP
+     (config CATEGORY_GROUPS), sorted by count — the ~45 raw dataset
+     categories read as spam; popups keep the raw names ---- */
   const chipEls = new Map<string, HTMLButtonElement>();
   const renderChips = (): void => {
     chipsEl.innerHTML = '';
     chipEls.clear();
     if (!state.live) {
-      for (const label of ['Larceny / Theft', 'Assault', 'Motor Vehicle Theft', 'Burglary', 'Robbery']) {
+      for (const label of ['Theft', 'Assault & Violence', 'Vehicle Theft', 'Burglary', 'Robbery']) {
         const chip = document.createElement('span');
         chip.className = 'chip';
         chip.textContent = label;
@@ -219,7 +220,7 @@ export function initPanel(store: Store): void {
     const catOnly = store.state.incidents.filter((inc) => {
       const active = store.state.filters.activeCats;
       if (!active) return true;
-      return inc.category === '' ? active.size > 0 : active.has(inc.category);
+      return inc.group === '' ? active.size > 0 : active.has(inc.group);
     });
     const daily = dailyCounts(catOnly);
     renderHistogram(days.map((day) => daily[day] ?? 0));
