@@ -11,13 +11,17 @@ function serveRepoData(): Plugin {
   return {
     name: 'serve-repo-data',
     configureServer(server) {
-      server.middlewares.use('/mockups/data', (req, res, next) => {
+      const handler = (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, next: () => void) => {
         const rel = decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/');
         const file = path.join(dataDir, rel);
         if (!file.startsWith(dataDir) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return next();
         res.setHeader('content-type', 'application/json');
         fs.createReadStream(file).pipe(res);
-      });
+      };
+      /* the app fetches under Vite's base; without the second mount those
+         requests fall through to the SPA fallback and come back as HTML */
+      server.middlewares.use('/mockups/data', handler);
+      server.middlewares.use('/sf-block-report/mockups/data', handler);
     },
   };
 }
