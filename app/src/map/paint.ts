@@ -22,15 +22,10 @@ export const BUILDING_RAMP: ReadonlyArray<readonly [number, string]> = [
   [1.0, '#2B2521'],
 ];
 
-/* near-linear alpha ramp — a softer toe was tried and crushed everything
-   under ~0.2 to white; a lightly-reported block still shows a wash */
+/* alpha ramp with a hard toe: even a faint wash made low-crime blocks
+   read as signal, so the toe stays fully transparent */
 export const ALPHA_RAMP: ReadonlyArray<readonly [number, number]> = [
   [0.0, 0],
-  [0.03, 0.05],
-  [0.1, 0.15],
-  [0.22, 0.27],
-  [0.4, 0.42],
-  [0.6, 0.6],
-  [0.8, 0.79],
+  [0.15, 0],
   [1.0, 1.0],
 ];
