@@ -130,16 +130,21 @@ deleted from the deploy, individual files remain reachable by URL).
 - **Points overlay** (not a separate view, no toggle): dots are ALWAYS
   on since 2026-08-22, but what one dot MEANS refines with zoom — an
   LoD ladder (user request): one combined dot per neighborhood at
-  citywide framing, grid-clustered "area" dots (`DOTS_GRID_STEP` 0.002°
-  cells ≈ a few blocks, standing in for major intersections) from
-  z12.5, and the individual geocoded intersections from z14, once the
-  sub-streets are on screen to hang them off. Each level re-runs the
+  citywide framing, grid-clustered "area" dots (`DOTS_GRID_STEP` 0.005°
+  cells ≈ 450m — the GEOMETRIC middle of the ladder; the first cut at
+  0.002 read nearly identical to the individual level and the
+  nhood→area jump was "too much") from z12.5, and the individual
+  geocoded intersections from z14, once the sub-streets are on screen
+  to hang them off. Each level re-runs the
   same aggregation machinery with a coarser key (aggregate.ts), keeps
   the shared weight law against ITS OWN p99.5, positions combined dots
   at their members' mean, and names them for the busiest member
   intersection (neighborhood dots carry the neighborhood name; the
   popup adapts by `kind`). Combined dots get a radius boost (nhood
-  2.4x, area 1.5x) so a 60-report dot isn't a speck. Level changes
+  2.4x, area 1.5x) so a 60-report dot isn't a speck, and ONE per-dot
+  size factor drives radius AND stroke width, keeping the
+  outline-to-fill ratio constant across levels (a zoom-only stroke
+  made the big dots read as a different species). Level changes
   CROSSFADE over 300ms via TWO mirrored circle layers ('points',
   'points-b') — the incoming level fades in on the idle layer while the
   outgoing fades out (one layer + setData would snap); the idle layer

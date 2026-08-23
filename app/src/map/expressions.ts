@@ -77,18 +77,28 @@ export function dotColorExpr(): Expr {
   return ['rgba', r, g, b, alpha] as unknown as Expr;
 }
 
-export function dotRadiusExpr(): Expr {
-  /* combined LoD dots stand for many locations, so they carry more
-     radius: a neighborhood dot at citywide zoom would otherwise be a
-     ~4px speck lost on its own hotspot ink */
+/* one per-dot size factor drives radius AND stroke, so every dot keeps
+   the same outline-to-fill ratio: combined LoD dots (which stand for
+   many locations) get a radius boost, and their border grows in step —
+   a zoom-only stroke made the big dots read as a different species */
+function dotSizeFactor(): unknown {
   const kindBoost = ['match', ['get', 'kind'], 'nhood', 2.4, 'area', 1.5, 1];
-  const f = ['*', DOTS_SIZE, kindBoost, ['+', 0.6, ['*', 0.75, ['get', 'w']]]];
+  return ['*', DOTS_SIZE, kindBoost, ['+', 0.6, ['*', 0.75, ['get', 'w']]]];
+}
+
+export function dotRadiusExpr(): Expr {
+  const f = dotSizeFactor();
   const scaled = (k: number): unknown => ['*', k, f];
   return ['interpolate', ['linear'], ['zoom'], 10, scaled(1.6), 13, scaled(2.6), 16, scaled(4.2)] as unknown as Expr;
 }
 
 export function dotStrokeWidthExpr(): Expr {
-  return ['interpolate', ['linear'], ['zoom'], 10, 0.2, 13, 0.5, 16, 0.9] as unknown as Expr;
+  /* base stops were tuned for a ~1x factor dot (individual, mid weight);
+     dividing by DOTS_SIZE keeps that anchor while the factor scales the
+     ring for bigger dots */
+  const f = dotSizeFactor();
+  const scaled = (k: number): unknown => ['*', k / DOTS_SIZE, f];
+  return ['interpolate', ['linear'], ['zoom'], 10, scaled(0.2), 13, scaled(0.5), 16, scaled(0.9)] as unknown as Expr;
 }
 
 /* labels: one size curve, two regimes — near-constant screen px up to

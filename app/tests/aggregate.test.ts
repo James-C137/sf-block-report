@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { aggregateAreas, aggregateNhoods, aggregateSpots } from '../src/model/aggregate';
+import { DOTS_GRID_STEP } from '../src/config';
 import type { Incident } from '../src/model/types';
 
 const inc = (lng: number, lat: number, category = '', intersection = '', neighborhood = ''): Incident => ({
@@ -53,26 +54,32 @@ describe('spot aggregation', () => {
 
 describe('LoD aggregation', () => {
   it('area level combines nearby intersections into one grid dot at their mean, named for the busiest member', () => {
-    /* three intersections inside one 0.002-degree cell, one far away */
-    /* the cell spans [-122.4160, -122.4140) x [37.7800, 37.7820) */
+    /* coords built from the step so the test survives grid retuning:
+       three intersections inside one cell, one far away */
+    const x0 = Math.ceil(-122.42 / DOTS_GRID_STEP) * DOTS_GRID_STEP;
+    const y0 = Math.ceil(37.78 / DOTS_GRID_STEP) * DOTS_GRID_STEP;
+    const at = (fx: number, fy: number): [number, number] => [x0 + fx * DOTS_GRID_STEP, y0 + fy * DOTS_GRID_STEP];
+    const [ax, ay] = at(0.1, 0.55);
+    const [bx, by] = at(0.3, 0.75);
+    const [cx, cy] = at(0.2, 0.65);
     const near = [
-      inc(-122.4159, 37.7811, 'Assault', 'A ST \\ B ST'),
-      inc(-122.4159, 37.7811, 'Assault', 'A ST \\ B ST'),
-      inc(-122.4155, 37.7815, 'Robbery', 'C ST \\ D ST'),
-      inc(-122.4157, 37.7813, '', ''),
+      inc(ax, ay, 'Assault', 'A ST \\ B ST'),
+      inc(ax, ay, 'Assault', 'A ST \\ B ST'),
+      inc(bx, by, 'Robbery', 'C ST \\ D ST'),
+      inc(cx, cy, '', ''),
     ];
-    const far = inc(-122.39, 37.73, 'Burglary', 'E ST \\ F ST');
+    const far = inc(x0 + 5.5 * DOTS_GRID_STEP, y0 - 9.5 * DOTS_GRID_STEP, 'Burglary', 'E ST \\ F ST');
     const areas = aggregateAreas([...near, far]);
     expect(areas).toHaveLength(2);
     const hot = areas.find((s) => s.n === 4)!;
     expect(hot.kind).toBe('area');
     expect(hot.intersection).toBe('A ST \\ B ST'); /* 2 reports beats 1 */
-    expect(hot.lng).toBeCloseTo((-122.4159 * 2 - 122.4155 - 122.4157) / 4, 9);
+    expect(hot.lng).toBeCloseTo((ax * 2 + bx + cx) / 4, 9);
     expect(hot.cats).toEqual({ Assault: 2, Robbery: 1 });
   });
 
   it('area level separates coordinates in different cells', () => {
-    const spots = aggregateAreas([inc(-122.4001, 37.76), inc(-122.4021, 37.76)]);
+    const spots = aggregateAreas([inc(-122.4001, 37.76), inc(-122.4001 - 1.5 * DOTS_GRID_STEP, 37.76)]);
     expect(spots).toHaveLength(2);
   });
 

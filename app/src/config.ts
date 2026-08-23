@@ -62,7 +62,11 @@ export const BLDG_DEFAULT_HEIGHT_M = 8;
    screen to hang them off. Level changes crossfade over DOTS_FADE_MS. */
 export const DOTS_LOD_AREA_AT = 12.5; /* nhood → area (was the old fade-in) */
 export const DOTS_LOD_SPOT_AT = 14.0; /* area → individual: sub-streets have appeared */
-export const DOTS_GRID_STEP = 0.002; /* ≈180-220m cells at SF latitudes */
+/* area-cell size: the GEOMETRIC middle of the ladder. Neighborhoods run
+   ~2km, intersections ~100m; sqrt(2000*100) ≈ 450m ≈ 0.005°. The first
+   cut (0.002 ≈ two blocks) read nearly identical to the individual
+   level. */
+export const DOTS_GRID_STEP = 0.005;
 export const DOTS_FADE_MS = 300;
 export const DOTS_MAX = BLOCKS_MAX; /* strength cap, same dimension as blocks */
 export const DOTS_SIZE = 1.5;
