@@ -1,13 +1,14 @@
 /* Typed MapLibre expression builders. The one hard rule, learned twice
    in the mockup: ['zoom'] must feed a TOP-LEVEL interpolate — nesting it
-   inside arithmetic silently rejects the layer. zoomCurve() is the only
-   place ['zoom'] is ever written, which enforces the rule structurally. */
+   inside arithmetic silently rejects the layer. Every arithmetic-bearing
+   zoom curve is built via zoomCurve(); the label expressions write plain
+   top-level interpolates directly. */
 
 import type { ExpressionSpecification } from 'maplibre-gl';
 import {
-  BLDG_FULL_OPACITY, BLOCKS_MAX, DOTS_MAX, DOTS_SIZE, DOT_COLOR_RGB,
-  DOT_STRENGTH_RAMP, ENTRANCE_HEIGHT, ENTRANCE_OPACITY, GROUND_FADE,
-  LABEL_BEND_AT,
+  BLDG_FULL_OPACITY, BLOCKS_MAX, DOTS_MAX, DOT_COLOR_RGB,
+  DOT_STRENGTH_RAMP, DOT_STROKE_RATIO,
+  ENTRANCE_HEIGHT, ENTRANCE_OPACITY, GROUND_FADE, LABEL_BEND_AT,
 } from '../config';
 import { ALPHA_RAMP, BUILDING_RAMP, CHARCOAL_ANCHORS } from './paint';
 
@@ -31,8 +32,8 @@ function interpOn(t: Expr, stops: ReadonlyArray<readonly [number, unknown]>): Ex
   return e as Expr;
 }
 
-/* v/d/w properties are already in [0,1]; t is the property itself
-   (the mockup's ink=1, contrast=1 folded away) */
+/* v/d/w properties are already in [0,1] and r is final px; t is the
+   property itself (the mockup's ink=1, contrast=1 folded away) */
 const tOf = (prop: string): Expr => ['get', prop] as unknown as Expr;
 
 export function blockColorExpr(): Expr {
@@ -77,28 +78,17 @@ export function dotColorExpr(): Expr {
   return ['rgba', r, g, b, alpha] as unknown as Expr;
 }
 
-/* one per-dot size factor drives radius AND stroke, so every dot keeps
-   the same outline-to-fill ratio: combined LoD dots (which stand for
-   many locations) get a radius boost, and their border grows in step —
-   a zoom-only stroke made the big dots read as a different species */
-function dotSizeFactor(): unknown {
-  const kindBoost = ['match', ['get', 'kind'], 'nhood', 2.4, 1];
-  return ['*', DOTS_SIZE, kindBoost, ['+', 0.6, ['*', 0.75, ['get', 'w']]]];
-}
-
+/* deliberately no zoom term: a dot holds its screen size within its
+   level; only the LoD crossfade changes what's on screen. The size law
+   (count → px) lives in aggregate.ts, so the radius arrives resolved. */
 export function dotRadiusExpr(): Expr {
-  const f = dotSizeFactor();
-  const scaled = (k: number): unknown => ['*', k, f];
-  return ['interpolate', ['linear'], ['zoom'], 10, scaled(1.6), 13, scaled(2.6), 16, scaled(4.2)] as unknown as Expr;
+  return tOf('r');
 }
 
+/* fixed outline-to-fill ratio: an independently scaled stroke made the
+   big dots read as a different species */
 export function dotStrokeWidthExpr(): Expr {
-  /* base stops were tuned for a ~1x factor dot (individual, mid weight);
-     dividing by DOTS_SIZE keeps that anchor while the factor scales the
-     ring for bigger dots */
-  const f = dotSizeFactor();
-  const scaled = (k: number): unknown => ['*', k / DOTS_SIZE, f];
-  return ['interpolate', ['linear'], ['zoom'], 10, scaled(0.2), 13, scaled(0.5), 16, scaled(0.9)] as unknown as Expr;
+  return ['*', DOT_STROKE_RATIO, tOf('r')] as unknown as Expr;
 }
 
 /* labels: one size curve, two regimes — near-constant screen px up to

@@ -7,7 +7,10 @@
    strength), then sqrt. Positions of combined dots are the mean of
    their member reports, so a cluster's dot sits where its reports do. */
 
-import { DOTS_GRID_STEP, SPOT_REF_FLOOR, SPOT_REF_PERCENTILE } from '../config';
+import {
+  DOTS_GRID_STEP, DOT_RADIUS_FLOOR, DOT_RADIUS_MAX_NHOOD, DOT_RADIUS_MAX_SPOT,
+  SPOT_REF_FLOOR, SPOT_REF_PERCENTILE,
+} from '../config';
 import type { Incident, Spot, SpotKind } from './types';
 
 interface Bucket {
@@ -31,7 +34,7 @@ function aggregate(
     let b = byKey.get(key);
     if (!b) {
       b = {
-        spot: { lng: 0, lat: 0, n: 0, w: 0, intersection: labelOf?.(inc) ?? '', cats: {}, kind },
+        spot: { lng: 0, lat: 0, n: 0, w: 0, r: 0, intersection: labelOf?.(inc) ?? '', cats: {}, kind },
         sumLng: 0,
         sumLat: 0,
         xTally: new Map(),
@@ -59,7 +62,16 @@ function aggregate(
     ? counts[Math.min(counts.length - 1, Math.floor(counts.length * SPOT_REF_PERCENTILE))]!
     : 1;
   const ref = Math.max(SPOT_REF_FLOOR, pctl);
-  for (const s of spots) s.w = +Math.min(1, Math.sqrt(s.n / ref)).toFixed(3);
+  /* w carries ink (capped). Size is resolved to final px here — the
+     radius has no zoom term, so it's plain per-feature data; the area
+     law and its endpoints are stated at the constants in config.ts. */
+  const nMax = counts[counts.length - 1] ?? 1;
+  const rMax = kind === 'nhood' ? DOT_RADIUS_MAX_NHOOD : DOT_RADIUS_MAX_SPOT;
+  const floorSq = DOT_RADIUS_FLOOR * DOT_RADIUS_FLOOR;
+  for (const s of spots) {
+    s.w = Math.min(1, Math.sqrt(s.n / ref));
+    s.r = Math.sqrt(floorSq + (rMax * rMax - floorSq) * (s.n / nMax));
+  }
   return spots;
 }
 

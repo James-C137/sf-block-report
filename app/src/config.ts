@@ -64,9 +64,15 @@ export const DOTS_LOD_SPOT_AT = 14.0; /* nhood → individual: sub-streets have 
 export const DOTS_GRID_STEP = 0.005;
 export const DOTS_FADE_MS = 300;
 export const DOTS_MAX = BLOCKS_MAX; /* strength cap, same dimension as blocks */
-export const DOTS_SIZE = 1.5;
+/* dot AREA rises linearly with report count within each LoD, from the
+   floor radius (an n=0 anchor the lightest spots approach) up to the
+   max the level's BIGGEST dot is pinned at (px, constant across zoom) */
+export const DOT_RADIUS_FLOOR = 3;
+export const DOT_RADIUS_MAX_NHOOD = 16;
+export const DOT_RADIUS_MAX_SPOT = 14;
+export const DOT_STROKE_RATIO = 0.2; /* stroke width as a fraction of radius */
 export const DOT_COLOR_RGB: readonly [number, number, number] = [183, 71, 10]; /* #B7470A */
-export const DOT_STROKE_MAX = 0.7;
+export const DOT_STROKE_OPACITY = 0.7;
 /* per-spot strength ramp on t = w: HIGH floor so singles stay visible */
 export const DOT_STRENGTH_RAMP: ReadonlyArray<readonly [number, number]> = [
   [0.0, 0.35],

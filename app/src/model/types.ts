@@ -18,7 +18,8 @@ export interface Spot {
   lng: number;
   lat: number;
   n: number;
-  w: number; /* normalized weight, the shared scaling law */
+  w: number; /* normalized weight (ink), the shared scaling law */
+  r: number; /* resolved radius in px (see aggregate.ts for the size law) */
   intersection: string; /* nhood level: the neighborhood name */
   cats: Record<string, number>;
   kind: SpotKind;

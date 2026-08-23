@@ -1,6 +1,6 @@
 import maplibregl, { type GeoJSONSource, type Map as MLMap } from 'maplibre-gl';
 import {
-  DOTS_FADE_MS, DOTS_LOD_SPOT_AT, DOT_STROKE_MAX, NHOOD_DISPLAY,
+  DOTS_FADE_MS, DOTS_LOD_SPOT_AT, DOT_STROKE_OPACITY, NHOOD_DISPLAY,
 } from '../../config';
 import type { Spot } from '../../model/types';
 import type { LodSpots } from '../../state';
@@ -26,7 +26,7 @@ function spotsFC(spots: ReadonlyArray<Spot>): GeoJSON.FeatureCollection {
     type: 'FeatureCollection',
     features: spots.map((s) => ({
       type: 'Feature',
-      properties: { w: s.w, n: s.n, x: s.intersection, kind: s.kind, cats: JSON.stringify(s.cats) },
+      properties: { w: s.w, r: s.r, n: s.n, x: s.intersection, kind: s.kind, cats: JSON.stringify(s.cats) },
       geometry: { type: 'Point', coordinates: [s.lng, s.lat] },
     })),
   };
@@ -62,8 +62,6 @@ export function addDotsLayer(map: MLMap): DotsHandle {
         'circle-opacity': 0,
         'circle-stroke-color': '#FFFFFF',
         'circle-stroke-opacity': 0,
-        /* the stroke thins at citywide zoom: a full-width ring around a
-           ~1.6px dot outweighed the fill and read as measles */
         'circle-stroke-width': dotStrokeWidthExpr(),
       },
     });
@@ -88,7 +86,7 @@ export function addDotsLayer(map: MLMap): DotsHandle {
     const to = level === null ? active : 1 - active; /* first show needs no swap */
     src(to)?.setData(spotsFC(data[want]) as never);
     map.setPaintProperty(LAYERS[to]!, 'circle-opacity', 1);
-    map.setPaintProperty(LAYERS[to]!, 'circle-stroke-opacity', DOT_STROKE_MAX);
+    map.setPaintProperty(LAYERS[to]!, 'circle-stroke-opacity', DOT_STROKE_OPACITY);
     if (to !== from) {
       map.setPaintProperty(LAYERS[from]!, 'circle-opacity', 0);
       map.setPaintProperty(LAYERS[from]!, 'circle-stroke-opacity', 0);

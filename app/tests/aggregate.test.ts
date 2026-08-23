@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { aggregateNhoods, aggregateSpots } from '../src/model/aggregate';
+import { DOT_RADIUS_FLOOR, DOT_RADIUS_MAX_SPOT } from '../src/config';
 import type { Incident } from '../src/model/types';
 
 const inc = (lng: number, lat: number, category = '', intersection = '', neighborhood = ''): Incident => ({
@@ -71,6 +72,18 @@ describe('LoD aggregation', () => {
     const spots = aggregateNhoods([inc(-122.41, 37.78), inc(-122.5, 37.71)]);
     expect(spots).toHaveLength(2);
     expect(spots.reduce((a, s) => a + s.n, 0)).toBe(2);
+  });
+
+  it('size law: the busiest dot pins at the level max and AREA is linear in count from the floor', () => {
+    const at = (lng: number, n: number): Incident[] =>
+      Array.from({ length: n }, () => inc(lng, 37.76));
+    const spots = aggregateSpots([...at(-122.40, 64), ...at(-122.41, 16), ...at(-122.42, 1)]);
+    const r = (n: number): number => spots.find((s) => s.n === n)!.r;
+    const area = (n: number): number =>
+      DOT_RADIUS_FLOOR ** 2 + (DOT_RADIUS_MAX_SPOT ** 2 - DOT_RADIUS_FLOOR ** 2) * (n / 64);
+    expect(r(64)).toBeCloseTo(DOT_RADIUS_MAX_SPOT, 6);
+    expect(r(16) ** 2).toBeCloseTo(area(16), 6);
+    expect(r(1) ** 2).toBeCloseTo(area(1), 6);
   });
 
   it('every level conserves the report count and shares the weight law bounds', () => {
