@@ -146,7 +146,7 @@ async function routeExternals(context) {
 }
 
 const browser = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium',
+  executablePath: process.env.PW_CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--use-gl=swiftshader', '--no-sandbox'],
 });
 
@@ -199,8 +199,8 @@ const browser = await chromium.launch({
   await page.click('#ranking-toggle');
   ok((await visibleRanks()) === 5, 'Show less folds it back');
 
-  /* dots LoD: one combined dot per neighborhood citywide, grid areas
-     mid-zoom, individual intersections once sub-streets are in */
+  /* dots LoD: one combined dot per neighborhood until sub-streets are
+     in, then individual intersections */
   const lodAt = (z) => page.evaluate((zoom) => {
     window.__blockReport.map.jumpTo({ zoom });
     return window.__blockReport.dots.lodState();
@@ -209,8 +209,8 @@ const browser = await chromium.launch({
   const lodMid = await lodAt(13.0);
   const lodHigh = await lodAt(15.0);
   ok(lodCity.level === 'nhood' && lodCity.count === 6, `citywide: one dot per fixture neighborhood (got ${lodCity.level}/${lodCity.count})`);
-  ok(lodMid.level === 'area' && lodMid.count > lodCity.count, `mid-zoom: grid areas (got ${lodMid.level}/${lodMid.count})`);
-  ok(lodHigh.level === 'spot' && lodHigh.count > lodMid.count, `high zoom: individual intersections (got ${lodHigh.level}/${lodHigh.count})`);
+  ok(lodMid.level === 'nhood', `mid-zoom holds neighborhood dots (got ${lodMid.level})`);
+  ok(lodHigh.level === 'spot' && lodHigh.count > lodCity.count, `high zoom: individual intersections (got ${lodHigh.level}/${lodHigh.count})`);
   const srcMax = await page.evaluate(() => Math.max(...['points', 'points-b']
     .map((id) => window.__blockReport.map.getSource(id).serialize().data.features.length)));
   ok(srcMax === lodHigh.count, `the active source holds the level's dots (${srcMax})`);
