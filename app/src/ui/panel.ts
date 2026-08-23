@@ -226,9 +226,10 @@ export function initPanel(store: Store): void {
     applyDim();
     updatePeriodLabel();
     countEl.textContent = state.live ? d.filtered.length.toLocaleString('en-US') : '—';
+    /* every neighborhood with reports — the panel scrolls (user call;
+       was a top-5) */
     renderRanking(
       sortedCounts(neighborhoodCounts(d.filtered))
-        .slice(0, 5)
         .map(([name, count]) => [NHOOD_DISPLAY[name] ?? name, count]),
     );
     paintChips();

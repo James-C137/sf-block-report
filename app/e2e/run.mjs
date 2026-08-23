@@ -26,11 +26,15 @@ for (let i = 30; i >= 1; i--) windowDays.push(sfDay(i * 86400000));
 
 function fixtureRows() {
   const rows = [];
+  /* six neighborhoods so the ranking provably shows ALL of them (the
+     old top-5 cap would clip one) */
   const spots = [
-    { lng: -122.414, lat: 37.783, cat: 'Larceny Theft', n: 40, x: 'MARKET ST \\ 7TH ST' },
-    { lng: -122.419, lat: 37.76, cat: 'Assault', n: 25, x: 'MISSION ST \\ 20TH ST' },
-    { lng: -122.39, lat: 37.732, cat: 'Burglary', n: 15, x: '3RD ST \\ PALOU AVE' },
-    { lng: -122.44, lat: 37.77, cat: 'Motor Vehicle Theft', n: 10, x: '' },
+    { lng: -122.414, lat: 37.783, cat: 'Larceny Theft', n: 40, x: 'MARKET ST \\ 7TH ST', nh: 'Tenderloin' },
+    { lng: -122.419, lat: 37.76, cat: 'Assault', n: 25, x: 'MISSION ST \\ 20TH ST', nh: 'Mission' },
+    { lng: -122.39, lat: 37.732, cat: 'Burglary', n: 15, x: '3RD ST \\ PALOU AVE', nh: 'Bayview Hunters Point' },
+    { lng: -122.44, lat: 37.77, cat: 'Motor Vehicle Theft', n: 10, x: '', nh: 'Castro/Upper Market' },
+    { lng: -122.436, lat: 37.8, cat: 'Assault', n: 6, x: 'CHESTNUT ST \\ FILLMORE ST', nh: 'Marina' },
+    { lng: -122.407, lat: 37.801, cat: 'Burglary', n: 4, x: 'COLUMBUS AVE \\ GREEN ST', nh: 'North Beach' },
   ];
   let k = 0;
   for (const s of spots) {
@@ -38,7 +42,7 @@ function fixtureRows() {
       rows.push({
         incident_date: `${windowDays[k++ % windowDays.length]}T00:00:00.000`,
         incident_category: s.cat,
-        analysis_neighborhood: 'Mission',
+        analysis_neighborhood: s.nh,
         intersection: s.x,
         latitude: String(s.lat + (i % 5) * 1e-4),
         longitude: String(s.lng + (i % 7) * 1e-4),
@@ -171,6 +175,8 @@ const browser = await chromium.launch({
   const nChips = await page.evaluate(() => document.querySelectorAll('#chips button.chip').length);
   ok(nChips === 4, `one chip per live category (got ${nChips})`);
   ok(await page.evaluate(() => (document.getElementById('data-note')?.textContent ?? '').includes('fetched live')), 'data note reports live data');
+  ok((await page.evaluate(() => document.querySelectorAll('#ranking li').length)) === 6, 'ranking lists ALL neighborhoods, not a top-5');
+  ok((await page.evaluate(() => document.querySelector('#ranking li .name')?.textContent)) === 'Tenderloin', 'ranking sorts by report count');
 
   /* dots LoD: one combined dot per neighborhood citywide, grid areas
      mid-zoom, individual intersections once sub-streets are in */
@@ -181,7 +187,7 @@ const browser = await chromium.launch({
   const lodCity = await lodAt(11.85);
   const lodMid = await lodAt(13.0);
   const lodHigh = await lodAt(15.0);
-  ok(lodCity.level === 'nhood' && lodCity.count === 1, `citywide: one dot for the single fixture neighborhood (got ${lodCity.level}/${lodCity.count})`);
+  ok(lodCity.level === 'nhood' && lodCity.count === 6, `citywide: one dot per fixture neighborhood (got ${lodCity.level}/${lodCity.count})`);
   ok(lodMid.level === 'area' && lodMid.count > lodCity.count, `mid-zoom: grid areas (got ${lodMid.level}/${lodMid.count})`);
   ok(lodHigh.level === 'spot' && lodHigh.count > lodMid.count, `high zoom: individual intersections (got ${lodHigh.level}/${lodHigh.count})`);
   const srcMax = await page.evaluate(() => Math.max(...['points', 'points-b']
