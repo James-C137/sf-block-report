@@ -1,6 +1,6 @@
 import maplibregl, { type GeoJSONSource, type Map as MLMap } from 'maplibre-gl';
 import {
-  DOTS_FADE_MS, DOTS_LOD_AREA_AT, DOTS_LOD_SPOT_AT, DOT_STROKE_MAX, NHOOD_DISPLAY,
+  DOTS_FADE_MS, DOTS_LOD_SPOT_AT, DOT_STROKE_MAX, NHOOD_DISPLAY,
 } from '../../config';
 import type { Spot } from '../../model/types';
 import type { LodSpots } from '../../state';
@@ -17,8 +17,7 @@ type Level = keyof LodSpots;
 
 /* the LoD ladder: what one dot MEANS at each zoom band */
 function levelFor(z: number): Level {
-  if (z < DOTS_LOD_AREA_AT) return 'nhood';
-  if (z < DOTS_LOD_SPOT_AT) return 'area';
+  if (z < DOTS_LOD_SPOT_AT) return 'nhood';
   return 'spot';
 }
 
