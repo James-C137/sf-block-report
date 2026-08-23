@@ -73,7 +73,7 @@ export function addDotsLayer(map: MLMap): DotsHandle {
     setTransition(id, 'circle-stroke-opacity-transition', { duration: DOTS_FADE_MS });
   }
 
-  let data: LodSpots = { nhood: [], area: [], spot: [] };
+  let data: LodSpots = { nhood: [], spot: [] };
   let active = 0; /* index into LAYERS currently showing */
   let level: Level | null = null;
   let forced = false;
@@ -105,8 +105,8 @@ export function addDotsLayer(map: MLMap): DotsHandle {
   map.on('zoom', updateRegime);
 
   /* ---- details popup: tap a dot for what it stands for at this level —
-     a neighborhood, an area around its busiest intersection, or one
-     intersection — plus report count and category breakdown ---- */
+     a neighborhood or one intersection — plus report count and category
+     breakdown ---- */
   let popup: maplibregl.Popup | null = null;
   const esc = (s: string): string =>
     s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
@@ -124,10 +124,7 @@ export function addDotsLayer(map: MLMap): DotsHandle {
     const rows = Object.entries(cats).sort((a, b) => b[1] - a[1]);
     /* the dataset separates cross streets with a backslash */
     const cross = p.x ? String(p.x).replace(/\s*\\\s*/g, ' & ') : '';
-    const loc =
-      p.kind === 'nhood' ? (NHOOD_DISPLAY[p.x ?? ''] ?? p.x ?? '') :
-      p.kind === 'area' ? (cross ? `Near ${cross}` : 'This area') :
-      cross;
+    const loc = p.kind === 'nhood' ? (NHOOD_DISPLAY[p.x ?? ''] ?? p.x ?? '') : cross;
     const html =
       (loc ? `<div class="pop-loc">${esc(loc)}</div>` : '') +
       `<div class="pop-count num">${p.n}${p.n === 1 ? ' report' : ' reports'}</div>` +

@@ -82,7 +82,7 @@ export function dotColorExpr(): Expr {
    many locations) get a radius boost, and their border grows in step —
    a zoom-only stroke made the big dots read as a different species */
 function dotSizeFactor(): unknown {
-  const kindBoost = ['match', ['get', 'kind'], 'nhood', 2.4, 'area', 1.5, 1];
+  const kindBoost = ['match', ['get', 'kind'], 'nhood', 2.4, 1];
   return ['*', DOTS_SIZE, kindBoost, ['+', 0.6, ['*', 0.75, ['get', 'w']]]];
 }
 

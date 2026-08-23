@@ -6,7 +6,7 @@ import type { ReportWindow } from './data/incidents';
 import { buildField } from './model/density';
 import { applyFilters, isPristine } from './model/filters';
 import type { DensityField, Filters, Incident, Spot } from './model/types';
-import { aggregateAreas, aggregateNhoods, aggregateSpots } from './model/aggregate';
+import { aggregateNhoods, aggregateSpots } from './model/aggregate';
 
 export type SourceStatus = 'pending' | 'ok' | 'failed';
 
@@ -23,7 +23,6 @@ export interface AppState {
 
 export interface LodSpots {
   nhood: Spot[]; /* one combined dot per neighborhood */
-  area: Spot[]; /* grid-clustered, ~major-intersection scale */
   spot: Spot[]; /* individual geocoded locations */
 }
 
@@ -49,7 +48,6 @@ export class Store {
     const activeField = pristine ? state.pristineField : buildField(filtered);
     const spots: LodSpots = {
       nhood: aggregateNhoods(filtered),
-      area: aggregateAreas(filtered),
       spot: aggregateSpots(filtered),
     };
     this.cachedDerived = { filtered, pristine, activeField, spots };

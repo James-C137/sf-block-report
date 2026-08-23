@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aggregateAreas, aggregateNhoods, aggregateSpots } from '../src/model/aggregate';
-import { DOTS_GRID_STEP } from '../src/config';
+import { aggregateNhoods, aggregateSpots } from '../src/model/aggregate';
 import type { Incident } from '../src/model/types';
 
 const inc = (lng: number, lat: number, category = '', intersection = '', neighborhood = ''): Incident => ({
@@ -53,36 +52,6 @@ describe('spot aggregation', () => {
 });
 
 describe('LoD aggregation', () => {
-  it('area level combines nearby intersections into one grid dot at their mean, named for the busiest member', () => {
-    /* coords built from the step so the test survives grid retuning:
-       three intersections inside one cell, one far away */
-    const x0 = Math.ceil(-122.42 / DOTS_GRID_STEP) * DOTS_GRID_STEP;
-    const y0 = Math.ceil(37.78 / DOTS_GRID_STEP) * DOTS_GRID_STEP;
-    const at = (fx: number, fy: number): [number, number] => [x0 + fx * DOTS_GRID_STEP, y0 + fy * DOTS_GRID_STEP];
-    const [ax, ay] = at(0.1, 0.55);
-    const [bx, by] = at(0.3, 0.75);
-    const [cx, cy] = at(0.2, 0.65);
-    const near = [
-      inc(ax, ay, 'Assault', 'A ST \\ B ST'),
-      inc(ax, ay, 'Assault', 'A ST \\ B ST'),
-      inc(bx, by, 'Robbery', 'C ST \\ D ST'),
-      inc(cx, cy, '', ''),
-    ];
-    const far = inc(x0 + 5.5 * DOTS_GRID_STEP, y0 - 9.5 * DOTS_GRID_STEP, 'Burglary', 'E ST \\ F ST');
-    const areas = aggregateAreas([...near, far]);
-    expect(areas).toHaveLength(2);
-    const hot = areas.find((s) => s.n === 4)!;
-    expect(hot.kind).toBe('area');
-    expect(hot.intersection).toBe('A ST \\ B ST'); /* 2 reports beats 1 */
-    expect(hot.lng).toBeCloseTo((ax * 2 + bx + cx) / 4, 9);
-    expect(hot.cats).toEqual({ Assault: 2, Robbery: 1 });
-  });
-
-  it('area level separates coordinates in different cells', () => {
-    const spots = aggregateAreas([inc(-122.4001, 37.76), inc(-122.4001 - 1.5 * DOTS_GRID_STEP, 37.76)]);
-    expect(spots).toHaveLength(2);
-  });
-
   it('neighborhood level yields one dot per neighborhood, summed and mean-positioned', () => {
     const set = [
       inc(-122.41, 37.78, 'Assault', '', 'Tenderloin'),
@@ -107,7 +76,7 @@ describe('LoD aggregation', () => {
   it('every level conserves the report count and shares the weight law bounds', () => {
     const set = Array.from({ length: 120 }, (_, i) =>
       inc(-122.4 - (i % 10) * 3e-3, 37.75 + (i % 7) * 3e-3, 'Theft', '', i % 3 ? 'Mission' : 'Tenderloin'));
-    for (const spots of [aggregateSpots(set), aggregateAreas(set), aggregateNhoods(set)]) {
+    for (const spots of [aggregateSpots(set), aggregateNhoods(set)]) {
       expect(spots.reduce((a, s) => a + s.n, 0)).toBe(set.length);
       for (const s of spots) {
         expect(s.w).toBeGreaterThan(0);

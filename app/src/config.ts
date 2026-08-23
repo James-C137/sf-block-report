@@ -56,16 +56,11 @@ export const BLDG_DEFAULT_HEIGHT_M = 8;
 
 /* ---- dots ---- */
 /* LoD ladder: the dots are always on, but WHAT a dot means refines with
-   zoom — one combined dot per neighborhood at citywide framing, then
-   grid-clustered "area" dots (a few blocks each, ≈ major intersections),
-   then the individual geocoded intersections once the sub-streets are on
-   screen to hang them off. Level changes crossfade over DOTS_FADE_MS. */
-export const DOTS_LOD_AREA_AT = 12.5; /* nhood → area (was the old fade-in) */
-export const DOTS_LOD_SPOT_AT = 14.0; /* area → individual: sub-streets have appeared */
-/* area-cell size: the GEOMETRIC middle of the ladder. Neighborhoods run
-   ~2km, intersections ~100m; sqrt(2000*100) ≈ 450m ≈ 0.005°. The first
-   cut (0.002 ≈ two blocks) read nearly identical to the individual
-   level. */
+   zoom — one combined dot per neighborhood until the sub-streets are on
+   screen, then the individual geocoded intersections to hang off them.
+   Level changes crossfade over DOTS_FADE_MS. */
+export const DOTS_LOD_SPOT_AT = 14.0; /* nhood → individual: sub-streets have appeared */
+/* fallback cell (~450m) for grouping reports with no neighborhood */
 export const DOTS_GRID_STEP = 0.005;
 export const DOTS_FADE_MS = 300;
 export const DOTS_MAX = BLOCKS_MAX; /* strength cap, same dimension as blocks */

@@ -1,8 +1,7 @@
 /* Reports pile up at repeated addresses (the dataset geocodes to
    intersections), so the dots overlay draws ONE spot per location. The
-   LoD ladder reuses the same machinery with coarser keys: exact
-   coordinate → grid cell (~a few blocks, standing in for a major
-   intersection) → neighborhood. Every level shares the weight law:
+   LoD ladder reuses the same machinery with a coarser key: exact
+   coordinate → neighborhood. Both levels share the weight law:
    normalize against the 99.5th-percentile member of ITS OWN level
    (floored at 4 so an all-unique set doesn't render every dot at full
    strength), then sqrt. Positions of combined dots are the mean of
@@ -69,15 +68,8 @@ export function aggregateSpots(incidents: ReadonlyArray<Incident>): Spot[] {
   return aggregate(incidents, 'spot', (i) => `${i.lng.toFixed(6)},${i.lat.toFixed(6)}`);
 }
 
-/* mid level: DOTS_GRID_STEP cells — nearby intersections combine into
-   one dot at their reports' mean position */
-export function aggregateAreas(incidents: ReadonlyArray<Incident>): Spot[] {
-  const cell = (v: number): number => Math.floor(v / DOTS_GRID_STEP);
-  return aggregate(incidents, 'area', (i) => `${cell(i.lng)},${cell(i.lat)}`);
-}
-
 /* coarsest level: one dot per neighborhood (reports without one fall
-   back to their grid cell so nothing silently disappears) */
+   back to a DOTS_GRID_STEP cell so nothing silently disappears) */
 export function aggregateNhoods(incidents: ReadonlyArray<Incident>): Spot[] {
   const cell = (v: number): number => Math.floor(v / DOTS_GRID_STEP);
   return aggregate(

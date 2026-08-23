@@ -11,9 +11,8 @@ export interface Incident {
 }
 
 /* An aggregated dot. `kind` says what one dot stands for at each LoD:
-   an exact geocoded location, a grid-clustered area (~a few blocks), or
-   a whole neighborhood. */
-export type SpotKind = 'spot' | 'area' | 'nhood';
+   an exact geocoded location or a whole neighborhood. */
+export type SpotKind = 'spot' | 'nhood';
 
 export interface Spot {
   lng: number;
