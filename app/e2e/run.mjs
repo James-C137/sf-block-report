@@ -188,8 +188,16 @@ const browser = await chromium.launch({
   ok(nChips === 4, `one chip per curated group, not per raw category (got ${nChips})`);
   ok((await page.evaluate(() => document.querySelector('#chips button.chip')?.firstChild?.textContent)) === 'Theft', 'chips carry group names (Larceny Theft folds into Theft)');
   ok(await page.evaluate(() => (document.getElementById('data-note')?.textContent ?? '').includes('fetched live')), 'data note reports live data');
-  ok((await page.evaluate(() => document.querySelectorAll('#ranking li').length)) === 6, 'ranking lists ALL neighborhoods, not a top-5');
+  ok((await page.evaluate(() => document.querySelectorAll('#ranking li').length)) === 6, 'ranking holds ALL neighborhoods');
   ok((await page.evaluate(() => document.querySelector('#ranking li .name')?.textContent)) === 'Tenderloin', 'ranking sorts by report count');
+  const visibleRanks = () => page.evaluate(() =>
+    [...document.querySelectorAll('#ranking li')].filter((li) => getComputedStyle(li).display !== 'none').length);
+  ok((await visibleRanks()) === 5, 'ranking collapsed to top-5 by default');
+  ok((await page.evaluate(() => document.getElementById('ranking-toggle')?.textContent)) === 'Show all 6', 'fold toggle counts the hidden tail');
+  await page.click('#ranking-toggle');
+  ok((await visibleRanks()) === 6, 'Show all expands the ranking');
+  await page.click('#ranking-toggle');
+  ok((await visibleRanks()) === 5, 'Show less folds it back');
 
   /* dots LoD: one combined dot per neighborhood citywide, grid areas
      mid-zoom, individual intersections once sub-streets are in */

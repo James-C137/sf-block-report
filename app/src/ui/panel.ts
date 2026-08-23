@@ -197,11 +197,22 @@ export function initPanel(store: Store): void {
   });
 
   /* ---- ranking ---- */
+  /* top-5 by default; the rest sit behind a Show-all toggle (user call
+     — the full list is a lot of panel) */
+  const RANK_VISIBLE = 5;
+  let rankingExpanded = false;
+  const rankToggleEl = el<HTMLButtonElement>('ranking-toggle');
+  const paintRankingFold = (total: number): void => {
+    rankingEl.classList.toggle('collapsed', !rankingExpanded);
+    rankToggleEl.hidden = total <= RANK_VISIBLE;
+    rankToggleEl.textContent = rankingExpanded ? 'Show less' : `Show all ${total}`;
+  };
   const renderRanking = (rows: Array<[string, number]>): void => {
     rankingEl.innerHTML = '';
     const max = rows[0]?.[1] ?? 1;
     rows.forEach(([name, count], idx) => {
       const li = document.createElement('li');
+      if (idx >= RANK_VISIBLE) li.className = 'extra';
       li.innerHTML =
         `<div class="rank-row"><span class="idx num">${idx + 1}</span>` +
         `<span class="name"></span><span class="val num">${count.toLocaleString('en-US')}</span></div>` +
@@ -209,7 +220,12 @@ export function initPanel(store: Store): void {
       li.querySelector('.name')!.textContent = name;
       rankingEl.appendChild(li);
     });
+    paintRankingFold(rows.length);
   };
+  rankToggleEl.addEventListener('click', () => {
+    rankingExpanded = !rankingExpanded;
+    paintRankingFold(rankingEl.childElementCount);
+  });
 
   /* ---- refresh on every commit ---- */
   const refresh = (): void => {

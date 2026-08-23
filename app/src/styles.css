@@ -228,6 +228,8 @@ button.chip:focus-visible{ outline:1px solid var(--ink); outline-offset:2px; }
 }
 /* ranking */
 .ranking{ list-style:none; margin-top:12px; }
+.ranking.collapsed li.extra{ display:none; }
+.ranking-toggle{ margin-top:10px; }
 .ranking li{ padding:7px 0; }
 .ranking li + li{ border-top:1px solid var(--hair-lt); }
 .rank-row{ display:flex; align-items:baseline; gap:8px; }
