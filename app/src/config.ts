@@ -9,7 +9,9 @@ export const MS_DAY = 86400000;
 export const WINDOW_DAYS = 30;
 export const INCIDENT_CAP = 25000; /* ~2x a typical geocoded month; one polite request */
 export const INCIDENT_TIMEOUT_MS = 20000;
-export const INCIDENTS_DATASET = 'https://data.sfgov.org/resource/wg3w-h783.json';
+/* data.sf.gov since 2026-09: the portal moved off data.sfgov.org, and the
+   old host's redirector 403s any query carrying $select — ours */
+export const INCIDENTS_DATASET = 'https://data.sf.gov/resource/wg3w-h783.json';
 export const SODA_APP_TOKEN: string = import.meta.env?.VITE_SODA_APP_TOKEN ?? '';
 
 /* ---- density grid ---- */

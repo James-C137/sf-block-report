@@ -131,7 +131,7 @@ async function routeExternals(context) {
         }),
       });
     }
-    if (u.includes('data.sfgov.org')) {
+    if (u.includes('data.sf.gov') || u.includes('data.sfgov.org')) {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(ROWS) });
     }
     if (u.includes('nominatim.openstreetmap.org')) {
